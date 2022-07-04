@@ -104,57 +104,6 @@ void vAssertCalled( const char * const pcFileName,
     /* Parameters are not used. */
     ( void ) ulLine;
     ( void ) pcFileName;
-
-
-    // taskENTER_CRITICAL();
-    // {
-    //     /* Stop the trace recording. */
-    //     if( xPrinted == pdFALSE )
-    //     {
-    //         xPrinted = pdTRUE;
-
-    //         if( xTraceRunning == pdTRUE )
-    //         {
-    //             prvSaveTraceFile();
-    //         }
-    //     }
-
-    //     /* You can step out of this function to debug the assertion by using
-    //      * the debugger to set ulSetToNonZeroInDebuggerToContinue to a non-zero
-    //      * value. */
-    //     while( ulSetToNonZeroInDebuggerToContinue == 0 )
-    //     {
-    //         __asm volatile ( "NOP" );
-    //         __asm volatile ( "NOP" );
-    //     }
-    // }
-    // taskEXIT_CRITICAL();
-}
-/*-----------------------------------------------------------*/
-
-static void prvSaveTraceFile( void )
-{
-    // /* Tracing is not used when code coverage analysis is being performed. */
-    // #if ( projCOVERAGE_TEST != 1 )
-    //     {
-    //         FILE * pxOutputFile;
-
-    //         vTraceStop();
-
-    //         pxOutputFile = fopen( "Trace.dump", "wb" );
-
-    //         if( pxOutputFile != NULL )
-    //         {
-    //             fwrite( RecorderDataPtr, sizeof( RecorderDataType ), 1, pxOutputFile );
-    //             fclose( pxOutputFile );
-    //             printf( "\r\nTrace output saved to Trace.dump\r\n" );
-    //         }
-    //         else
-    //         {
-    //             printf( "\r\nFailed to create trace dump file\r\n" );
-    //         }
-    //     }
-    // #endif /* if ( projCOVERAGE_TEST != 1 ) */
 }
 /*-----------------------------------------------------------*/
 
