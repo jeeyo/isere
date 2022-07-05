@@ -113,12 +113,6 @@ void vConfigureTimerForRunTimeStats( void );    /* Prototype of function that in
 #define INCLUDE_xTaskAbortDelay                   1
 #define INCLUDE_xTaskGetCurrentTaskHandle         1
 
-#define configINCLUDE_MESSAGE_BUFFER_AMP_DEMO     0
-#if ( configINCLUDE_MESSAGE_BUFFER_AMP_DEMO == 1 )
-    extern void vGenerateCoreBInterrupt( void * xUpdatedMessageBuffer );
-    #define sbSEND_COMPLETED( pxStreamBuffer )    vGenerateCoreBInterrupt( pxStreamBuffer )
-#endif /* configINCLUDE_MESSAGE_BUFFER_AMP_DEMO */
-
 extern void vAssertCalled( const char * const pcFileName,
                            unsigned long ulLine );
 

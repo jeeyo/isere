@@ -11,11 +11,13 @@ KERNEL_DIR            := ${FREERTOS_DIR}
 
 INCLUDE_DIRS          := -I.
 INCLUDE_DIRS          += -I./include
+INCLUDE_DIRS          += -I./portable/include
 INCLUDE_DIRS          += -I${KERNEL_DIR}/include
 INCLUDE_DIRS          += -I${KERNEL_DIR}/portable/ThirdParty/GCC/Posix
 INCLUDE_DIRS          += -I${KERNEL_DIR}/portable/ThirdParty/GCC/Posix/utils
 
 SOURCE_FILES          := $(wildcard src/*.c)
+SOURCE_FILES          := $(wildcard portable/src/*.c)
 SOURCE_FILES          += $(wildcard ${FREERTOS_DIR}/*.c)
 # Memory manager (use malloc() / free() )
 SOURCE_FILES          += ${KERNEL_DIR}/portable/MemMang/heap_3.c
