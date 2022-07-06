@@ -31,9 +31,7 @@ OBJ_FILES = $(SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
 
 DEP_FILE = $(OBJ_FILES:%.o=%.d)
 
-${BIN}: $(BUILD_DIR)/$(BIN)
-
-${BUILD_DIR}/${BIN}: ${OBJ_FILES}
+${BIN}: ${OBJ_FILES}
 	-mkdir -p ${@D}
 	$(CC) $^ ${LDFLAGS} -o $@
 
@@ -47,3 +45,4 @@ ${BUILD_DIR}/%.o: %.c Makefile
 
 clean:
 	-rm -rf $(BUILD_DIR)
+	-rm $(BIN)
