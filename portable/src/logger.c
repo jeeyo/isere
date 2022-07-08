@@ -4,12 +4,14 @@
 #include <FreeRTOS.h>
 #include <semphr.h>
 
-SemaphoreHandle_t _stdio_mut;
-StaticSemaphore_t _stdio_mutbuf;
+static SemaphoreHandle_t _stdio_mut = NULL;
+static StaticSemaphore_t _stdio_mutbuf;
 
 void logger_init(void)
 {
-  _stdio_mut = xSemaphoreCreateMutexStatic(&_stdio_mutbuf);
+  if (_stdio_mut == NULL) {
+    _stdio_mut = xSemaphoreCreateMutexStatic(&_stdio_mutbuf);
+  }
 }
 
 void logger_debug(const char *fmt, ...)

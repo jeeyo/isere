@@ -9,7 +9,6 @@ FREERTOS_DIR := $(abspath $(FREERTOS_DIR_REL))
 
 KERNEL_DIR := ${FREERTOS_DIR}
 
-INCLUDE_DIRS := -I.
 INCLUDE_DIRS += -I./include
 INCLUDE_DIRS += -I./portable/include
 INCLUDE_DIRS += -I${KERNEL_DIR}/include
@@ -17,14 +16,13 @@ INCLUDE_DIRS += -I${KERNEL_DIR}/portable/ThirdParty/GCC/Posix
 INCLUDE_DIRS += -I${KERNEL_DIR}/portable/ThirdParty/GCC/Posix/utils
 
 SOURCE_FILES := $(wildcard src/*.c)
-SOURCE_FILES += $(wildcard portable/src/*.c)
 SOURCE_FILES += $(wildcard ${FREERTOS_DIR}/*.c)
 SOURCE_FILES += ${KERNEL_DIR}/portable/MemMang/heap_3.c
 SOURCE_FILES += ${KERNEL_DIR}/portable/ThirdParty/GCC/Posix/utils/wait_for_event.c
 SOURCE_FILES += ${KERNEL_DIR}/portable/ThirdParty/GCC/Posix/port.c
 
 CFLAGS := -ggdb3
-LDFLAGS := -ggdb3 -pthread -ldl
+LDFLAGS := -ggdb3 -pthread -L./portable -l:portable.so -ldl
 CPPFLAGS := $(INCLUDE_DIRS) -DBUILD_DIR=\"$(BUILD_DIR_ABS)\"
 
 OBJ_FILES = $(SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
