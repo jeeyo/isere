@@ -1,9 +1,7 @@
-// #include "logger.h"
-#include <stdio.h>
+#include "logger.h"
 
 int echoer() {
-  // logger_init();
-  // logger_debug("Starting echo blinky demo\n");
-  printf("hello world\n");
+  logger_init();
+  logger_debug("hell yeah\n");
   return 0;
 }
