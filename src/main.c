@@ -12,17 +12,21 @@
 #include "task.h"
 
 /* Local includes. */
-#include "logger.h"
+#include "isere.h"
 #include "loader.h"
-// #include "loader.h"
-#include <dlfcn.h>
+#include "logger.h"
 
 /*-----------------------------------------------------------*/
 
 int main(void)
 {
+  // initialize logger module
+  isere_logger_t logger;
   logger_init();
-  logger_debug("Starting echo blinky demo\n");
+  logger_get_instance(&logger);
+
+  isere_t isere;
+  isere.logger = &logger;
 
   void *handle = loader_open("./deployments/echoer/echoer.so");
   loader_fn_t *echoer = loader_get_fn(handle, "echoer");
@@ -34,7 +38,7 @@ int main(void)
       return EXIT_FAILURE;
   }
 
-  (*echoer)();
+  (*echoer)(&isere);
 
   loader_close(handle);
   return 0;

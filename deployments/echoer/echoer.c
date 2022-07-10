@@ -1,7 +1,7 @@
-#include "logger.h"
+#include "isere.h"
 
-int echoer() {
-  logger_init();
-  logger_debug("hell yeah\n");
+int echoer(isere_t *isere) {
+  isere_logger_t *logger = isere->logger;
+  logger->debug("hell yeah\n");
   return 0;
 }
