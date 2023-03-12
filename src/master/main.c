@@ -20,27 +20,6 @@
 
 int main(void)
 {
-  // initialize logger module
-  isere_logger_t logger;
-  logger_init();
-  logger_get_instance(&logger);
-
-  isere_t isere;
-  isere.logger = &logger;
-
-  void *handle = loader_open("./deployments/echoer/echoer.so");
-  loader_fn_t *echoer = loader_get_fn(handle, "echoer");
-
-  if (!echoer) {
-      /* no such symbol */
-      fprintf(stderr, "Error: %s\n", loader_last_error());
-      loader_close(handle);
-      return EXIT_FAILURE;
-  }
-
-  (*echoer)(&isere);
-
-  loader_close(handle);
   return 0;
 }
 /*-----------------------------------------------------------*/

@@ -2,16 +2,18 @@
 
 #define LOADER_H_
 
+#include "logger.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef int (loader_fn_t)();
 
-void *loader_open(const char *filename);
-int loader_close(void *handle);
-loader_fn_t *loader_get_fn(void *handle, const char *fn);
-char *loader_last_error();
+void *loader_open(isere_logger_t *logger);
+int loader_close(void *ctx);
+loader_fn_t *loader_get_fn(void *ctx, const char *fn);
+// char *loader_last_error();
 
 #ifdef __cplusplus
 }

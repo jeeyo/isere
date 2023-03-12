@@ -1,4 +1,7 @@
 .vscode/
+.DS_Store
 build/
+3rdparty/duktape/src-custom/
 *.so
-isere
+isere-master
+isere-worker
