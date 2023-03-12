@@ -1,6 +1,6 @@
 [submodule "3rdparty/FreeRTOS"]
 	path = 3rdparty/FreeRTOS
 	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
-[submodule "3rdparty/duktape"]
-	path = 3rdparty/duktape
-	url = https://github.com/svaarala/duktape.git
+[submodule "3rdparty/quickjs"]
+	path = 3rdparty/quickjs
+	url = https://github.com/bellard/quickjs.git
