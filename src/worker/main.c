@@ -28,23 +28,23 @@ int main(void)
   isere_t isere;
   isere.logger = &logger;
 
-  void *handle = loader_open(&logger);
-  if (!handle) {
-    logger.error("Loader error: unable to open ./deployments/echoer/echoer.so\n");
+  loader_init(&isere);
+  if (loader_open("./examples/echo.cjs.so")) {
+    logger.error("Loader error: unable to open dynamic module\n");
   }
-  loader_fn_t *echoer = loader_get_fn(handle, "echoer");
 
-  // if (!echoer) {
-  //     /* no such symbol */
-  //     // fprintf(stderr, "Error: %s\n", loader_last_error());
-  //     fprintf(stderr, "Error");
-  //     loader_close(handle);
-  //     return EXIT_FAILURE;
-  // }
+  uint32_t fn_size = 0;
+  loader_fn_t *fn = loader_get_fn(&fn_size);
+  if (!fn) {
+      /* no such symbol */
+      fprintf(stderr, "Error: %s\n", loader_last_error());
+      loader_close();
+      return EXIT_FAILURE;
+  }
 
-  // (*echoer)(&isere);
+  loader_eval_fn(fn, fn_size);
 
-  loader_close(handle);
+  loader_close();
   return 0;
 }
 /*-----------------------------------------------------------*/

@@ -2,6 +2,5 @@
 .DS_Store
 build/
 3rdparty/duktape/src-custom/
-*.so
 isere-master
 isere-worker

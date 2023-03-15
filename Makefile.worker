@@ -21,12 +21,13 @@ SOURCE_FILES += ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils/wait_for_eve
 SOURCE_FILES += ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/port.c
 SOURCE_FILES += ${QUICKJS_DIR}/quickjs.c
 SOURCE_FILES += ${QUICKJS_DIR}/quickjs-libc.c
+SOURCE_FILES += ${QUICKJS_DIR}/libbf.c
 SOURCE_FILES += ${QUICKJS_DIR}/libregexp.c
 SOURCE_FILES += ${QUICKJS_DIR}/libunicode.c
 SOURCE_FILES += ${QUICKJS_DIR}/cutils.c
 
 CFLAGS := -ggdb3
-CFLAGS += -D_GNU_SOURCE -DCONFIG_VERSION=\"$(git rev-parse --short HEAD)\"
+CFLAGS += -D_GNU_SOURCE -DCONFIG_BIGNUM -DCONFIG_VERSION=\"$(git rev-parse --short HEAD)\"
 
 LDFLAGS := -ggdb3 -pthread -ldl
 CPPFLAGS := $(INCLUDE_DIRS)
