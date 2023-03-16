@@ -29,7 +29,7 @@ int main(void)
   isere.logger = &logger;
 
   loader_init(&isere);
-  if (loader_open("./examples/echo.cjs.so")) {
+  if (loader_open("./examples/echo.esm.so")) {
     logger.error("Loader error: unable to open dynamic module\n");
   }
 

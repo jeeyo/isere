@@ -11,20 +11,13 @@ static JSContext *__qjs_context = NULL;
 static isere_t *__isere = NULL;
 static void *__dynlnk = NULL;
 
-static JSValue js_print(JSContext *ctx, JSValueConst this_val,
-                        int argc, JSValueConst *argv)
+static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
-  if (__isere->logger == NULL)
-  {
+  if (__isere->logger == NULL) {
     return JS_EXCEPTION;
   }
 
-  const char *str;
-  size_t len;
-
-  for (int i = 0; i < argc; i++)
-  {
-
+  for (int i = 0; i < argc; i++) {
     // add space between arguments
     if (i != 0)
     {
@@ -32,9 +25,9 @@ static JSValue js_print(JSContext *ctx, JSValueConst this_val,
     }
 
     // convert argument to C string
-    str = JS_ToCStringLen(ctx, &len, argv[i]);
-    if (!str)
-    {
+    size_t len;
+    const char *str = JS_ToCStringLen(ctx, &len, argv[i]);
+    if (!str) {
       return JS_EXCEPTION;
     }
 
@@ -47,37 +40,6 @@ static JSValue js_print(JSContext *ctx, JSValueConst this_val,
   __isere->logger->debug("\n");
 
   return JS_UNDEFINED;
-}
-
-static JSModuleDef *isere_js_module_loader(JSContext *ctx,
-                                     const char *module_name, void *opaque)
-{
-  JSModuleDef *m;
-
-  // if (has_suffix(module_name, ".so"))
-  // {
-  //   m = js_module_loader_so(ctx, module_name);
-  // }
-  // else
-  // {
-    // size_t buf_len;
-    uint32_t buf_len;
-    uint8_t *buf = loader_get_fn(&buf_len);
-    JSValue func_val;
-
-    /* compile the module */
-    func_val = JS_Eval(ctx, (char *)buf, buf_len, module_name,
-                       JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-    js_free(ctx, buf);
-    if (JS_IsException(func_val))
-      return NULL;
-    /* XXX: could propagate the exception */
-    js_module_set_import_meta(ctx, func_val, 1, 0);
-    /* the module is already referenced, so we must free it */
-    m = JS_VALUE_GET_PTR(func_val);
-    JS_FreeValue(ctx, func_val);
-  // }
-  return m;
 }
 
 int loader_init(isere_t *isere)
@@ -94,8 +56,6 @@ int loader_init(isere_t *isere)
     return -1;
   }
   JS_SetMaxStackSize(__qjs_runtime, ISERE_LOADER_STACK_SIZE);
-  JS_SetModuleLoaderFunc(__qjs_runtime, NULL, isere_js_module_loader, NULL);
-  js_std_init_handlers(__qjs_runtime);
 
   // initialize quickjs context
   __qjs_context = JS_NewContextRaw(__qjs_runtime);
@@ -119,14 +79,13 @@ int loader_init(isere_t *isere)
   JSValue global_obj = JS_GetGlobalObject(__qjs_context);
   // add console.log() function
   JSValue console = JS_NewObject(__qjs_context);
-  JS_SetPropertyStr(__qjs_context, console, "log", JS_NewCFunction(__qjs_context, js_print, "log", 1));
+  JS_SetPropertyStr(__qjs_context, console, "log", JS_NewCFunction(__qjs_context, __console_log, "log", 1));
   JS_SetPropertyStr(__qjs_context, global_obj, "console", console);
 
   // add process.env
   JSValue process = JS_NewObject(__qjs_context);
   JSValue env = JS_NewObject(__qjs_context);
   JS_SetPropertyStr(__qjs_context, env, "NODE_ENV", JS_NewString(__qjs_context, "production"));
-  JS_SetPropertyStr(__qjs_context, env, "ISERE_LOADER", JS_NewBool(__qjs_context, 1));
   JS_SetPropertyStr(__qjs_context, process, "env", env);
   JS_SetPropertyStr(__qjs_context, global_obj, "process", process);
 
@@ -161,7 +120,6 @@ int loader_close()
 
   if (__qjs_runtime)
   {
-    js_std_free_handlers(__qjs_runtime);
     JS_FreeRuntime(__qjs_runtime);
     __qjs_runtime = NULL;
   }
@@ -182,7 +140,8 @@ loader_fn_t *loader_get_fn(uint32_t *size)
 
 int loader_eval_fn(loader_fn_t *fn, uint32_t fn_size)
 {
-  const char *eval = "import { handler } from 'handler';\nhandler().then(() => console.log('done')); console.log('second');";
+  const char *eval = "import { handler } from 'handler';\n"
+    "handler().then((k) => console.log(JSON.stringify(k, null, 2)));";
 
   JSValue val = JS_Eval(__qjs_context, (const char *)fn, fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
   if (JS_IsException(val))

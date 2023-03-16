@@ -1,4 +1,4 @@
-const handler = async function(event, context, callback) {
+export const handler = async function(event, context, callback) {
   console.log('Test ESM')
   console.log('## ENVIRONMENT VARIABLES: ' + serialize(process.env))
   console.log('## CONTEXT: ' + serialize(context))

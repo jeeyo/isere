@@ -72,11 +72,6 @@
 
 #define configMAX_PRIORITIES                       ( 7 )
 
-/* Run time stats gathering configuration options. */
-unsigned long ulGetRunTimeCounterValue( void ); /* Prototype of function that returns run time counter. */
-void vConfigureTimerForRunTimeStats( void );    /* Prototype of function that initialises the run time counter. */
-#define configGENERATE_RUN_TIME_STATS             1
-
 /* Co-routine related configuration options. */
 #define configUSE_CO_ROUTINES                     0
 #define configMAX_CO_ROUTINE_PRIORITIES           ( 2 )
@@ -90,6 +85,8 @@ void vConfigureTimerForRunTimeStats( void );    /* Prototype of function that in
 /* Enables the test whereby a stack larger than the total heap size is
  * requested. */
 #define configSTACK_DEPTH_TYPE                    uint32_t
+
+#define posixconfigENABLE_PTHREAD_MUTEX_T         1
 
 /* Set the following definitions to 1 to include the API function, or zero
  * to exclude the API function.  In most cases the linker will remove unused
