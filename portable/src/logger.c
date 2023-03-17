@@ -21,6 +21,7 @@ static void _logger_print(isere_log_level_t level, const char *fmt, va_list varg
   xSemaphoreTake(_stdio_mut, portMAX_DELAY);
 
   // TO-DO: log level
+  printf("[%s] ", LOG_LEVEL_TO_STRING(level));
   vprintf(fmt, vargs);
 
   xSemaphoreGive(_stdio_mut);

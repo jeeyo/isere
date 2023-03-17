@@ -4,7 +4,7 @@ export const handler = async function(event, context, callback) {
   console.log('## CONTEXT: ' + serialize(context))
   console.log('## EVENT: ' + serialize(event))
 
-  return { hello: 'world' }
+  return { hello: 'world', body: "me" }
 }
 
 var serialize = function(object) {

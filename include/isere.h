@@ -14,6 +14,13 @@ typedef enum {
   LOG_LEVEL_NONE = 0,
 } isere_log_level_t;
 
+#define LOG_LEVEL_TO_STRING(level) \
+  (level == LOG_LEVEL_ERROR ? "ERROR" : \
+  (level == LOG_LEVEL_WARNING ? "WARNING" : \
+  (level == LOG_LEVEL_INFO ? "INFO" : \
+  (level == LOG_LEVEL_DEBUG ? "DEBUG" : \
+  (level == LOG_LEVEL_NONE ? "NONE" : "UNKNOWN")))))
+
 typedef struct {
   void (*error)(const char *fmt, ...);
   void (*warning)(const char *fmt, ...);

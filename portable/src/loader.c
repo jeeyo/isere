@@ -11,17 +11,20 @@ static JSContext *__qjs_context = NULL;
 static isere_t *__isere = NULL;
 static void *__dynlnk = NULL;
 
-static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, void (*logger_fn)(const char *fmt, ...))
 {
-  if (__isere->logger == NULL) {
+  if (logger_fn == NULL) {
     return JS_EXCEPTION;
   }
+
+  char logs[256] = {0};
 
   for (int i = 0; i < argc; i++) {
     // add space between arguments
     if (i != 0)
     {
-      __isere->logger->debug(" ");
+      // logger_fn(" ");
+      strncat(logs, " ", 256);
     }
 
     // convert argument to C string
@@ -32,14 +35,30 @@ static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JS
     }
 
     // print string using logger
-    __isere->logger->debug("%s", str);
+    // logger_fn("%s", str);
+    strncat(logs, str, 256);
 
     JS_FreeCString(ctx, str);
   }
 
-  __isere->logger->debug("\n");
+  logger_fn("%s\n", logs);
 
   return JS_UNDEFINED;
+}
+
+static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (__isere == NULL) return JS_EXCEPTION;
+  return __logger_internal(ctx, this_val, argc, argv, __isere->logger->info);
+}
+
+static JSValue __console_warn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (__isere == NULL) return JS_EXCEPTION;
+  return __logger_internal(ctx, this_val, argc, argv, __isere->logger->warning);
+}
+
+static JSValue __console_error(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+  if (__isere == NULL) return JS_EXCEPTION;
+  return __logger_internal(ctx, this_val, argc, argv, __isere->logger->error);
 }
 
 int loader_init(isere_t *isere)
@@ -77,9 +96,11 @@ int loader_init(isere_t *isere)
   JS_AddIntrinsicBigInt(__qjs_context);
 
   JSValue global_obj = JS_GetGlobalObject(__qjs_context);
-  // add console.log() function
+  // add console.log(), console.warn(), and console.error() function
   JSValue console = JS_NewObject(__qjs_context);
   JS_SetPropertyStr(__qjs_context, console, "log", JS_NewCFunction(__qjs_context, __console_log, "log", 1));
+  JS_SetPropertyStr(__qjs_context, console, "warn", JS_NewCFunction(__qjs_context, __console_warn, "warn", 1));
+  JS_SetPropertyStr(__qjs_context, console, "error", JS_NewCFunction(__qjs_context, __console_error, "error", 1));
   JS_SetPropertyStr(__qjs_context, global_obj, "console", console);
 
   // add process.env
@@ -107,19 +128,16 @@ int loader_open(const char *filename)
 
 int loader_close()
 {
-  if (__isere)
-  {
+  if (__isere) {
     __isere = NULL;
   }
 
-  if (__qjs_context)
-  {
+  if (__qjs_context) {
     JS_FreeContext(__qjs_context);
     __qjs_context = NULL;
   }
 
-  if (__qjs_runtime)
-  {
+  if (__qjs_runtime) {
     JS_FreeRuntime(__qjs_runtime);
     __qjs_runtime = NULL;
   }
@@ -138,10 +156,45 @@ loader_fn_t *loader_get_fn(uint32_t *size)
   return (loader_fn_t *)(dlsym(__dynlnk, ISERE_LOADER_HANDLER_FUNCTION));
 }
 
+static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+  if (__isere == NULL) {
+    return JS_EXCEPTION;
+  }
+
+  if (argc < 1) {
+    return JS_EXCEPTION;
+  }
+
+  JSValueConst resp = argv[0];
+
+  // TODO: get headers
+
+  // get body
+  JSValue val = JS_GetPropertyStr(ctx, resp, "body");
+  if (JS_IsException(val) || JS_IsUndefined(val))
+  {
+    JS_FreeValue(ctx, val);
+    return JS_EXCEPTION;
+  }
+
+  // convert body to C string
+  size_t len;
+  const char *str = JS_ToCStringLen(ctx, &len, val);
+  JS_FreeValue(ctx, val);
+  if (!str) {
+    return JS_EXCEPTION;
+  }
+
+  __isere->logger->debug("handler response: %.*s\n", len, str);
+
+  return JS_UNDEFINED;
+}
+
 int loader_eval_fn(loader_fn_t *fn, uint32_t fn_size)
 {
   const char *eval = "import { handler } from 'handler';\n"
-    "handler().then((k) => console.log(JSON.stringify(k, null, 2)));";
+    "handler().then(cb);";
 
   JSValue val = JS_Eval(__qjs_context, (const char *)fn, fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
   if (JS_IsException(val))
@@ -151,7 +204,11 @@ int loader_eval_fn(loader_fn_t *fn, uint32_t fn_size)
   }
 
   js_module_set_import_meta(__qjs_context, val, 0, 0);
-  JSModuleDef *m = val.u.ptr;
+
+  // add callback for getting the result
+  JSValue global_obj = JS_GetGlobalObject(__qjs_context);
+  JS_SetPropertyStr(__qjs_context, global_obj, "cb", JS_NewCFunction(__qjs_context, __handler_cb, "cb", 1));
+  JS_FreeValue(__qjs_context, global_obj);
 
   val = JS_Eval(__qjs_context, eval, strlen(eval), "<cmdline>", JS_EVAL_TYPE_MODULE);
   if (JS_IsException(val))
