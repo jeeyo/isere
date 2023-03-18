@@ -1,11 +1,6 @@
 /* Standard includes. */
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <stdarg.h>
-#include <signal.h>
-#include <errno.h>
-#include <sys/select.h>
 
 /* FreeRTOS kernel includes. */
 #include "FreeRTOS.h"
@@ -15,6 +10,8 @@
 #include "isere.h"
 #include "loader.h"
 #include "logger.h"
+#include "js.h"
+#include "server.h"
 
 /*-----------------------------------------------------------*/
 
@@ -28,21 +25,24 @@ int main(void)
   isere_t isere;
   isere.logger = &logger;
 
+  // dynamically loading javascript serverless handler
   loader_init(&isere);
   if (loader_open("./examples/echo.esm.so")) {
     logger.error("Loader error: unable to open dynamic module\n");
   }
 
   uint32_t fn_size = 0;
-  loader_fn_t *fn = loader_get_fn(&fn_size);
+  uint8_t *fn = loader_get_fn(&fn_size);
   if (!fn) {
-      /* no such symbol */
-      fprintf(stderr, "Error: %s\n", loader_last_error());
-      loader_close();
-      return EXIT_FAILURE;
+    fprintf(stderr, "Loader error: %s\n", loader_last_error());
+    loader_close();
+    return EXIT_FAILURE;
   }
 
-  loader_eval_fn(fn, fn_size);
+  // initialize js module
+  js_ctx_t *js = js_init(&isere);
+  js_eval(js, fn, fn_size);
+  js_deinit(js);
 
   loader_close();
   return 0;

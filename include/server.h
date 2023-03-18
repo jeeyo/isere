@@ -4,12 +4,14 @@
 
 #define ISERE_SERVER_H_
 
+#define ISERE_SERVER_PORT 8080
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void server_init(void);
-void logger_get_instance(isere_logger_t *logger);
+int server_init(void);
+int server_deinit(void);
 
 #ifdef __cplusplus
 }
