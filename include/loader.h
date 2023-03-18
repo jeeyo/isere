@@ -1,6 +1,6 @@
-#ifndef LOADER_H_
+#ifndef ISERE_LOADER_H_
 
-#define LOADER_H_
+#define ISERE_LOADER_H_
 
 #include "isere.h"
 #include "quickjs.h"
@@ -28,4 +28,4 @@ char *loader_last_error();
 }
 #endif
 
-#endif /* LOADER_H_ */
+#endif /* ISERE_LOADER_H_ */

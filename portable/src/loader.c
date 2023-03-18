@@ -156,6 +156,26 @@ loader_fn_t *loader_get_fn(uint32_t *size)
   return (loader_fn_t *)(dlsym(__dynlnk, ISERE_LOADER_HANDLER_FUNCTION));
 }
 
+/*
+  Response object:
+  ```
+  {
+    "isBase64Encoded": false, // Set to `true` for binary support.
+    "statusCode": 200,
+    "headers": {
+        "header1Name": "header1Value",
+        "header2Name": "header2Value",
+    },
+    "body": "...",
+  }
+  ```
+*/
+
+#define IS_BASE64_ENCODED_PROP_NAME "isBase64Encoded"
+#define STATUS_CODE_PROP_NAME "statusCode"
+#define HEADERS_PROP_NAME "headers"
+#define BODY_PROP_NAME "body"
+
 static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
   if (__isere == NULL) {
@@ -171,11 +191,20 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   // TODO: get headers
 
   // get body
-  JSValue val = JS_GetPropertyStr(ctx, resp, "body");
-  if (JS_IsException(val) || JS_IsUndefined(val))
+  JSValue val = JS_GetPropertyStr(ctx, resp, BODY_PROP_NAME);
+  if (JS_IsException(val))
   {
     JS_FreeValue(ctx, val);
     return JS_EXCEPTION;
+  }
+
+  // if body is undefined, set it to empty string
+  if (JS_IsUndefined(val)) {
+    JS_SetPropertyStr(ctx, resp, BODY_PROP_NAME, JS_NewString(ctx, "test"));
+  }
+
+  // TODO: set content-type to application/json if body is object
+  if (JS_IsObject(val)) {
   }
 
   // convert body to C string
