@@ -7,3 +7,6 @@
 [submodule "3rdparty/FreeRTOS-Plus-POSIX"]
 	path = 3rdparty/FreeRTOS-Plus-POSIX
 	url = https://github.com/FreeRTOS/Lab-Project-FreeRTOS-POSIX.git
+[submodule "3rdparty/lwip"]
+	path = 3rdparty/lwip
+	url = https://github.com/lwip-tcpip/lwip.git
