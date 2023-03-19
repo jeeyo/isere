@@ -1,6 +1,5 @@
 /* Standard includes. */
 #include <stdlib.h>
-#include <stdio.h>
 
 /* FreeRTOS kernel includes. */
 #include "FreeRTOS.h"
@@ -27,26 +26,54 @@ int main(void)
 
   // dynamically loading javascript serverless handler
   loader_init(&isere);
-  if (loader_open("./examples/echo.esm.so")) {
+  void *dl = loader_open("./examples/echo.esm.so");
+  if (!dl) {
     logger.error("Loader error: unable to open dynamic module\n");
   }
 
   uint32_t fn_size = 0;
-  uint8_t *fn = loader_get_fn(&fn_size);
+  uint8_t *fn = loader_get_fn(dl, &fn_size);
   if (!fn) {
-    fprintf(stderr, "Loader error: %s\n", loader_last_error());
-    loader_close();
+    fprintf(stderr, "Loader error: %s\n", loader_last_error(dl));
+    loader_close(dl);
     return EXIT_FAILURE;
   }
+
+  // xTaskCreate(prvQueueReceiveTask,
+  //               "TX",
+  //               configMINIMAL_STACK_SIZE,
+  //               NULL,
+  //               mainQUEUE_SEND_TASK_PRIORITY,
+  //               NULL);
+  // while(1) {
+  //   vTaskDelay(1000);
+  // }
 
   // initialize js module
   js_ctx_t *js = js_init(&isere);
   js_eval(js, fn, fn_size);
   js_deinit(js);
 
-  loader_close();
+  loader_close(dl);
   return 0;
 }
+/*-----------------------------------------------------------*/
+// static void prvQueueReceiveTask(void *pvParameters)
+// {
+//   for(;;)
+//   {
+//     vTaskDelay(250 / portTICK_PERIOD_MS);
+
+//     /*  To get here something must have been received from the queue, but
+//     is it the expected value?  If it is, increment the counter. */
+//     if( ulReceivedValue == 100UL )
+//     {
+//       /* Count the number of items that have been received correctly. */
+//       ulCountOfItemsReceivedOnQueue++;
+//     }
+//   }
+// }
+
 /*-----------------------------------------------------------*/
 
 void vApplicationMallocFailedHook(void)

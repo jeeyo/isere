@@ -1,10 +1,9 @@
 #include "loader.h"
 
 #include <string.h>
-
 #include <dlfcn.h>
+
 static isere_t *__isere = NULL;
-static void *__dynlnk = NULL;
 
 int loader_init(isere_t *isere)
 {
@@ -12,37 +11,37 @@ int loader_init(isere_t *isere)
   return 0;
 }
 
-int loader_open(const char *filename)
+void *loader_open(const char *filename)
 {
-  __dynlnk = dlopen(filename, RTLD_LAZY);
-  if (!__dynlnk) {
-    return -1;
+  void *dl = dlopen(filename, RTLD_LAZY);
+  if (!dl) {
+    return NULL;
   }
 
-  return 0;
+  return dl;
 }
 
-int loader_close()
+int loader_close(void *dl)
 {
   if (__isere) {
     __isere = NULL;
   }
 
-  if (__dynlnk) {
-    dlclose(__dynlnk);
-    __dynlnk = NULL;
+  if (dl) {
+    dlclose(dl);
   }
 
   return 0;
 }
 
-uint8_t *loader_get_fn(uint32_t *size)
+uint8_t *loader_get_fn(void *dl, uint32_t *size)
 {
-  *size = *(uint32_t *)(dlsym(__dynlnk, ISERE_LOADER_HANDLER_SIZE_FUNCTION));
-  return (uint8_t *)(dlsym(__dynlnk, ISERE_LOADER_HANDLER_FUNCTION));
+  *size = *(uint32_t *)(dlsym(dl, ISERE_LOADER_HANDLER_SIZE_FUNCTION));
+  return (uint8_t *)(dlsym(dl, ISERE_LOADER_HANDLER_FUNCTION));
 }
 
-char *loader_last_error()
+char *loader_last_error(void *dl)
 {
+  (void)dl;
   return dlerror();
 }

@@ -13,10 +13,10 @@ extern "C" {
 #endif
 
 int loader_init(isere_t *isere);
-int loader_open(const char *filename);
-int loader_close();
-uint8_t *loader_get_fn(uint32_t *size);
-char *loader_last_error();
+void *loader_open(const char *filename);
+int loader_close(void *dl);
+uint8_t *loader_get_fn(void *dl, uint32_t *size);
+char *loader_last_error(void *dl);
 
 #ifdef __cplusplus
 }

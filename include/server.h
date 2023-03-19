@@ -1,8 +1,8 @@
 #ifndef ISERE_SERVER_H_
 
-#include "isere.h"
-
 #define ISERE_SERVER_H_
+
+#include "isere.h"
 
 #define ISERE_SERVER_PORT 8080
 
@@ -10,8 +10,9 @@
 extern "C" {
 #endif
 
-int server_init(void);
-int server_deinit(void);
+int server_init(isere_t *isere);
+int server_deinit(int fd);
+void server_task(void *params);
 
 #ifdef __cplusplus
 }
