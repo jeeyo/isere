@@ -27,7 +27,7 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
     }
 
     // print string using logger
-    strncat(str);
+    logger_fn(str);
 
     JS_FreeCString(ctx, str);
   }
