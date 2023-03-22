@@ -1,7 +1,5 @@
 #include "js.h"
 
-#include <string.h>
-
 #include "quickjs.h"
 #include "quickjs-libc.h"
 
