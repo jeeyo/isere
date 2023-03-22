@@ -9,8 +9,6 @@
 // TODO: make this configurable
 #define ISERE_JS_STACK_SIZE 65536
 
-#define ISERE_JS_LOG_BUFFER_SIZE 256
-
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -13,12 +13,10 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
     return JS_EXCEPTION;
   }
 
-  char logs[ISERE_JS_LOG_BUFFER_SIZE] = {0};
-
   for (int i = 0; i < argc; i++) {
     // add space between arguments
     if (i != 0) {
-      strncat(logs, " ", ISERE_JS_LOG_BUFFER_SIZE);
+      logger_fn(" ");
     }
 
     // convert argument to C string
@@ -29,12 +27,12 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
     }
 
     // print string using logger
-    strncat(logs, str, ISERE_JS_LOG_BUFFER_SIZE);
+    strncat(str);
 
     JS_FreeCString(ctx, str);
   }
 
-  logger_fn("%s\n", logs);
+  logger_fn("\n");
 
   return JS_UNDEFINED;
 }
