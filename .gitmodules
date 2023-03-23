@@ -10,3 +10,6 @@
 [submodule "3rdparty/lwip"]
 	path = 3rdparty/lwip
 	url = https://github.com/lwip-tcpip/lwip.git
+[submodule "3rdparty/llhttp"]
+	path = 3rdparty/llhttp
+	url = https://github.com/nodejs/llhttp.git
