@@ -32,27 +32,32 @@
 #ifndef __LWIPOPTS_H__
 #define __LWIPOPTS_H__
 
-#define LWIP_TIMEVAL_PRIVATE            0
-#define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
-#define LWIP_ERRNO_STDINCLUDE
 #define LWIP_SINGLE_NETIF               1
 
+#define MEMP_MEM_MALLOC                 1
+#define MEM_LIBC_MALLOC                 1
 #define MEM_ALIGNMENT                   4
 
 #define NO_SYS                          0
+#define LWIP_COMPAT_SOCKETS             1
 #define LWIP_ARP                        0
 #define LWIP_ICMP                       0
-#define LWIP_SOCKET                     1
-#define LWIP_NETCONN                    0
+#define LWIP_SOCKET                     (!NO_SYS)
+#define LWIP_NETCONN                    (!NO_SYS)
 #define LWIP_TCP                        1
 #define LWIP_IPV4                       1
 #define LWIP_IPV6                       0
 #define LWIP_UDP                        0
 
+#define TCPIP_THREAD_STACKSIZE          4096
 #define TCP_MSS                         (1500 /*mtu*/ - 20 /*iphdr*/ - 20 /*tcphhr*/)
-#define TCP_SND_BUF                     (2 * TCP_MSS)
-#define TCP_WND                         (TCP_MSS)
+#define TCP_SND_BUF                     (12 * TCP_MSS)
+#define TCP_WND                         (10 * TCP_MSS)
 
-#define PBUF_POOL_SIZE                  2
+#define TCPIP_MBOX_SIZE                 8
+#define DEFAULT_TCP_RECVMBOX_SIZE       8
+#define DEFAULT_ACCEPTMBOX_SIZE         8
+
+#define MEMP_NUM_TCP_SEG                TCP_SND_QUEUELEN
 
 #endif /* __LWIPOPTS_H__ */

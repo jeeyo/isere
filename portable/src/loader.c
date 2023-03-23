@@ -15,6 +15,7 @@ void *loader_open(const char *filename)
 {
   void *dl = dlopen(filename, RTLD_LAZY);
   if (!dl) {
+    __isere->logger->error("[%s] dlopen() error: %s", ISERE_LOADER_LOG_TAG, dlerror());
     return NULL;
   }
 
@@ -38,10 +39,4 @@ uint8_t *loader_get_fn(void *dl, uint32_t *size)
 {
   *size = *(uint32_t *)(dlsym(dl, ISERE_LOADER_HANDLER_SIZE_FUNCTION));
   return (uint8_t *)(dlsym(dl, ISERE_LOADER_HANDLER_FUNCTION));
-}
-
-char *loader_last_error(void *dl)
-{
-  (void)dl;
-  return dlerror();
 }

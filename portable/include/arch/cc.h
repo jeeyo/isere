@@ -32,6 +32,8 @@
 #ifndef __CC_H__
 #define __CC_H__
 
+#include <stdint.h>
+
 /* define compiler specific symbols */
 #if defined (__ICCARM__)
 
@@ -64,9 +66,19 @@
 
 #endif
 
-#define LWIP_PLATFORM_ASSERT(x) do { if(!(x)) while(1); } while(0)
+#define LWIP_TIMEVAL_PRIVATE            0
+#define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
+#define LWIP_ERRNO_STDINCLUDE
+
+// #define LWIP_PLATFORM_ASSERT(x) do { if(!(x)) while(1); } while(0)
+#define LWIP_RAND() ((u32_t)rand())
 
 #define lwip_htons(x) htons(x)
 #define lwip_htonl(x) htonl(x)
+
+struct sio_status_s;
+typedef struct sio_status_s sio_status_t;
+#define sio_fd_t sio_status_t*
+#define __sio_fd_t_defined
 
 #endif /* __CC_H__ */
