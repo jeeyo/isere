@@ -1,5 +1,4 @@
-Isere
------
+# Isere
 
 A serverless platform aimed to be running on Microcontrollers
 
@@ -9,6 +8,7 @@ A serverless platform aimed to be running on Microcontrollers
 - [x] QuickJS as JavaScript runtime
 - [x] (single-user) HTTP server
 - [ ] Unit tests
+- [ ] Integration tests
 - [ ] Proper HTTP server
 - [ ] Port (some) node-like APIs
 - [ ] Low-power mode
@@ -17,18 +17,19 @@ A serverless platform aimed to be running on Microcontrollers
 - [ ] Port to ESP32?
 - [ ] MicroPython?
 
-Limitations
------------
+### Limitations
 
 - No Keep-Alive support
 - 1024 byte limit on each header value (please be reminded that this affects your cookie size)
 
-Simple Guide
-------------
+### Building and Running
+
+Prerequisites: Node.js and Homebrew (macOS)
 
 ```sh
 # install dependencies
 brew install autoconf automake libtool
+
 git clone <this f***ing repo>
 git submodule update --init
 
@@ -51,3 +52,11 @@ make -j
 try to access `http://localhost:8080/` and see the process logs  
   
 feel free to try modify `examples/echo.esm.js` (don't forget to recompile it)
+
+### Running Tests
+
+```sh
+make -j cpputest
+make tests
+./test
+```
