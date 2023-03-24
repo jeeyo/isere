@@ -8,7 +8,9 @@ A serverless platform aimed to be running on Microcontrollers
 - [x] QuickJS as JavaScript runtime
 - [x] (single-user) HTTP server
 - [ ] Unit tests
+- [ ] Unit tests on CI
 - [ ] Integration tests
+- [ ] Integration tests on CI
 - [ ] Proper HTTP server
 - [ ] Port (some) node-like APIs
 - [ ] Low-power mode
