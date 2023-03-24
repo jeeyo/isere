@@ -1,3 +1,17 @@
+Isere
+-----
+
+A serverless platform aimed to be running on Microcontrollers
+
+### Current progress
+
+- [x] FreeRTOS as Kernel
+- [x] QuickJS as JavaScript runtime
+- [x] (single-user) HTTP server
+- [ ] Port to Raspberry Pi Pico (RP2040) (FreeRTOS-POSIX + LwIP)
+- [ ] Port to ESP32?
+- [ ] MicroPython?
+
 Limitations
 -----------
 
