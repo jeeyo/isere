@@ -26,7 +26,7 @@ Simple Guide
 
 ```sh
 # install dependencies
-brew install make
+brew install autoconf automake libtool
 git clone <this f***ing repo>
 git submodule update --init
 
