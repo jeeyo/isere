@@ -51,13 +51,13 @@ SOURCE_FILES += ${LLHTTP_DIR}/build/c/llhttp.c
 CFLAGS := -ggdb3 -D_GNU_SOURCE -DCONFIG_BIGNUM -DCONFIG_VERSION=\"$(shell git rev-parse --short HEAD)\"
 LDFLAGS := -ggdb3 -pthread -ldl -lm
 
+OBJ_FILES = $(SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
+
 # building the main executable
 MAIN_SOURCE_FILES := src/main.c
+MAIN_OBJ_FILES = $(MAIN_SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
 
-OBJ_FILES = $(SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
-OBJ_FILES += $(MAIN_SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
-
-${BIN}: ${OBJ_FILES}
+${BIN}: ${OBJ_FILES} ${MAIN_OBJ_FILES}
 	-mkdir -p ${@D}
 	$(CC) $^ ${LDFLAGS} -o $@
 
@@ -71,16 +71,11 @@ TEST_SOURCE_FILES := $(wildcard tests/*.cpp)
 TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/CppUTest/*.cpp)
 TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/Platforms/Gcc/*.cpp)
 
-TEST_OBJ_FILES := $(SOURCE_FILES:%.c=$(TEST_BUILD_DIR)/%.o)
 TEST_OBJ_FILES += $(TEST_SOURCE_FILES:%.cpp=$(TEST_BUILD_DIR)/%.o)
 
-tests: ${TEST_OBJ_FILES}
+tests: ${OBJ_FILES} ${TEST_OBJ_FILES}
 	-mkdir -p ${@D}
 	$(CPP) $^ ${LDFLAGS} -o ./test
-
-${TEST_BUILD_DIR}/%.o: %.c
-	-mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -MMD -c $< -o $@
 
 ${TEST_BUILD_DIR}/%.o: %.cpp
 	-mkdir -p $(@D)
