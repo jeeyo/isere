@@ -11,9 +11,15 @@
 #include "logger.h"
 #include "httpd.h"
 
-static int _http_handler(const char *path, httpd_header_t *request_headers, uint32_t request_headers_len)
+static int __http_handler(const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len)
 {
+  printf("method: %s\n", method);
   printf("path: %s\n", path);
+
+  for (uint32_t i = 0; i < request_headers_len; i++) {
+    printf("header: %s: %s\n", request_headers[i].name, request_headers[i].value);
+  }
+
   return 0;
 }
 
@@ -49,14 +55,12 @@ int main(void)
   httpd_init(&isere);
 
   TaskHandle_t httpd_task_handle;
-  if (xTaskCreate(httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&_http_handler, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
+  if (xTaskCreate(httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&__http_handler, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
     logger.error("Unable to create httpd task");
     goto cleanup;
   }
 
   vTaskStartScheduler();
-
-  for(;;);
 
 cleanup:
   loader_close(dl);
