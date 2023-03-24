@@ -8,6 +8,8 @@ A serverless platform aimed to be running on Microcontrollers
 - [x] FreeRTOS as Kernel
 - [x] QuickJS as JavaScript runtime
 - [x] (single-user) HTTP server
+- [ ] Unit tests
+- [ ] Proper HTTP server
 - [ ] Port to Raspberry Pi Pico (RP2040) (FreeRTOS-POSIX + LwIP)
 - [ ] Port to ESP32?
 - [ ] MicroPython?
