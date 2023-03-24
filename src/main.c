@@ -25,8 +25,20 @@ static int __http_handler(isere_t *isere, const char *method, const char *path, 
 
   // populate params
   JSValue global_obj = JS_GetGlobalObject(js.context);
-  // TODO: add `event` object
+  // TODO: add `event` object: https://aws-lambda-for-python-developers.readthedocs.io/en/latest/02_event_and_context/
   JSValue event = JS_NewObject(js.context);
+  JS_SetPropertyStr(js.context, event, "httpMethod", JS_NewString(js.context, method));
+  JS_SetPropertyStr(js.context, event, "path", JS_NewString(js.context, path));
+
+  JSValue headers = JS_NewObject(js.context);
+  for (int i = 0; i < request_headers_len; i++) {
+    JS_SetPropertyStr(js.context, headers, request_headers[i].name, JS_NewString(js.context, request_headers[i].value));
+  }
+  JS_SetPropertyStr(js.context, event, "headers", headers);
+  // TODO: multi-value headers
+  // TODO: query string params
+  JS_SetPropertyStr(js.context, event, "body", JS_NULL);
+  JS_SetPropertyStr(js.context, event, "isBase64Encoded", JS_FALSE);
   JS_SetPropertyStr(js.context, global_obj, "event", event);
 
   // add `context` object
