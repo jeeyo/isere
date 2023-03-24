@@ -6,6 +6,8 @@
 
 #define ISERE_JS_H_
 
+#define ISERE_JS_LOG_TAG "js"
+
 // TODO: make this configurable
 #define ISERE_JS_STACK_SIZE 65536
 
@@ -13,11 +15,9 @@
 extern "C" {
 #endif
 
-typedef JSContext js_ctx_t;
-
-js_ctx_t *js_init(isere_t *isere);
-int js_deinit(js_ctx_t *ctx);
-int js_eval(js_ctx_t *ctx, uint8_t *fn, uint32_t fn_len);
+int js_init(isere_t *isere, isere_js_t *js);
+int js_deinit(isere_js_t *js);
+int js_eval(isere_js_t *js);
 
 #ifdef __cplusplus
 }

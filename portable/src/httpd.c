@@ -321,7 +321,7 @@ void httpd_task(void *params)
     llhttp_finish(&__llhttp);
 
     uint32_t nbr_of_headers = MIN(__state.current_header_name_index, __state.current_header_value_index);
-    handler(__method, __path, __headers, nbr_of_headers);
+    handler(__isere, __method, __path, __headers, nbr_of_headers);
 
     const char *buf = "HTTP/1.1 200 OK\r\n\r\nTest\r\n\r\n";
     write(sock, buf, strlen(buf));

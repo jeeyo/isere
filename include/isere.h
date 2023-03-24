@@ -2,6 +2,10 @@
 
 #define ISERE_H_
 
+#include <stdint.h>
+
+#include "quickjs.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,7 +33,19 @@ typedef struct {
 } isere_logger_t;
 
 typedef struct {
+  void *dll;
+  uint8_t *fn;
+  uint32_t fn_size;
+} isere_loader_t;
+
+typedef struct {
+  JSRuntime *runtime;
+  JSContext *context;
+} isere_js_t;
+
+typedef struct {
   isere_logger_t *logger;
+  isere_loader_t *loader;
 } isere_t;
 
 #ifdef __cplusplus

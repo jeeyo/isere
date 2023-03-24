@@ -27,7 +27,7 @@ typedef struct {
   char value[ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN];
 } httpd_header_t;
 
-typedef int (httpd_handler_t)(const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len);
+typedef int (httpd_handler_t)(isere_t *isere, const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len);
 
 int httpd_init(isere_t *isere);
 int httpd_deinit(int fd);

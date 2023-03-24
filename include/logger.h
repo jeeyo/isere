@@ -8,8 +8,8 @@
 extern "C" {
 #endif
 
-void logger_init(void);
-void logger_get_instance(isere_logger_t *logger);
+int logger_init(isere_t *isere, isere_logger_t *logger);
+void logger_deinit(isere_logger_t *logger);
 
 #ifdef __cplusplus
 }

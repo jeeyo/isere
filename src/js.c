@@ -38,88 +38,88 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
 }
 
 static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  if (__isere == NULL) return JS_EXCEPTION;
   return __logger_internal(ctx, this_val, argc, argv, __isere->logger->info);
 }
 
 static JSValue __console_warn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  if (__isere == NULL) return JS_EXCEPTION;
   return __logger_internal(ctx, this_val, argc, argv, __isere->logger->warning);
 }
 
 static JSValue __console_error(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  if (__isere == NULL) return JS_EXCEPTION;
   return __logger_internal(ctx, this_val, argc, argv, __isere->logger->error);
 }
 
-js_ctx_t *js_init(isere_t *isere)
+int js_init(isere_t *isere, isere_js_t *js)
 {
   __isere = isere;
 
+  if (js->runtime != NULL || js->context != NULL) {
+    __isere->logger->error("[%s] QuickJS runtime and context already initialized", ISERE_JS_LOG_TAG);
+    return -1;
+  }
+
   // initialize quickjs runtime
-  JSRuntime *rt = JS_NewRuntime();
+  js->runtime = JS_NewRuntime();
+  if (!js->runtime)
+  {
+    __isere->logger->error("[%s] failed to create QuickJS runtime", ISERE_JS_LOG_TAG);
+    return -1;
+  }
   // TODO: custom memory allocation with JS_NewRuntime2()
   // TODO: set global memory limit with JS_SetMemoryLimit()
-  if (!rt)
-  {
-    isere->logger->error("failed to create QuickJS runtime");
-    return NULL;
-  }
-  JS_SetMaxStackSize(rt, ISERE_JS_STACK_SIZE);
+  JS_SetMaxStackSize(js->runtime, ISERE_JS_STACK_SIZE);
 
   // initialize quickjs context
-  JSContext *ctx = JS_NewContextRaw(rt);
-  if (!ctx)
+  js->context = JS_NewContextRaw(js->runtime);
+  if (!js->context)
   {
-    isere->logger->error("failed to create QuickJS context");
-    return NULL;
+    __isere->logger->error("[%s] failed to create QuickJS context", ISERE_JS_LOG_TAG);
+    return -1;
   }
-  JS_AddIntrinsicBaseObjects(ctx);
-  JS_AddIntrinsicDate(ctx);
-  JS_AddIntrinsicEval(ctx);
-  JS_AddIntrinsicStringNormalize(ctx);
-  JS_AddIntrinsicRegExp(ctx);
-  JS_AddIntrinsicJSON(ctx);
-  JS_AddIntrinsicProxy(ctx);
-  JS_AddIntrinsicMapSet(ctx);
-  JS_AddIntrinsicTypedArrays(ctx);
-  JS_AddIntrinsicPromise(ctx);
-  JS_AddIntrinsicBigInt(ctx);
+  JS_AddIntrinsicBaseObjects(js->context);
+  JS_AddIntrinsicDate(js->context);
+  JS_AddIntrinsicEval(js->context);
+  JS_AddIntrinsicStringNormalize(js->context);
+  JS_AddIntrinsicRegExp(js->context);
+  JS_AddIntrinsicJSON(js->context);
+  JS_AddIntrinsicProxy(js->context);
+  JS_AddIntrinsicMapSet(js->context);
+  JS_AddIntrinsicTypedArrays(js->context);
+  JS_AddIntrinsicPromise(js->context);
+  JS_AddIntrinsicBigInt(js->context);
 
-  JSValue global_obj = JS_GetGlobalObject(ctx);
+  JSValue global_obj = JS_GetGlobalObject(js->context);
   // add console.log(), console.warn(), and console.error() function
-  JSValue console = JS_NewObject(ctx);
-  JS_SetPropertyStr(ctx, console, "log", JS_NewCFunction(ctx, __console_log, "log", 1));
-  JS_SetPropertyStr(ctx, console, "warn", JS_NewCFunction(ctx, __console_warn, "warn", 1));
-  JS_SetPropertyStr(ctx, console, "error", JS_NewCFunction(ctx, __console_error, "error", 1));
-  JS_SetPropertyStr(ctx, global_obj, "console", console);
+  JSValue console = JS_NewObject(js->context);
+  JS_SetPropertyStr(js->context, console, "log", JS_NewCFunction(js->context, __console_log, "log", 1));
+  JS_SetPropertyStr(js->context, console, "warn", JS_NewCFunction(js->context, __console_warn, "warn", 1));
+  JS_SetPropertyStr(js->context, console, "error", JS_NewCFunction(js->context, __console_error, "error", 1));
+  JS_SetPropertyStr(js->context, global_obj, "console", console);
 
   // add process.env
-  JSValue process = JS_NewObject(ctx);
-  JSValue env = JS_NewObject(ctx);
-  JS_SetPropertyStr(ctx, env, "NODE_ENV", JS_NewString(ctx, "production"));
-  JS_SetPropertyStr(ctx, process, "env", env);
-  JS_SetPropertyStr(ctx, global_obj, "process", process);
+  JSValue process = JS_NewObject(js->context);
+  JSValue env = JS_NewObject(js->context);
+  JS_SetPropertyStr(js->context, env, "NODE_ENV", JS_NewString(js->context, "production"));
+  JS_SetPropertyStr(js->context, process, "env", env);
+  JS_SetPropertyStr(js->context, global_obj, "process", process);
 
-  JS_FreeValue(ctx, global_obj);
+  JS_FreeValue(js->context, global_obj);
 
-  return (js_ctx_t *)ctx;
+  return 0;
 }
 
-int js_deinit(js_ctx_t *ctx)
+int js_deinit(isere_js_t *js)
 {
   if (__isere) {
     __isere = NULL;
   }
 
-  JSRuntime *rt = NULL;
-  if (ctx) {
-    rt = JS_GetRuntime(ctx);
-    JS_FreeContext(ctx);
+  if (js->context) {
+    JS_FreeContext(js->context);
   }
 
-  if (rt) {
-    JS_FreeRuntime(rt);
+  if (js->runtime) {
+    JS_FreeRuntime(js->runtime);
   }
 
   return 0;
@@ -161,19 +161,20 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
   // get body
   JSValue val = JS_GetPropertyStr(ctx, resp, BODY_PROP_NAME);
-  if (JS_IsException(val))
-  {
+  if (JS_IsException(val)) {
+    __isere->logger->error("[%s] failed to get response body", ISERE_JS_LOG_TAG);
     JS_FreeValue(ctx, val);
     return JS_EXCEPTION;
   }
 
   // if body is undefined, set it to empty string
   if (JS_IsUndefined(val)) {
-    JS_SetPropertyStr(ctx, resp, BODY_PROP_NAME, JS_NewString(ctx, "test"));
+    JS_SetPropertyStr(ctx, resp, BODY_PROP_NAME, JS_NewString(ctx, ""));
   }
 
   // TODO: set content-type to application/json if body is object
   if (JS_IsObject(val)) {
+    //
   }
 
   // convert body to C string
@@ -181,6 +182,7 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   const char *str = JS_ToCStringLen(ctx, &len, val);
   JS_FreeValue(ctx, val);
   if (!str) {
+    __isere->logger->error("[%s] unable to convert body to native string", ISERE_JS_LOG_TAG);
     return JS_EXCEPTION;
   }
 
@@ -189,42 +191,40 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   return JS_UNDEFINED;
 }
 
-int js_eval(js_ctx_t *ctx, uint8_t *fn, uint32_t fn_len)
+int js_eval(isere_js_t *js)
 {
-  JSContext *qjs = (JSContext *)ctx;
-
   const char *eval = "import { handler } from 'handler';\n"
-    "handler().then(cb);";
+    "handler(event, context).then(cb);";
 
-  JSValue val = JS_Eval(qjs, (const char *)fn, fn_len, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-  if (JS_IsException(val))
-  {
-    JS_FreeValue(qjs, val);
+  JSValue val = JS_Eval(js->context, (const char *)__isere->loader->fn, __isere->loader->fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+  if (JS_IsException(val)) {
+    // TODO: error goes to logger
+    JS_FreeValue(js->context, val);
     return -1;
   }
 
-  js_module_set_import_meta(qjs, val, 0, 0);
+  js_module_set_import_meta(js->context, val, 0, 0);
 
   // add callback for getting the result
-  JSValue global_obj = JS_GetGlobalObject(qjs);
-  JS_SetPropertyStr(qjs, global_obj, "cb", JS_NewCFunction(qjs, __handler_cb, "cb", 1));
-  JS_FreeValue(qjs, global_obj);
+  JSValue global_obj = JS_GetGlobalObject(js->context);
+  JS_SetPropertyStr(js->context, global_obj, "cb", JS_NewCFunction(js->context, __handler_cb, "cb", 1));
+  JS_FreeValue(js->context, global_obj);
 
-  val = JS_Eval(qjs, eval, strlen(eval), "<cmdline>", JS_EVAL_TYPE_MODULE);
-  if (JS_IsException(val))
-  {
-    js_std_dump_error(qjs);
-    JS_FreeValue(qjs, val);
+  val = JS_Eval(js->context, eval, strlen(eval), "<cmdline>", JS_EVAL_TYPE_MODULE);
+  if (JS_IsException(val)) {
+    // TODO: error goes to logger
+    js_std_dump_error(js->context);
+    JS_FreeValue(js->context, val);
     return -1;
   }
-  JS_FreeValue(qjs, val);
+  JS_FreeValue(js->context, val);
   
-  js_std_loop(qjs);
+  js_std_loop(js->context);
 
   return 0;
 }
 
-char *js_last_error(js_ctx_t *ctx)
+char *js_last_error(isere_js_t *ctx)
 {
   // // TODO: get last error from quickjs context
   // if (__qjs_context->rt->current_exception != JS_NULL) {

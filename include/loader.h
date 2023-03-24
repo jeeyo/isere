@@ -15,10 +15,8 @@
 extern "C" {
 #endif
 
-int loader_init(isere_t *isere);
-void *loader_open(const char *filename);
-int loader_close(void *dl);
-uint8_t *loader_get_fn(void *dl, uint32_t *size);
+int loader_init(isere_t *isere, isere_loader_t *loader);
+int loader_deinit(isere_loader_t *loader);
 
 #ifdef __cplusplus
 }
