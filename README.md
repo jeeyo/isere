@@ -10,6 +10,7 @@ A serverless platform aimed to be running on Microcontrollers
 - [x] (single-user) HTTP server
 - [ ] Unit tests
 - [ ] Proper HTTP server
+- [ ] Port (some) node-like APIs
 - [ ] Port to Raspberry Pi Pico (RP2040) (FreeRTOS-POSIX + LwIP)
 - [ ] Port to ESP32?
 - [ ] MicroPython?
@@ -33,8 +34,12 @@ git submodule update --init
 cd examples/
 make -j
 
-# compile isere
 cd ..
+
+# compile llhttp
+make -j llhttp
+
+# compile isere
 make -j
 
 # run isere
