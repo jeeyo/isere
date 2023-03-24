@@ -11,6 +11,8 @@ A serverless platform aimed to be running on Microcontrollers
 - [ ] Unit tests
 - [ ] Proper HTTP server
 - [ ] Port (some) node-like APIs
+- [ ] Low-power mode
+- [ ] Benchmark
 - [ ] Port to Raspberry Pi Pico (RP2040) (FreeRTOS-POSIX + LwIP)
 - [ ] Port to ESP32?
 - [ ] MicroPython?
