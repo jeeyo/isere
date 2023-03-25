@@ -7,13 +7,9 @@
 
 static isere_t *__isere = NULL;
 
-static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, void (*logger_fn)(const char *tag, const char *fmt, ...))
+static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, const char *color)
 {
-  (void)logger_fn;
-
-  // if (logger_fn == NULL) {
-  //   return JS_EXCEPTION;
-  // }
+  puts(color);
 
   for (int i = 0; i < argc; i++) {
     // add space between arguments
@@ -40,15 +36,15 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
 }
 
 static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  return __logger_internal(ctx, this_val, argc, argv, __isere->logger->info);
+  return __logger_internal(ctx, this_val, argc, argv, "\x1B[0m");
 }
 
 static JSValue __console_warn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  return __logger_internal(ctx, this_val, argc, argv, __isere->logger->warning);
+  return __logger_internal(ctx, this_val, argc, argv, "\x1B[33m");
 }
 
 static JSValue __console_error(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  return __logger_internal(ctx, this_val, argc, argv, __isere->logger->error);
+  return __logger_internal(ctx, this_val, argc, argv, "\x1B[31m");
 }
 
 int js_init(isere_t *isere, isere_js_t *js)
