@@ -14,12 +14,14 @@
 #include "js.h"
 #include "httpd.h"
 
+#define ISERE_LOG_TAG "isere"
+
 static int __http_handler(isere_t *isere, const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len)
 {
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
   if (js_init(isere, &js) < 0) {
-    isere->logger->error("Unable to initialize javascript module");
+    isere->logger->error(ISERE_LOG_TAG, "Unable to initialize javascript module");
     return -1;
   }
 
@@ -81,7 +83,7 @@ int main(void)
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
   if (loader_init(&isere, &loader, ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH) < 0) {
-    logger.error("Unable to initialize loader module");
+    logger.error(ISERE_LOG_TAG, "Unable to initialize loader module");
     goto cleanup1;
   }
   isere.loader = &loader;
@@ -92,7 +94,7 @@ int main(void)
   // start web server task
   TaskHandle_t httpd_task_handle;
   if (xTaskCreate(httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&__http_handler, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
-    logger.error("Unable to create httpd task");
+    logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
     goto cleanup2;
   }
 

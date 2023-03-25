@@ -20,19 +20,19 @@ int loader_init(isere_t *isere, isere_loader_t *loader, const char *dll_path)
   }
 
   if (loader->dll != NULL || loader->fn != NULL) {
-    __isere->logger->error("[%s] loader already initialized", ISERE_LOADER_LOG_TAG);
+    __isere->logger->error(ISERE_LOADER_LOG_TAG, "loader already initialized");
     return -1;
   }
 
   if (dll_path == NULL) {
-    __isere->logger->error("[%s] dll_path is NULL", ISERE_LOADER_LOG_TAG);
+    __isere->logger->error(ISERE_LOADER_LOG_TAG, "dll_path is NULL");
     return -1;
   }
 
   loader->dll = dlopen(dll_path, RTLD_LAZY);
   if (!loader->dll) {
     loader->dll = NULL;
-    __isere->logger->error("[%s] dlopen() error: %s", ISERE_LOADER_LOG_TAG, dlerror());
+    __isere->logger->error(ISERE_LOADER_LOG_TAG, "dlopen() error: %s", dlerror());
     return -1;
   }
 

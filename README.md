@@ -9,8 +9,13 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [x] FreeRTOS as Kernel
 - [x] QuickJS as JavaScript runtime
 - [x] (single-user) HTTP server
+- [ ] SIGINT handler for proper shutdown
 - [ ] Unit tests
-- [ ] Unit tests on CI
+  - [x] loader
+  - [x] js
+  - [ ] httpd
+  - [ ] logger
+- [x] Unit tests on CI
 - [ ] Integration tests
 - [ ] Integration tests on CI
 - [ ] Proper HTTP server
@@ -18,6 +23,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] net
   - [ ] crypto
   - [ ] fs
+- [ ] Use less printf()
 - [ ] QuickJS Project Template
 - [ ] Low-power mode
 - [ ] Benchmark

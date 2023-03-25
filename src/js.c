@@ -7,16 +7,18 @@
 
 static isere_t *__isere = NULL;
 
-static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, void (*logger_fn)(const char *fmt, ...))
+static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, void (*logger_fn)(const char *tag, const char *fmt, ...))
 {
-  if (logger_fn == NULL) {
-    return JS_EXCEPTION;
-  }
+  (void)logger_fn;
+
+  // if (logger_fn == NULL) {
+  //   return JS_EXCEPTION;
+  // }
 
   for (int i = 0; i < argc; i++) {
     // add space between arguments
     if (i != 0) {
-      logger_fn(" ");
+      puts(" ");
     }
 
     // convert argument to C string
@@ -27,12 +29,12 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
     }
 
     // print string using logger
-    logger_fn(str);
+    puts(str);
 
     JS_FreeCString(ctx, str);
   }
 
-  logger_fn("\n");
+  puts("\n");
 
   return JS_UNDEFINED;
 }
@@ -58,7 +60,7 @@ int js_init(isere_t *isere, isere_js_t *js)
   }
 
   if (js->runtime != NULL || js->context != NULL) {
-    __isere->logger->error("[%s] QuickJS runtime and context already initialized", ISERE_JS_LOG_TAG);
+    __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS runtime and context already initialized");
     return -1;
   }
 
@@ -66,7 +68,7 @@ int js_init(isere_t *isere, isere_js_t *js)
   js->runtime = JS_NewRuntime();
   if (!js->runtime)
   {
-    __isere->logger->error("[%s] failed to create QuickJS runtime", ISERE_JS_LOG_TAG);
+    __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");
     return -1;
   }
   // TODO: custom memory allocation with JS_NewRuntime2()
@@ -77,7 +79,7 @@ int js_init(isere_t *isere, isere_js_t *js)
   js->context = JS_NewContextRaw(js->runtime);
   if (!js->context)
   {
-    __isere->logger->error("[%s] failed to create QuickJS context", ISERE_JS_LOG_TAG);
+    __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS context");
     return -1;
   }
   JS_AddIntrinsicBaseObjects(js->context);
@@ -166,7 +168,7 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   // get body
   JSValue val = JS_GetPropertyStr(ctx, resp, BODY_PROP_NAME);
   if (JS_IsException(val)) {
-    __isere->logger->error("[%s] failed to get response body", ISERE_JS_LOG_TAG);
+    __isere->logger->error(ISERE_JS_LOG_TAG, "failed to get response body");
     JS_FreeValue(ctx, val);
     return JS_EXCEPTION;
   }
@@ -186,11 +188,11 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   const char *str = JS_ToCStringLen(ctx, &len, val);
   JS_FreeValue(ctx, val);
   if (!str) {
-    __isere->logger->error("[%s] unable to convert body to native string", ISERE_JS_LOG_TAG);
+    __isere->logger->error(ISERE_JS_LOG_TAG, "unable to convert body to native string");
     return JS_EXCEPTION;
   }
 
-  __isere->logger->debug("handler response: %.*s\n", len, str);
+  __isere->logger->debug(ISERE_JS_LOG_TAG, "handler response: %.*s\n", len, str);
 
   return JS_UNDEFINED;
 }
@@ -224,7 +226,6 @@ int js_eval(isere_js_t *js)
   JSValue val = JS_Eval(js->context, (const char *)__isere->loader->fn, __isere->loader->fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
   if (JS_IsException(val)) {
     // TODO: error goes to logger
-    js_std_dump_error(js->context);
     JS_FreeValue(js->context, val);
     return -1;
   }
@@ -234,7 +235,6 @@ int js_eval(isere_js_t *js)
   val = JS_Eval(js->context, eval, strlen(eval), "<cmdline>", JS_EVAL_TYPE_MODULE);
   if (JS_IsException(val)) {
     // TODO: error goes to logger
-    js_std_dump_error(js->context);
     JS_FreeValue(js->context, val);
     return -1;
   }

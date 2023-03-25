@@ -7,7 +7,7 @@
 
 TEST_GROUP(JSTest) {};
 
-static void fake_logger_fn(const char *fmt, ...) {}
+static void fake_logger_fn(const char *tag, const char *fmt, ...) {}
 
 static isere_logger_t fake_logger = {
   .error = fake_logger_fn,

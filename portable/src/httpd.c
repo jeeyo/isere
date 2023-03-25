@@ -70,7 +70,6 @@ static int __on_method(llhttp_t *parser, const char *at, size_t length)
 
 static int __on_method_complete(llhttp_t *parser)
 {
-  // __isere->logger->info("[%s] method: %s", ISERE_HTTPD_LOG_TAG, __method);
   __state.method_complete = 1;
   return 0;
 }
@@ -96,7 +95,6 @@ static int __on_url(llhttp_t *parser, const char *at, size_t length)
 
 static int __on_url_complete(llhttp_t *parser)
 {
-  // __isere->logger->info("[%s] path: %s", ISERE_HTTPD_LOG_TAG, __path);
   __state.path_complete = 1;
   return 0;
 }
@@ -171,17 +169,7 @@ static int __on_header_value_complete(llhttp_t *parser)
 
 static int __on_headers_complete(llhttp_t *parser)
 {
-  // for (int i = 0; i < ISERE_HTTPD_MAX_HTTP_HEADERS; i++) {
-  //   httpd_header_t *header = &__headers[i];
-  //   if (__state.header_name_len[i] == 0 || __state.header_value_len[i] == 0) {
-  //     break;
-  //   }
-
-  //   __isere->logger->info("[%s] header: %s: %s", ISERE_HTTPD_LOG_TAG, header->name, header->value);
-  // }
-
   __state.headers_complete = 1;
-
   return 0;
 }
 
@@ -221,18 +209,18 @@ static int __httpd_read_and_parse(int sock)
         continue;
       }
 
-      __isere->logger->error("[%s] recv() error: %s", ISERE_HTTPD_LOG_TAG, strerror(errno));
+      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "recv() error: %s", strerror(errno));
       return -1;
     }
 
     if (len == 0) {
-      __isere->logger->info("[%s] recv(): returned zero", ISERE_HTTPD_LOG_TAG);
+      __isere->logger->info(ISERE_HTTPD_LOG_TAG, "recv(): returned zero");
       return 0;
     }
 
     enum llhttp_errno err = llhttp_execute(&__llhttp, linebuf, len);
     if (err != HPE_OK) {
-      __isere->logger->error("[%s] llhttp_execute() error: %s %s", ISERE_HTTPD_LOG_TAG, llhttp_errno_name(err), __llhttp.reason);
+      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), __llhttp.reason);
       return -1;
     }
   }
@@ -246,7 +234,7 @@ void httpd_task(void *params)
 
   int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
   if (listen_sock < 0) {
-    __isere->logger->error("[%s] socket() error: %s", ISERE_HTTPD_LOG_TAG, strerror(errno));
+    __isere->logger->error(ISERE_HTTPD_LOG_TAG, "socket() error: %s", strerror(errno));
     vTaskDelete(NULL);
     return;
   }
@@ -262,17 +250,17 @@ void httpd_task(void *params)
 
   int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {
-    __isere->logger->error("[%s] bind() error: %s", ISERE_HTTPD_LOG_TAG, strerror(errno));
+    __isere->logger->error(ISERE_HTTPD_LOG_TAG, "bind() error: %s", strerror(errno));
     goto cleanup;
   }
 
   err = listen(listen_sock, 1);
   if (err != 0) {
-    __isere->logger->error("[%s] listen() error: %s", ISERE_HTTPD_LOG_TAG, strerror(errno));
+    __isere->logger->error(ISERE_HTTPD_LOG_TAG, "listen() error: %s", strerror(errno));
     goto cleanup;
   }
 
-  __isere->logger->info("[%s] Listening on port %d", ISERE_HTTPD_LOG_TAG, ISERE_HTTPD_PORT);
+  __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Listening on port %d", ISERE_HTTPD_PORT);
 
   for (;;) {
 
@@ -287,7 +275,7 @@ void httpd_task(void *params)
     }
 
     if (sock < 0) {
-      __isere->logger->error("[%s] accept() error: %s (%d)", ISERE_HTTPD_LOG_TAG, strerror(errno));
+      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "accept() error: %s (%d)", strerror(errno));
       break;
     }
 
@@ -311,7 +299,7 @@ void httpd_task(void *params)
     llhttp_init(&__llhttp, HTTP_REQUEST, &__llhttp_settings);
 
     // convert ip address to string
-    __isere->logger->info("[%s] Received connection from %s", ISERE_HTTPD_LOG_TAG, inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr));
+    __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Received connection from %s", inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr));
 
     // read and parse http request
     memset(&__state, 0, sizeof(__state));
