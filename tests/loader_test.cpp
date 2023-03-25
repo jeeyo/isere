@@ -5,18 +5,12 @@
 #include "isere.h"
 #include "loader.h"
 
-#define HELLOWORLD_DLL_PATH "./tests/helloworld.so"
+#define HELLOWORLD_DLL_PATH "./tests/js/helloworld.so"
 #define DEFAULT_DLL_PATH HELLOWORLD_DLL_PATH
 
 TEST_GROUP(LoaderTest) {};
 
-static void fake_logger_fn(const char *fmt, ...) {
-  // (void)fmt;
-  va_list vargs;
-  va_start(vargs, fmt);
-  vprintf(fmt, vargs);
-  va_end(vargs);
-}
+static void fake_logger_fn(const char *fmt, ...) {}
 
 static isere_logger_t fake_logger = {
   .error = fake_logger_fn,

@@ -1,5 +1,7 @@
 .vscode/
 .DS_Store
+*.so
 build/
+tests/js/*.c
 isere
 test

@@ -18,7 +18,7 @@ jobs:
         run: make -j quickjs && make -j llhttp && make -j cpputest
 
       - name: Build test executable
-        run: make -j tests
+        run: make -j test
 
       - name: Run tests
         run: ./test

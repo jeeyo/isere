@@ -1,8 +1,11 @@
 CC := gcc
 CPP := g++
-BIN := isere
+MAKE := make
 
-BUILD_DIR := ./build
+ISERE_BIN := isere
+TEST_BIN := test
+
+ISERE_BUILD_DIR := ./build
 TEST_BUILD_DIR := ./build/tests
 
 FREERTOS_DIR := ./3rdparty/FreeRTOS
@@ -51,17 +54,17 @@ SOURCE_FILES += ${LLHTTP_DIR}/build/c/llhttp.c
 CFLAGS := -ggdb3 -D_GNU_SOURCE -DCONFIG_BIGNUM -DCONFIG_VERSION=\"$(shell git rev-parse --short HEAD)\"
 LDFLAGS := -ggdb3 -pthread -ldl -lm
 
-OBJ_FILES = $(SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
+OBJ_FILES = $(SOURCE_FILES:%.c=$(ISERE_BUILD_DIR)/%.o)
 
 # building the main executable
 MAIN_SOURCE_FILES := src/main.c
-MAIN_OBJ_FILES = $(MAIN_SOURCE_FILES:%.c=$(BUILD_DIR)/%.o)
+MAIN_OBJ_FILES = $(MAIN_SOURCE_FILES:%.c=$(ISERE_BUILD_DIR)/%.o)
 
-${BIN}: ${OBJ_FILES} ${MAIN_OBJ_FILES}
+${ISERE_BIN}: ${OBJ_FILES} ${MAIN_OBJ_FILES}
 	-mkdir -p ${@D}
 	$(CC) $^ ${LDFLAGS} -o $@
 
-${BUILD_DIR}/%.o: %.c
+${ISERE_BUILD_DIR}/%.o: %.c
 	-mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -MMD -c $< -o $@
 
@@ -72,11 +75,12 @@ TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/CppUTest/*.cpp)
 TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/CppUTestExt/*.cpp)
 TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/Platforms/Gcc/*.cpp)
 
-TEST_OBJ_FILES += $(TEST_SOURCE_FILES:%.cpp=$(TEST_BUILD_DIR)/%.o)
+TEST_OBJ_FILES := $(TEST_SOURCE_FILES:%.cpp=$(TEST_BUILD_DIR)/%.o)
 
-tests: ${OBJ_FILES} ${TEST_OBJ_FILES}
+${TEST_BIN}: ${OBJ_FILES} ${TEST_OBJ_FILES}
+	$(MAKE) testjs
 	-mkdir -p ${@D}
-	$(CPP) $^ ${LDFLAGS} -o ./test
+	$(CPP) $^ ${LDFLAGS} -o $@
 
 ${TEST_BUILD_DIR}/%.o: %.cpp
 	-mkdir -p $(@D)
@@ -86,17 +90,24 @@ ${TEST_BUILD_DIR}/%.o: %.cpp
 
 llhttp:
 	cd $(LLHTTP_DIR) && npm install
-	cd $(LLHTTP_DIR) && make
+	cd $(LLHTTP_DIR) && $(MAKE)
 
 cpputest:
 	cd $(CPPUTEST_DIR) && autoreconf . -i
 	cd $(CPPUTEST_DIR) && ./configure
-	cd $(CPPUTEST_DIR) && make
+	cd $(CPPUTEST_DIR) && $(MAKE)
 
 quickjs:
 	mkdir -p $(QUICKJS_DIR)/include
 	cp $(QUICKJS_DIR)/*.h $(QUICKJS_DIR)/include
 
+testjs:
+	cd ./tests/js && $(MAKE)
+
 clean:
-	rm -rf $(BUILD_DIR)
-	rm $(BIN)
+	rm ./tests/js/*.c
+	rm ./tests/js/*.so
+	rm -rf $(TEST_BUILD_DIR)
+	rm $(TEST_BIN)
+	rm -rf $(ISERE_BUILD_DIR)
+	rm $(ISERE_BIN)
