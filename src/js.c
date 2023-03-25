@@ -53,6 +53,10 @@ int js_init(isere_t *isere, isere_js_t *js)
 {
   __isere = isere;
 
+  if (isere->logger == NULL) {
+    return -1;
+  }
+
   if (js->runtime != NULL || js->context != NULL) {
     __isere->logger->error("[%s] QuickJS runtime and context already initialized", ISERE_JS_LOG_TAG);
     return -1;
@@ -193,22 +197,39 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
 int js_eval(isere_js_t *js)
 {
-  const char *eval = "import { handler } from 'handler';\n"
-    "handler(event, context).then(cb);";
+  JSValue global_obj = JS_GetGlobalObject(js->context);
+
+  // create `event` object if undefined
+  JSValue event = JS_GetPropertyStr(js->context, global_obj, "event");
+  if (JS_IsUndefined(event)) {
+    JS_SetPropertyStr(js->context, global_obj, "event", JS_NewObject(js->context));
+  }
+  JS_FreeValue(js->context, event);
+
+  // create `context` object if undefined
+  JSValue context = JS_GetPropertyStr(js->context, global_obj, "context");
+  if (JS_IsUndefined(context)) {
+    JS_SetPropertyStr(js->context, global_obj, "context", JS_NewObject(js->context));
+  }
+  JS_FreeValue(js->context, context);
+
+  // add callback for getting the result
+  JS_SetPropertyStr(js->context, global_obj, "cb", JS_NewCFunction(js->context, __handler_cb, "cb", 1));
+  JS_FreeValue(js->context, global_obj);
+
+  const char *eval = 
+    "import { handler } from 'handler';\n"
+    "Promise.resolve(handler(event, context)).then(cb);";
 
   JSValue val = JS_Eval(js->context, (const char *)__isere->loader->fn, __isere->loader->fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
   if (JS_IsException(val)) {
     // TODO: error goes to logger
+    js_std_dump_error(js->context);
     JS_FreeValue(js->context, val);
     return -1;
   }
 
   js_module_set_import_meta(js->context, val, 0, 0);
-
-  // add callback for getting the result
-  JSValue global_obj = JS_GetGlobalObject(js->context);
-  JS_SetPropertyStr(js->context, global_obj, "cb", JS_NewCFunction(js->context, __handler_cb, "cb", 1));
-  JS_FreeValue(js->context, global_obj);
 
   val = JS_Eval(js->context, eval, strlen(eval), "<cmdline>", JS_EVAL_TYPE_MODULE);
   if (JS_IsException(val)) {

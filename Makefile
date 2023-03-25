@@ -105,7 +105,8 @@ testjs:
 	cd ./tests/js && $(MAKE)
 
 clean:
-	rm ./tests/js/*.c
+# TODO: wait for xxd 2.9.0 to become stable
+# rm ./tests/js/*.c
 	rm ./tests/js/*.so
 	rm -rf $(TEST_BUILD_DIR)
 	rm $(TEST_BIN)
