@@ -24,4 +24,4 @@ jobs:
         run: make -j test
 
       - name: Run tests
-        run: ./test
+        run: ./test -v
