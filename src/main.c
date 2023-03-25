@@ -66,9 +66,11 @@ int main(void)
 {
   // create isere instance
   isere_t isere;
+  memset(&isere, 0, sizeof(isere_t));
 
   // initialize logger module
   isere_logger_t logger;
+  memset(&logger, 0, sizeof(isere_logger_t));
   if (logger_init(&isere, &logger) < 0) {
     fprintf(stderr, "Unable to initialize logger module");
     goto exit;
@@ -78,7 +80,7 @@ int main(void)
   // dynamically loading javascript serverless handler
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
-  if (loader_init(&isere, &loader) < 0) {
+  if (loader_init(&isere, &loader, ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH) < 0) {
     logger.error("Unable to initialize loader module");
     goto cleanup1;
   }

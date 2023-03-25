@@ -21,7 +21,7 @@ INCLUDE_DIRS += -I${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils
 # INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/include/private
 # INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include
 # INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include/portable
-INCLUDE_DIRS += -I${QUICKJS_DIR}
+INCLUDE_DIRS += -I${QUICKJS_DIR}/include
 # INCLUDE_DIRS += -I${LWIP_DIR}/src/include
 INCLUDE_DIRS += -I${LLHTTP_DIR}/build
 
@@ -66,9 +66,10 @@ ${BUILD_DIR}/%.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -MMD -c $< -o $@
 
 # building the test executable
-TEST_INCLUDE_DIRS = -I${CPPUTEST_DIR}/include
+TEST_INCLUDE_DIRS := -I${CPPUTEST_DIR}/include
 TEST_SOURCE_FILES := $(wildcard tests/*.cpp)
 TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/CppUTest/*.cpp)
+TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/CppUTestExt/*.cpp)
 TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/Platforms/Gcc/*.cpp)
 
 TEST_OBJ_FILES += $(TEST_SOURCE_FILES:%.cpp=$(TEST_BUILD_DIR)/%.o)
@@ -79,7 +80,7 @@ tests: ${OBJ_FILES} ${TEST_OBJ_FILES}
 
 ${TEST_BUILD_DIR}/%.o: %.cpp
 	-mkdir -p $(@D)
-	$(CPP) $(CPPFLAGS) $(TEST_INCLUDE_DIRS) -MMD -c $< -o $@
+	$(CPP) $(CPPFLAGS) $(INCLUDE_DIRS) $(TEST_INCLUDE_DIRS) -MMD -c $< -o $@
 
 .PHONY: clean
 
@@ -91,6 +92,10 @@ cpputest:
 	cd $(CPPUTEST_DIR) && autoreconf . -i
 	cd $(CPPUTEST_DIR) && ./configure
 	cd $(CPPUTEST_DIR) && make
+
+quickjs:
+	mkdir -p $(QUICKJS_DIR)/include
+	cp $(QUICKJS_DIR)/*.h $(QUICKJS_DIR)/include
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -11,16 +11,25 @@ static uint8_t *loader_get_fn(isere_loader_t *loader, uint32_t *size)
   return (uint8_t *)(dlsym(loader->dll, ISERE_LOADER_HANDLER_FUNCTION));
 }
 
-int loader_init(isere_t *isere, isere_loader_t *loader)
+int loader_init(isere_t *isere, isere_loader_t *loader, const char *dll_path)
 {
   __isere = isere;
+
+  if (isere->logger == NULL) {
+    return -1;
+  }
 
   if (loader->dll != NULL || loader->fn != NULL) {
     __isere->logger->error("[%s] loader already initialized", ISERE_LOADER_LOG_TAG);
     return -1;
   }
 
-  loader->dll = dlopen(ISERE_LOADER_HANDLER_FILEPATH, RTLD_LAZY);
+  if (dll_path == NULL) {
+    __isere->logger->error("[%s] dll_path is NULL", ISERE_LOADER_LOG_TAG);
+    return -1;
+  }
+
+  loader->dll = dlopen(dll_path, RTLD_LAZY);
   if (!loader->dll) {
     loader->dll = NULL;
     __isere->logger->error("[%s] dlopen() error: %s", ISERE_LOADER_LOG_TAG, dlerror());

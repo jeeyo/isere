@@ -2,6 +2,8 @@
 
 A serverless platform aimed to be running on Microcontrollers
 
+The goal is to create a low-power serverless platform that can handle simple stateless request like logging in which will require accessing to database and create JWT token
+
 ### Current progress
 
 - [x] FreeRTOS as Kernel
@@ -13,9 +15,13 @@ A serverless platform aimed to be running on Microcontrollers
 - [ ] Integration tests on CI
 - [ ] Proper HTTP server
 - [ ] Port (some) node-like APIs
+  - [ ] net
+  - [ ] crypto
+  - [ ] fs
+- [ ] QuickJS Project Template
 - [ ] Low-power mode
 - [ ] Benchmark
-- [ ] Port to Raspberry Pi Pico (RP2040) (FreeRTOS-POSIX + LwIP)
+- [ ] Port to Raspberry Pi Pico (RP2040) (LittleFs + FreeRTOS-POSIX + LwIP)
 - [ ] Port to ESP32?
 - [ ] MicroPython?
 
