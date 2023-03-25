@@ -2,6 +2,7 @@
 .DS_Store
 *.so
 build/
-tests/js/*.c
+# TODO: wait for xxd 2.9.0 to become stable
+# tests/js/*.c
 isere
 test

@@ -13,8 +13,9 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y xxd
+      # TODO: wait for xxd 2.9.0 to become stable
+      # - name: Install dependencies
+      #   run: sudo apt-get update && sudo apt-get install -y xxd
 
       - name: Build dependencies
         run: make -j quickjs && make -j llhttp && make -j cpputest
