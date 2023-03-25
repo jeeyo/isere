@@ -15,7 +15,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Build dependencies
-        run: make -j quickjs
+        run: make -j quickjs && make -j llhttp && make -j cpputest
 
       - name: Build test executable
         run: make -j tests
