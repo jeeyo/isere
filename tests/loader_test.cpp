@@ -1,5 +1,7 @@
 #include "CppUTest/TestHarness.h"
 
+#include <cstring>
+
 #include "isere.h"
 #include "loader.h"
 
