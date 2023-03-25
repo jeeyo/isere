@@ -8,18 +8,21 @@ The goal is to create a low-power serverless platform that can handle simple sta
 
 - [x] FreeRTOS as Kernel
 - [x] QuickJS as JavaScript runtime
-- [x] (single-user) HTTP server
-- [ ] SIGINT handler for proper shutdown
-- [ ] Unit tests
+- [x] HTTP server
+  - [ ] Event Loop
+- [x] Unit tests
   - [x] loader
   - [x] js
   - [ ] httpd
   - [ ] logger
 - [x] Unit tests on CI
+- [ ] File System Abstraction
+- [ ] OTA
+  - [ ] Update JS Function DLL
+  - [ ] Configuration
 - [ ] Integration tests
 - [ ] Integration tests on CI
-- [ ] Proper HTTP server
-- [ ] Port (some) node-like APIs
+- [ ] Node-like APIs
   - [ ] net
   - [ ] crypto
   - [ ] fs
@@ -71,6 +74,6 @@ feel free to try modify `examples/echo.esm.js` (don't forget to recompile it)
 
 ```sh
 make -j cpputest
-make tests
+make test
 ./test
 ```

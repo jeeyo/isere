@@ -44,8 +44,13 @@ typedef struct {
 } isere_js_t;
 
 typedef struct {
+  int server_fd;
+} isere_httpd_t;
+
+typedef struct {
   isere_logger_t *logger;
   isere_loader_t *loader;
+  isere_httpd_t *httpd;
 } isere_t;
 
 #ifdef __cplusplus

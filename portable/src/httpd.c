@@ -18,8 +18,6 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#include "llhttp.h"
-
 // #include "lwip/err.h"
 // #include "lwip/errno.h"
 // #include "lwip/sockets.h"
@@ -27,32 +25,14 @@
 // #include "lwip/netdb.h"
 
 static isere_t *__isere = NULL;
-static llhttp_t __llhttp;
-static llhttp_settings_t __llhttp_settings;
-
-struct __parsing_state {
-  size_t method_len;
-  size_t path_len;
-  size_t header_name_len[ISERE_HTTPD_MAX_HTTP_HEADERS];
-  uint32_t current_header_name_index;
-  size_t header_value_len[ISERE_HTTPD_MAX_HTTP_HEADERS];
-  uint32_t current_header_value_index;
-  size_t body_len;
-
-  int method_complete;
-  int path_complete;
-  int headers_complete;
-  int body_complete;
-} __state;
-
-static char __method[ISERE_HTTPD_MAX_HTTP_METHOD_LEN];
-static char __path[ISERE_HTTPD_MAX_HTTP_PATH_LEN];
-static httpd_header_t __headers[ISERE_HTTPD_MAX_HTTP_HEADERS];
+static isere_httpd_connection_t __conns[ISERE_HTTPD_MAX_CONNECTIONS];
 
 static int __on_method(llhttp_t *parser, const char *at, size_t length)
 {
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+
   // boundary check
-  size_t *current_length = &__state.method_len;
+  size_t *current_length = &conn->method_len;
   size_t available = ISERE_HTTPD_MAX_HTTP_METHOD_LEN - *current_length - 1;
 
   if (length > available) {
@@ -63,21 +43,24 @@ static int __on_method(llhttp_t *parser, const char *at, size_t length)
     return 0;
   }
 
-  strncpy(__method + *current_length, at, length);
+  strncpy(conn->method + *current_length, at, length);
   *current_length += length;
   return 0;
 }
 
 static int __on_method_complete(llhttp_t *parser)
 {
-  __state.method_complete = 1;
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+  conn->method_complete = 1;
   return 0;
 }
 
 static int __on_url(llhttp_t *parser, const char *at, size_t length)
 {
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+
   // boundary check
-  size_t *current_length = &__state.path_len;
+  size_t *current_length = &conn->path_len;
   size_t available = ISERE_HTTPD_MAX_HTTP_PATH_LEN - *current_length - 1;
 
   if (length > available) {
@@ -88,23 +71,26 @@ static int __on_url(llhttp_t *parser, const char *at, size_t length)
     return 0;
   }
 
-  strncpy(__path + *current_length, at, length);
+  strncpy(conn->path + *current_length, at, length);
   *current_length += length;
   return 0;
 }
 
 static int __on_url_complete(llhttp_t *parser)
 {
-  __state.path_complete = 1;
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+  conn->path_complete = 1;
   return 0;
 }
 
 static int __on_header_field(llhttp_t *parser, const char *at, size_t length)
 {
-  if (__state.current_header_name_index < ISERE_HTTPD_MAX_HTTP_HEADERS) {
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+
+  if (conn->current_header_name_index < ISERE_HTTPD_MAX_HTTP_HEADERS) {
 
     // boundary check
-    size_t *current_length = &__state.header_name_len[__state.current_header_name_index];
+    size_t *current_length = &conn->header_name_len[conn->current_header_name_index];
     size_t available = ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN - *current_length - 1;
 
     if (length > available) {
@@ -115,7 +101,7 @@ static int __on_header_field(llhttp_t *parser, const char *at, size_t length)
       return 0;
     }
 
-    strncpy(__headers[__state.current_header_name_index].name + *current_length, at, length);
+    strncpy(conn->headers[conn->current_header_name_index].name + *current_length, at, length);
     *current_length += length;
   }
 
@@ -124,10 +110,12 @@ static int __on_header_field(llhttp_t *parser, const char *at, size_t length)
 
 static int __on_header_field_complete(llhttp_t *parser)
 {
-  if (__state.current_header_name_index < ISERE_HTTPD_MAX_HTTP_HEADERS) {
-    size_t *current_length = &__state.header_name_len[__state.current_header_name_index];
-    __headers[__state.current_header_name_index].name[*current_length] = '\0';
-    __state.current_header_name_index++;
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+
+  if (conn->current_header_name_index < ISERE_HTTPD_MAX_HTTP_HEADERS) {
+    size_t *current_length = &conn->header_name_len[conn->current_header_name_index];
+    conn->headers[conn->current_header_name_index].name[*current_length] = '\0';
+    conn->current_header_name_index++;
   }
 
   return 0;
@@ -135,10 +123,12 @@ static int __on_header_field_complete(llhttp_t *parser)
 
 static int __on_header_value(llhttp_t *parser, const char *at, size_t length)
 {
-  if (__state.current_header_value_index < ISERE_HTTPD_MAX_HTTP_HEADERS) {
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+
+  if (conn->current_header_value_index < ISERE_HTTPD_MAX_HTTP_HEADERS) {
 
     // boundary check
-    size_t *current_length = &__state.header_value_len[__state.current_header_value_index];
+    size_t *current_length = &conn->header_value_len[conn->current_header_value_index];
     size_t available = ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN - *current_length - 1;
 
     if (length > available) {
@@ -149,7 +139,7 @@ static int __on_header_value(llhttp_t *parser, const char *at, size_t length)
       return 0;
     }
 
-    strncpy(__headers[__state.current_header_value_index].value + *current_length, at, length);
+    strncpy(conn->headers[conn->current_header_value_index].value + *current_length, at, length);
     *current_length += length;
   }
 
@@ -158,10 +148,12 @@ static int __on_header_value(llhttp_t *parser, const char *at, size_t length)
 
 static int __on_header_value_complete(llhttp_t *parser)
 {
-  if (__state.current_header_value_index < ISERE_HTTPD_MAX_HTTP_HEADERS) {
-    size_t *current_length = &__state.header_value_len[__state.current_header_value_index];
-    __headers[__state.current_header_value_index].value[*current_length] = '\0';
-    __state.current_header_value_index++;
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+
+  if (conn->current_header_value_index < ISERE_HTTPD_MAX_HTTP_HEADERS) {
+    size_t *current_length = &conn->header_value_len[conn->current_header_value_index];
+    conn->headers[conn->current_header_value_index].value[*current_length] = '\0';
+    conn->current_header_value_index++;
   }
 
   return 0;
@@ -169,40 +161,47 @@ static int __on_header_value_complete(llhttp_t *parser)
 
 static int __on_headers_complete(llhttp_t *parser)
 {
-  __state.headers_complete = 1;
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+  conn->headers_complete = 1;
   return 0;
 }
 
-int httpd_init(isere_t *isere)
+int httpd_init(isere_t *isere, isere_httpd_t *httpd)
 {
   __isere = isere;
+
+  for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
+    memset(&__conns[i], 0, sizeof(isere_httpd_connection_t));
+    __conns[i].fd = -1;
+  }
+
   return 0;
 }
 
-int httpd_deinit(int fd)
+int httpd_deinit(isere_httpd_t *httpd)
 {
   if (__isere) {
     __isere = NULL;
   }
 
-  // close(fd);
+  close(httpd->server_fd);
   return 0;
 }
 
-static int __httpd_read_and_parse(int sock)
+static int __httpd_read_and_parse(isere_httpd_connection_t *conn)
 {
   char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
 
   for(;;) {
 
-    if (__state.method_complete && __state.path_complete && __state.headers_complete) {
+    if (conn->method_complete && conn->path_complete && conn->headers_complete) {
       break;
     }
 
     // clear line buffer
     memset(linebuf, 0, sizeof(linebuf));
 
-    int len = recv(sock, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN, 0);
+    int len = recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN, 0);
     if (len < 0) {
 
       if (errno == EINTR) {
@@ -218,9 +217,9 @@ static int __httpd_read_and_parse(int sock)
       return 0;
     }
 
-    enum llhttp_errno err = llhttp_execute(&__llhttp, linebuf, len);
+    enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
     if (err != HPE_OK) {
-      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), __llhttp.reason);
+      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
       return -1;
     }
   }
@@ -228,19 +227,32 @@ static int __httpd_read_and_parse(int sock)
   return 0;
 }
 
+static isere_httpd_connection_t *__httpd_get_first_unoccupied_connection()
+{
+  for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
+    if (__conns[i].fd == -1) {
+      return &__conns[i];
+    }
+  }
+
+  return NULL;
+}
+
 void httpd_task(void *params)
 {
-  httpd_handler_t *handler = (httpd_handler_t *)params;
+  httpd_task_params_t *task_params = (httpd_task_params_t *)params;
+  isere_httpd_t *httpd = task_params->httpd;
+  httpd_handler_t *handler = task_params->handler;
 
-  int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-  if (listen_sock < 0) {
+  httpd->server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  if (httpd->server_fd < 0) {
     __isere->logger->error(ISERE_HTTPD_LOG_TAG, "socket() error: %s", strerror(errno));
     vTaskDelete(NULL);
     return;
   }
 
   // int opt = 1;
-  // setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+  // setsockopt(httpd->server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
   struct sockaddr_in dest_addr;
   bzero(&dest_addr, sizeof(dest_addr));
@@ -248,13 +260,13 @@ void httpd_task(void *params)
   dest_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   dest_addr.sin_port = htons(ISERE_HTTPD_PORT);
 
-  int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+  int err = bind(httpd->server_fd, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {
     __isere->logger->error(ISERE_HTTPD_LOG_TAG, "bind() error: %s", strerror(errno));
     goto cleanup;
   }
 
-  err = listen(listen_sock, 1);
+  err = listen(httpd->server_fd, 1);
   if (err != 0) {
     __isere->logger->error(ISERE_HTTPD_LOG_TAG, "listen() error: %s", strerror(errno));
     goto cleanup;
@@ -264,59 +276,67 @@ void httpd_task(void *params)
 
   for (;;) {
 
-    // accept connection
-    struct sockaddr_in source_addr;
-    socklen_t addr_len = sizeof(source_addr);
-    int sock = -1;
-
-    sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
-    if (sock < 0 && errno == EINTR) {
+    isere_httpd_connection_t *conn = __httpd_get_first_unoccupied_connection();
+    if (!conn) {
+      vTaskDelay(50 / portTICK_PERIOD_MS);
       continue;
     }
 
-    if (sock < 0) {
+    // accept connection
+    struct sockaddr_in source_addr;
+    socklen_t addr_len = sizeof(source_addr);
+
+    conn->fd = accept(httpd->server_fd, (struct sockaddr *)&source_addr, &addr_len);
+    if (conn->fd < 0 && errno == EINTR) {
+      continue;
+    }
+
+    if (conn->fd < 0) {
       __isere->logger->error(ISERE_HTTPD_LOG_TAG, "accept() error: %s (%d)", strerror(errno));
-      break;
+      continue;
     }
 
     // disable tcp keepalive
     int keep_alive = 0;
-    setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
+    setsockopt(conn->fd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
 
     // initialize llhttp
-    llhttp_settings_init(&__llhttp_settings);
-    __llhttp_settings.on_method = __on_method;
-    __llhttp_settings.on_url = __on_url;
-    __llhttp_settings.on_url_complete = __on_url_complete;
-    __llhttp_settings.on_method_complete = __on_method_complete;
-    __llhttp_settings.on_header_field = __on_header_field;
-    __llhttp_settings.on_header_value = __on_header_value;
-    __llhttp_settings.on_header_field_complete = __on_header_field_complete;
-    __llhttp_settings.on_header_value_complete = __on_header_value_complete;
-    __llhttp_settings.on_headers_complete = __on_headers_complete;
+    llhttp_settings_init(&conn->llhttp_settings);
+    conn->llhttp_settings.on_method = __on_method;
+    conn->llhttp_settings.on_url = __on_url;
+    conn->llhttp_settings.on_url_complete = __on_url_complete;
+    conn->llhttp_settings.on_method_complete = __on_method_complete;
+    conn->llhttp_settings.on_header_field = __on_header_field;
+    conn->llhttp_settings.on_header_value = __on_header_value;
+    conn->llhttp_settings.on_header_field_complete = __on_header_field_complete;
+    conn->llhttp_settings.on_header_value_complete = __on_header_value_complete;
+    conn->llhttp_settings.on_headers_complete = __on_headers_complete;
     // __llhttp_settings.on_body = __on_body;
     // __llhttp_settings.on_message_complete = handle_on_message_complete;
-    llhttp_init(&__llhttp, HTTP_REQUEST, &__llhttp_settings);
+    llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
+    conn->llhttp.data = (void *)conn;
 
     // convert ip address to string
     __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Received connection from %s", inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr));
 
     // read and parse http request
-    memset(&__state, 0, sizeof(__state));
-    memset(__method, 0, sizeof(__method));
-    memset(__headers, 0, sizeof(__headers));
-    __httpd_read_and_parse(sock);
-    llhttp_finish(&__llhttp);
+    __httpd_read_and_parse(conn);
+    llhttp_finish(&conn->llhttp);
 
-    uint32_t nbr_of_headers = MIN(__state.current_header_name_index, __state.current_header_value_index);
-    handler(__isere, __method, __path, __headers, nbr_of_headers);
+    uint32_t nbr_of_headers = MIN(conn->current_header_name_index, conn->current_header_value_index);
+    handler(__isere, conn->method, conn->path, conn->headers, nbr_of_headers);
 
     const char *buf = "HTTP/1.1 200 OK\r\n\r\nTest\r\n\r\n";
-    write(sock, buf, strlen(buf));
-    close(sock);
+    write(conn->fd, buf, strlen(buf));
+
+    // cleanup client socket
+    memset(&conn->llhttp_settings, 0, sizeof(llhttp_settings_t));
+    close(conn->fd);
   }
 
 cleanup:
-  close(listen_sock);
+  close(httpd->server_fd);
+  httpd->server_fd = -1;
+
   vTaskDelete(NULL);
 }

@@ -89,19 +89,32 @@ int main(void)
   isere.loader = &loader;
 
   // initialize web server module
-  httpd_init(&isere);
+  isere_httpd_t httpd;
+  memset(&httpd, 0, sizeof(isere_httpd_t));
+  if (httpd_init(&isere, &httpd) < 0) {
+    logger.error(ISERE_LOG_TAG, "Unable to initialize httpd module");
+    goto cleanup2;
+  }
+  isere.httpd = &httpd;
+
+  httpd_task_params_t httpd_params;
+  memset(&httpd_params, 0, sizeof(httpd_task_params_t));
+  httpd_params.httpd = &httpd;
+  httpd_params.handler = &__http_handler;
 
   // start web server task
   TaskHandle_t httpd_task_handle;
-  if (xTaskCreate(httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&__http_handler, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
+  if (xTaskCreate(httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
     logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
-    goto cleanup2;
+    goto cleanup3;
   }
 
   // start FreeRTOS scheduler
   vTaskStartScheduler();
 
   // cleanup
+cleanup3:
+  httpd_deinit(&httpd);
 cleanup2:
   loader_deinit(&loader);
 cleanup1:

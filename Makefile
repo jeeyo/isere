@@ -106,9 +106,9 @@ testjs:
 
 clean:
 # TODO: wait for xxd 2.9.0 to become stable
-# rm ./tests/js/*.c
-	rm ./tests/js/*.so
+# rm -f ./tests/js/*.c
+	rm -f ./tests/js/*.so
 	rm -rf $(TEST_BUILD_DIR)
-	rm $(TEST_BIN)
+	rm -f $(TEST_BIN)
 	rm -rf $(ISERE_BUILD_DIR)
-	rm $(ISERE_BIN)
+	rm -f $(ISERE_BIN)
