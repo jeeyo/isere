@@ -159,36 +159,42 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
   JSValueConst resp = argv[0];
 
-  // TODO: get headers
-
-  // get body
-  JSValue val = JS_GetPropertyStr(ctx, resp, BODY_PROP_NAME);
-  if (JS_IsException(val)) {
-    __isere->logger->error(ISERE_JS_LOG_TAG, "failed to get response body");
-    JS_FreeValue(ctx, val);
-    return JS_EXCEPTION;
+  // sanity check status code
+  JSValue statusCode = JS_GetPropertyStr(ctx, resp, STATUS_CODE_PROP_NAME);
+  if (JS_IsException(statusCode) || !JS_IsNumber(statusCode)) {
+    JS_SetPropertyStr(ctx, resp, STATUS_CODE_PROP_NAME, JS_NewInt32(ctx, 200));
   }
 
-  // if body is undefined, set it to empty string
-  if (JS_IsUndefined(val)) {
+  // sanity check headers
+  JSValue headers = JS_GetPropertyStr(ctx, resp, HEADERS_PROP_NAME);
+  if (JS_IsException(headers) || !JS_IsObject(headers)) {
+    JS_SetPropertyStr(ctx, resp, HEADERS_PROP_NAME, JS_NewObject(ctx));
+  }
+  JS_FreeValue(ctx, headers);
+
+  // sanity check body
+  JSValue body = JS_GetPropertyStr(ctx, resp, BODY_PROP_NAME);
+  if (JS_IsException(body) || (!JS_IsString(body) && !JS_IsObject(body))) {
     JS_SetPropertyStr(ctx, resp, BODY_PROP_NAME, JS_NewString(ctx, ""));
   }
 
-  // TODO: set content-type to application/json if body is object
-  if (JS_IsObject(val)) {
-    //
+  // set content-type to application/json if body is object
+  if (JS_IsObject(body)) {
+    JSValue headers = JS_GetPropertyStr(ctx, resp, HEADERS_PROP_NAME);
+    JS_SetPropertyStr(ctx, headers, "Content-Type", JS_NewString(ctx, "application/json"));
+    JS_FreeValue(ctx, headers);
   }
+  JS_FreeValue(ctx, body);
 
-  // convert body to C string
-  size_t len;
-  const char *str = JS_ToCStringLen(ctx, &len, val);
-  JS_FreeValue(ctx, val);
-  if (!str) {
-    __isere->logger->error(ISERE_JS_LOG_TAG, "unable to convert body to native string");
-    return JS_EXCEPTION;
-  }
+  // // convert body to C string
+  // size_t len;
+  // const char *str = JS_ToCStringLen(ctx, &len, body);
+  // if (!str) {
+  //   __isere->logger->error(ISERE_JS_LOG_TAG, "unable to convert body to native string");
+  //   return JS_EXCEPTION;
+  // }
 
-  __isere->logger->debug(ISERE_JS_LOG_TAG, "handler response: %.*s\n", len, str);
+  // __isere->logger->debug(ISERE_JS_LOG_TAG, "handler response: %.*s\n", len, str);
 
   return JS_UNDEFINED;
 }

@@ -16,17 +16,20 @@
 
 #define ISERE_LOG_TAG "isere"
 
-static int __http_handler(isere_t *isere, const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len)
+static int __http_handler(isere_t *isere, const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len, const char *body)
 {
+  // TODO: parse url path and check if it matches a route
+
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
   if (js_init(isere, &js) < 0) {
-    isere->logger->error(ISERE_LOG_TAG, "Unable to initialize javascript module");
+    isere->logger->error(ISERE_LOG_TAG, "Unable to initialize JavaScript module");
     return -1;
   }
 
   // populate params
   JSValue global_obj = JS_GetGlobalObject(js.context);
+
   // TODO: add `event` object: https://aws-lambda-for-python-developers.readthedocs.io/en/latest/02_event_and_context/
   JSValue event = JS_NewObject(js.context);
   JS_SetPropertyStr(js.context, event, "httpMethod", JS_NewString(js.context, method));
@@ -39,7 +42,14 @@ static int __http_handler(isere_t *isere, const char *method, const char *path, 
   JS_SetPropertyStr(js.context, event, "headers", headers);
   // TODO: multi-value headers
   // TODO: query string params
-  JS_SetPropertyStr(js.context, event, "body", JS_NULL);
+
+  // TODO: check `Content-Type: application/json`
+  JS_SetPropertyStr(js.context, global_obj, "__body", JS_NewString(js.context, body));
+  const char *stringify = "try { JSON.parse(__body); } catch(e) { __body }";
+  JSValue stringifiedBody = JS_Eval(js.context, stringify, strlen(stringify), "stringifyBody", JS_EVAL_TYPE_GLOBAL);
+
+  JS_SetPropertyStr(js.context, event, "body", stringifiedBody);
+  // TODO: binary body
   JS_SetPropertyStr(js.context, event, "isBase64Encoded", JS_FALSE);
   JS_SetPropertyStr(js.context, global_obj, "event", event);
 

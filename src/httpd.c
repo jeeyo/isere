@@ -166,6 +166,34 @@ static int __on_headers_complete(llhttp_t *parser)
   return 0;
 }
 
+static int __on_body(llhttp_t *parser, const char *at, size_t length)
+{
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+
+  // boundary check
+  size_t *current_length = &conn->body_len;
+  size_t available = ISERE_HTTPD_MAX_HTTP_BODY_LEN - *current_length - 1;
+
+  if (length > available) {
+    length = available;
+  }
+
+  if (length == 0) {
+    return 0;
+  }
+
+  strncpy(conn->body + *current_length, at, length);
+  *current_length += length;
+  return 0;
+}
+
+static int handle_on_message_complete(llhttp_t *parser)
+{
+  isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+  conn->body_complete = 1;
+  return 0;
+}
+
 int httpd_init(isere_t *isere, isere_httpd_t *httpd)
 {
   __isere = isere;
@@ -194,7 +222,7 @@ static int __httpd_read_and_parse(isere_httpd_connection_t *conn)
 
   for(;;) {
 
-    if (conn->method_complete && conn->path_complete && conn->headers_complete) {
+    if (conn->method_complete && conn->path_complete && conn->headers_complete && conn->body_complete) {
       break;
     }
 
@@ -311,8 +339,8 @@ void httpd_task(void *params)
     conn->llhttp_settings.on_header_field_complete = __on_header_field_complete;
     conn->llhttp_settings.on_header_value_complete = __on_header_value_complete;
     conn->llhttp_settings.on_headers_complete = __on_headers_complete;
-    // __llhttp_settings.on_body = __on_body;
-    // __llhttp_settings.on_message_complete = handle_on_message_complete;
+    conn->llhttp_settings.on_body = __on_body;
+    conn->llhttp_settings.on_message_complete = handle_on_message_complete;
     llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
     conn->llhttp.data = (void *)conn;
 
@@ -320,18 +348,26 @@ void httpd_task(void *params)
     __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Received connection from %s", inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr));
 
     // read and parse http request
-    __httpd_read_and_parse(conn);
+    int ret = __httpd_read_and_parse(conn);
     llhttp_finish(&conn->llhttp);
 
-    uint32_t nbr_of_headers = MIN(conn->current_header_name_index, conn->current_header_value_index);
-    handler(__isere, conn->method, conn->path, conn->headers, nbr_of_headers);
+    if (ret < 0) {
+      const char *buf = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+      write(conn->fd, buf, strlen(buf));
+      goto cleanup_client;
+    }
 
-    const char *buf = "HTTP/1.1 200 OK\r\n\r\nTest\r\n\r\n";
+    uint32_t nbr_of_headers = MIN(conn->current_header_name_index, conn->current_header_value_index);
+    handler(__isere, conn->method, conn->path, conn->headers, nbr_of_headers, conn->body);
+
+    const char *buf = "HTTP/1.1 200\r\n\r\nTest\r\n\r\n";
     write(conn->fd, buf, strlen(buf));
 
-    // cleanup client socket
-    memset(&conn->llhttp_settings, 0, sizeof(llhttp_settings_t));
+// cleanup client socket
+cleanup_client:
     close(conn->fd);
+    memset(conn, 0, sizeof(isere_httpd_connection_t));
+    conn->fd = -1;
   }
 
 cleanup:

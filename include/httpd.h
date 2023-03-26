@@ -22,6 +22,7 @@
 #define ISERE_HTTPD_MAX_HTTP_HEADERS 20
 #define ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN 64
 #define ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN 1024
+#define ISERE_HTTPD_MAX_HTTP_BODY_LEN 2048
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +33,7 @@ typedef struct {
   char value[ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN];
 } httpd_header_t;
 
-typedef int (httpd_handler_t)(isere_t *isere, const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len);
+typedef int (httpd_handler_t)(isere_t *isere, const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len, const char *body);
 
 typedef struct {
 
@@ -60,8 +61,10 @@ typedef struct {
   uint32_t current_header_value_index;
   int headers_complete;
 
-  // size_t body_len;
-  // int body_complete;
+  // HTTP body
+  char body[ISERE_HTTPD_MAX_HTTP_BODY_LEN];
+  size_t body_len;
+  int body_complete;
 } isere_httpd_connection_t;
 
 typedef struct {
