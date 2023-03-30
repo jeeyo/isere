@@ -4,7 +4,11 @@ export const handler = async function(event, context, callback) {
   console.log('## CONTEXT: ' + serialize(context))
   console.log('## EVENT: ' + serialize(event))
 
-  return { hello: 'world' }
+  return {
+    statusCode: 404,
+    headers: { 'Content-Type': 'text/plain' },
+    body: 'Not Found'
+  }
 }
 
 var serialize = function(object) {

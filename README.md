@@ -26,6 +26,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] net
   - [ ] crypto
   - [ ] fs
+- [ ] QuickJS Memory Leak Check
 - [ ] Use less printf()
 - [ ] QuickJS Project Template
 - [ ] Low-power mode

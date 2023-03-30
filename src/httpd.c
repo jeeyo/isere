@@ -358,10 +358,7 @@ void httpd_task(void *params)
     }
 
     uint32_t nbr_of_headers = MIN(conn->current_header_name_index, conn->current_header_value_index);
-    handler(__isere, conn->method, conn->path, conn->headers, nbr_of_headers, conn->body);
-
-    const char *buf = "HTTP/1.1 200\r\n\r\nTest\r\n\r\n";
-    write(conn->fd, buf, strlen(buf));
+    handler(__isere, conn, conn->method, conn->path, conn->headers, nbr_of_headers, conn->body);
 
 // cleanup client socket
 cleanup_client:

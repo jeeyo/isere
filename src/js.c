@@ -98,6 +98,7 @@ int js_init(isere_t *isere, isere_js_t *js)
   JS_SetPropertyStr(js->context, console, "error", JS_NewCFunction(js->context, __console_error, "error", 1));
   JS_SetPropertyStr(js->context, global_obj, "console", console);
 
+  // TODO: environment variables
   // add process.env
   JSValue process = JS_NewObject(js->context);
   JSValue env = JS_NewObject(js->context);
@@ -142,11 +143,6 @@ int js_deinit(isere_js_t *js)
   ```
 */
 
-#define IS_BASE64_ENCODED_PROP_NAME "isBase64Encoded"
-#define STATUS_CODE_PROP_NAME "statusCode"
-#define HEADERS_PROP_NAME "headers"
-#define BODY_PROP_NAME "body"
-
 static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
   if (__isere == NULL) {
@@ -159,42 +155,39 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
   JSValueConst resp = argv[0];
 
-  // sanity check status code
-  JSValue statusCode = JS_GetPropertyStr(ctx, resp, STATUS_CODE_PROP_NAME);
-  if (JS_IsException(statusCode) || !JS_IsNumber(statusCode)) {
-    JS_SetPropertyStr(ctx, resp, STATUS_CODE_PROP_NAME, JS_NewInt32(ctx, 200));
-  }
+  JSValue global_obj = JS_GetGlobalObject(ctx);
+  // TOOD: check if `resp` is an object
+  JS_SetPropertyStr(ctx, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME, JS_DupValue(ctx, resp));
+  JS_FreeValue(ctx, global_obj);
 
-  // sanity check headers
-  JSValue headers = JS_GetPropertyStr(ctx, resp, HEADERS_PROP_NAME);
-  if (JS_IsException(headers) || !JS_IsObject(headers)) {
-    JS_SetPropertyStr(ctx, resp, HEADERS_PROP_NAME, JS_NewObject(ctx));
-  }
-  JS_FreeValue(ctx, headers);
+  //   // // // add `headers` to response object
+  //   // // JSValue headers = JS_GetPropertyStr(ctx, resp, HEADERS_PROP_NAME);
+  //   // // if (!JS_IsObject(headers)) {
+  //   // //   JS_SetPropertyStr(ctx, response_obj, HEADERS_PROP_NAME, JS_NewObject(ctx));
+  //   // // } else {
+  //   // //   JS_SetPropertyStr(ctx, response_obj, HEADERS_PROP_NAME, headers);
+  //   // // }
+  //   // // JS_FreeValue(ctx, headers);
 
-  // sanity check body
-  JSValue body = JS_GetPropertyStr(ctx, resp, BODY_PROP_NAME);
-  if (JS_IsException(body) || (!JS_IsString(body) && !JS_IsObject(body))) {
-    JS_SetPropertyStr(ctx, resp, BODY_PROP_NAME, JS_NewString(ctx, ""));
-  }
+  //   // // add `body` to response object
+  //   // // JSValue body = JS_GetPropertyStr(ctx, resp, BODY_PROP_NAME);
+  //   // // if (JS_IsException(body) || (!JS_IsString(body) && !JS_IsObject(body))) {
+  //   // //   JS_FreeValue(ctx, body);
+  //   // //   body = JS_NewString(ctx, "");
+  //   // // }
 
-  // set content-type to application/json if body is object
-  if (JS_IsObject(body)) {
-    JSValue headers = JS_GetPropertyStr(ctx, resp, HEADERS_PROP_NAME);
-    JS_SetPropertyStr(ctx, headers, "Content-Type", JS_NewString(ctx, "application/json"));
-    JS_FreeValue(ctx, headers);
-  }
-  JS_FreeValue(ctx, body);
+  //   // // // set content-type to application/json if body is object
+  //   // // if (JS_IsObject(body)) {
+  //   // //   JSValue headers = JS_GetPropertyStr(ctx, resp, HEADERS_PROP_NAME);
+  //   // //   JS_SetPropertyStr(ctx, headers, "Content-Type", JS_NewString(ctx, "application/json"));
+  //   // //   JS_FreeValue(ctx, headers);
+  //   // // }
+  //   // // JS_SetPropertyStr(ctx, response_obj, "body", body);
+  //   // // JS_FreeValue(ctx, body);
 
-  // // convert body to C string
-  // size_t len;
-  // const char *str = JS_ToCStringLen(ctx, &len, body);
-  // if (!str) {
-  //   __isere->logger->error(ISERE_JS_LOG_TAG, "unable to convert body to native string");
-  //   return JS_EXCEPTION;
+  //   JS_SetPropertyStr(ctx, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME, response_obj);
+  //   JS_FreeValue(ctx, global_obj);
   // }
-
-  // __isere->logger->debug(ISERE_JS_LOG_TAG, "handler response: %.*s\n", len, str);
 
   return JS_UNDEFINED;
 }
@@ -245,26 +238,4 @@ int js_eval(isere_js_t *js)
   js_std_loop(js->context);
 
   return 0;
-}
-
-char *js_last_error(isere_js_t *ctx)
-{
-  // // TODO: get last error from quickjs context
-  // if (__qjs_context->rt->current_exception != JS_NULL) {
-  //   JSValue exception_val = JS_GetException(__qjs_context);
-
-  //   if (JS_IsError(__qjs_context, exception_val)) {
-  //     const char *str = JS_ToCString(__qjs_context, exception_val);
-  //     JS_FreeValue(__qjs_context, exception_val);
-
-  //     if (str) {
-  //       return strdup(str);
-  //     }
-
-  //     return "";
-  //   }
-
-  //   JS_FreeValue(__qjs_context, exception_val);
-  // }
-  return "";
 }
