@@ -156,38 +156,8 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   JSValueConst resp = argv[0];
 
   JSValue global_obj = JS_GetGlobalObject(ctx);
-  // TOOD: check if `resp` is an object
   JS_SetPropertyStr(ctx, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME, JS_DupValue(ctx, resp));
   JS_FreeValue(ctx, global_obj);
-
-  //   // // // add `headers` to response object
-  //   // // JSValue headers = JS_GetPropertyStr(ctx, resp, HEADERS_PROP_NAME);
-  //   // // if (!JS_IsObject(headers)) {
-  //   // //   JS_SetPropertyStr(ctx, response_obj, HEADERS_PROP_NAME, JS_NewObject(ctx));
-  //   // // } else {
-  //   // //   JS_SetPropertyStr(ctx, response_obj, HEADERS_PROP_NAME, headers);
-  //   // // }
-  //   // // JS_FreeValue(ctx, headers);
-
-  //   // // add `body` to response object
-  //   // // JSValue body = JS_GetPropertyStr(ctx, resp, BODY_PROP_NAME);
-  //   // // if (JS_IsException(body) || (!JS_IsString(body) && !JS_IsObject(body))) {
-  //   // //   JS_FreeValue(ctx, body);
-  //   // //   body = JS_NewString(ctx, "");
-  //   // // }
-
-  //   // // // set content-type to application/json if body is object
-  //   // // if (JS_IsObject(body)) {
-  //   // //   JSValue headers = JS_GetPropertyStr(ctx, resp, HEADERS_PROP_NAME);
-  //   // //   JS_SetPropertyStr(ctx, headers, "Content-Type", JS_NewString(ctx, "application/json"));
-  //   // //   JS_FreeValue(ctx, headers);
-  //   // // }
-  //   // // JS_SetPropertyStr(ctx, response_obj, "body", body);
-  //   // // JS_FreeValue(ctx, body);
-
-  //   JS_SetPropertyStr(ctx, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME, response_obj);
-  //   JS_FreeValue(ctx, global_obj);
-  // }
 
   return JS_UNDEFINED;
 }

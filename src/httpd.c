@@ -198,6 +198,10 @@ int httpd_init(isere_t *isere, isere_httpd_t *httpd)
 {
   __isere = isere;
 
+  if (isere->logger == NULL) {
+    return -1;
+  }
+
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
     memset(&__conns[i], 0, sizeof(isere_httpd_connection_t));
     __conns[i].fd = -1;

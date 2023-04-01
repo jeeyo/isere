@@ -13,7 +13,6 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [x] Unit tests
   - [x] loader
   - [x] js
-  - [ ] httpd
   - [ ] logger
 - [x] Unit tests on CI
 - [ ] File System Abstraction
@@ -21,6 +20,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] Update JS Function DLL
   - [ ] Configuration
 - [ ] Integration tests
+  - [ ] httpd
 - [ ] Integration tests on CI
 - [ ] Node-like APIs
   - [ ] net

@@ -25,6 +25,7 @@ TEST(JSTest, ShouldReturnErrorWhenLoggerIsNull)
   memset(&js, 0, sizeof(isere_js_t));
 
   int ret = js_init(&isere, &js);
+  js_deinit(&js);
 
   LONGS_EQUAL_TEXT(ret, -1, "js_init() did not return -1 when logger is NULL");
 }
@@ -39,6 +40,7 @@ TEST(JSTest, ShouldReturnErrorWhenLoaderIsAlreadyInitialized)
 
   js_init(&isere, &js);
   int ret = js_init(&isere, &js);
+  js_deinit(&js);
 
   LONGS_EQUAL_TEXT(ret, -1, "js_init() did not return -1 when logger is already initialized");
 }
@@ -53,6 +55,7 @@ TEST(JSTest, ShouldInitializeLoaderSuccessfully)
   memset(&js, 0, sizeof(isere_js_t));
 
   int ret = js_init(&isere, &js);
+  js_deinit(&js);
 
   LONGS_EQUAL_TEXT(ret, 0, "js_init() did not return 0");
 }
@@ -73,10 +76,12 @@ TEST(JSTest, ShouldEvaluateHelloWorldFunctionSuccessfully)
   memset(&js, 0, sizeof(isere_js_t));
 
   int ret = js_init(&isere, &js);
-  LONGS_EQUAL_TEXT(ret, 0, "loader_init() did not return 0");
+  LONGS_EQUAL_TEXT(ret, 0, "js_init() did not return 0");
 
   ret = js_eval(&js);
   LONGS_EQUAL_TEXT(ret, 0, "js_eval() did not return 0");
 
   // TODO: get the result of the function and check it
+
+  js_deinit(&js);
 }
