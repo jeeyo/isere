@@ -7,7 +7,7 @@ export const handler = async function(event, context, callback) {
   return {
     statusCode: 404,
     headers: { 'Content-Type': 'text/plain' },
-    body: 'Not Found'
+    body: { k: 'v' }
   }
 }
 

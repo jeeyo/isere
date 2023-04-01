@@ -46,11 +46,12 @@ static int __http_handler(isere_t *isere, isere_httpd_connection_t *conn, const 
     // TODO: query string params
 
     // TODO: check `Content-Type: application/json`
-    JS_SetPropertyStr(js.context, global_obj, "__body", JS_NewString(js.context, body));
-    const char *stringify = "try { JSON.parse(__body); } catch(e) { __body }";
-    JSValue stringifiedBody = JS_Eval(js.context, stringify, strlen(stringify), "stringifyBody", JS_EVAL_TYPE_GLOBAL);
-    JS_SetPropertyStr(js.context, event, "body", stringifiedBody);
-    JS_FreeValue(js.context, stringifiedBody);
+    JSValue parsedBody = JS_ParseJSON(js.context, body, strlen(body), "<input>");
+    if (!JS_IsObject(parsedBody)) {
+      JS_FreeValue(js.context, parsedBody);
+      parsedBody = JS_NewString(js.context, body);
+    }
+    JS_SetPropertyStr(js.context, event, "body", parsedBody);
 
     // TODO: binary body
     JS_SetPropertyStr(js.context, event, "isBase64Encoded", JS_FALSE);
@@ -75,7 +76,7 @@ static int __http_handler(isere_t *isere, isere_httpd_connection_t *conn, const 
   // evaluate handler function
   js_eval(&js);
 
-  // get response object
+  // write response
   {
     JSValue global_obj = JS_GetGlobalObject(js.context);
     JSValue response_obj = JS_GetPropertyStr(js.context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
@@ -99,7 +100,6 @@ static int __http_handler(isere_t *isere, isere_httpd_connection_t *conn, const 
       JSPropertyEnum *props = NULL;
       uint32_t props_len = 0;
 
-      // TODO: segfault when requested with Postman
       if (JS_GetOwnPropertyNames(js.context, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
 
         for (int i = 0; i < props_len; i++) {
@@ -130,14 +130,31 @@ static int __http_handler(isere_t *isere, isere_httpd_connection_t *conn, const 
     // TODO: `Date`
     const char *server_header = "Server: isere\r\n";
     write(conn->fd, server_header, strlen(server_header));
+    write(conn->fd, "\r\n", 2);
 
-    // TODO: send HTTP response body
+    // send HTTP response body
+    JSValue body = JS_GetPropertyStr(js.context, response_obj, ISERE_JS_RESPONSE_BODY_PROP_NAME);
+    size_t body_len = 0;
+    const char *body_str = NULL;
+
+    if (JS_IsObject(body)) {
+      JSValue stringifiedBody = JS_JSONStringify(js.context, body, JS_UNDEFINED, JS_UNDEFINED);
+      body_str = JS_ToCStringLen(js.context, &body_len, stringifiedBody);
+      JS_FreeValue(js.context, stringifiedBody);
+    } else if (JS_IsString(body)) {
+      body_str = JS_ToCStringLen(js.context, &body_len, body);
+    }
+
+    if (body_str != NULL) {
+      write(conn->fd, body_str, body_len);
+      JS_FreeCString(js.context, body_str);
+    }
+    JS_FreeValue(js.context, body);
 
     JS_FreeValue(js.context, response_obj);
     JS_FreeValue(js.context, global_obj);
 
-    const char *buf = "\r\n\r\nTest\r\n\r\n";
-    write(conn->fd, buf, strlen(buf));
+    write(conn->fd, "\r\n\r\n", 4);
   }
 
   js_deinit(&js);
