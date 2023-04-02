@@ -1,2 +1,3 @@
 build/
+.isere/
 *.so

@@ -1,4 +1,5 @@
 .vscode/
+.isere/
 .DS_Store
 *.so
 build/

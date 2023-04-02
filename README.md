@@ -15,7 +15,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [x] js
   - [ ] logger
 - [x] Unit tests on CI
-- [ ] File System Abstraction
+- [x] File System Abstraction
 - [ ] OTA
   - [ ] Update JS Function DLL
   - [ ] Configuration
@@ -31,7 +31,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [ ] QuickJS Project Template
 - [ ] Low-power mode
 - [ ] Benchmark
-- [ ] Port to Raspberry Pi Pico (RP2040) (LittleFs + FreeRTOS-POSIX + LwIP)
+- [ ] Port to Raspberry Pi Pico (RP2040) (LittleFs + FreeRTOS+POSIX + FreeRTOS+TCP)
 - [ ] Port to ESP32?
 - [ ] MicroPython?
 
