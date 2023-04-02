@@ -13,6 +13,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [x] Unit tests
   - [x] loader
   - [x] js
+  - [ ] httpd
   - [ ] logger
 - [x] Unit tests on CI
 - [x] File System Abstraction
@@ -20,7 +21,6 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] Update JS Function DLL
   - [ ] Configuration
 - [ ] Integration tests
-  - [ ] httpd
 - [ ] Integration tests on CI
 - [ ] Node-like APIs
   - [ ] net
@@ -38,7 +38,6 @@ The goal is to create a low-power serverless platform that can handle simple sta
 ### Limitations
 
 - No Keep-Alive support
-- 1024 byte limit on each header value (please be reminded that this affects your cookie size)
 
 ### Building and Running
 
