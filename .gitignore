@@ -6,4 +6,4 @@ build/
 # TODO: wait for xxd 2.9.0 to become stable
 # tests/js/*.c
 isere
-test
+unittest

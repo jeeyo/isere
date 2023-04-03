@@ -3,7 +3,7 @@ CPP := g++
 MAKE := make
 
 ISERE_BIN := isere
-TEST_BIN := test
+TEST_BIN := unittest
 
 ISERE_BUILD_DIR := ./build
 TEST_BUILD_DIR := ./build/tests

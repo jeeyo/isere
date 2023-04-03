@@ -10,6 +10,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [x] QuickJS as JavaScript runtime
 - [x] HTTP server
   - [ ] Event Loop
+  - [ ] Static Files
 - [x] Unit tests
   - [x] loader
   - [x] js
@@ -38,6 +39,8 @@ The goal is to create a low-power serverless platform that can handle simple sta
 ### Limitations
 
 - No Keep-Alive support
+- JavaScript handler function needs to be stored sequentially and addressible in a Flash memory
+- File system is for storing static files and configuration files
 
 ### Building and Running
 
@@ -74,6 +77,6 @@ feel free to try modify `examples/echo.esm.js` (don't forget to recompile it)
 
 ```sh
 make -j cpputest
-make test
-./test
+make -j unittest
+./unittest
 ```
