@@ -1,0 +1,11 @@
+{
+  "build": { "dockerfile": "./Dockerfile" },
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-vscode.cpptools", "ms-vscode.cpptools-extension-pack", "ms-vscode.cpptools-themes", "ms-vscode.makefile-tools"]
+    }
+  },
+
+  "forwardPorts": [8080]
+}
