@@ -19,6 +19,6 @@
 [submodule "3rdparty/inih"]
 	path = 3rdparty/inih
 	url = https://github.com/benhoyt/inih.git
-[submodule "3rdparty/http-parser"]
-	path = 3rdparty/http-parser
-	url = https://github.com/nodejs/http-parser.git
+[submodule "3rdparty/libyuarel"]
+	path = 3rdparty/libyuarel
+	url = https://github.com/jacketizer/libyuarel.git
