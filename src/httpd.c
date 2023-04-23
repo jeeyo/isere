@@ -79,6 +79,7 @@ static int __on_url(llhttp_t *parser, const char *at, size_t length)
 static int __on_url_complete(llhttp_t *parser)
 {
   isere_httpd_connection_t *conn = (isere_httpd_connection_t *)parser->data;
+  yuarel_parse(&conn->url_parser, conn->path);
   conn->path_complete = 1;
   return 0;
 }
@@ -245,7 +246,6 @@ static int __httpd_read_and_parse(isere_httpd_connection_t *conn)
     }
 
     if (len == 0) {
-      __isere->logger->info(ISERE_HTTPD_LOG_TAG, "recv(): returned zero");
       return 0;
     }
 
@@ -362,7 +362,7 @@ void httpd_task(void *params)
     }
 
     uint32_t nbr_of_headers = MIN(conn->current_header_name_index, conn->current_header_value_index);
-    handler(__isere, conn, conn->method, conn->path, conn->headers, nbr_of_headers, conn->body);
+    handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
 
 // cleanup client socket
 cleanup_client:

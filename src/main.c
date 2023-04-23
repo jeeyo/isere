@@ -17,7 +17,15 @@
 
 #define ISERE_LOG_TAG "isere"
 
-static int __http_handler(isere_t *isere, isere_httpd_connection_t *conn, const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len, const char *body)
+static int __http_handler(
+  isere_t *isere,
+  isere_httpd_connection_t *conn,
+  const char *method,
+  const char *path,
+  const char *query,
+  httpd_header_t *request_headers,
+  uint32_t request_headers_len,
+  const char *body)
 {
   // TODO: parse url path and check if it matches a route
 
@@ -43,7 +51,9 @@ static int __http_handler(isere_t *isere, isere_httpd_connection_t *conn, const 
     }
     JS_SetPropertyStr(js.context, event, "headers", headers);
     // TODO: multi-value headers
+    JS_SetPropertyStr(js.context, event, "query", JS_NewString(js.context, query));
     // TODO: query string params
+    // TODO: multi-value query string params
 
     // TODO: check `Content-Type: application/json`
     JSValue parsedBody = JS_ParseJSON(js.context, body, strlen(body), "<input>");

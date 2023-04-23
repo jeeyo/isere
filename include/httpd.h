@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "llhttp.h"
+#include "yuarel.h"
 // #include "event_groups.h"
 
 #define ISERE_HTTPD_PORT 8080
@@ -40,6 +41,8 @@ typedef struct {
   llhttp_t llhttp;
   llhttp_settings_t llhttp_settings;
 
+  struct yuarel url_parser;
+
   // parser state
   // HTTP method
   char method[ISERE_HTTPD_MAX_HTTP_METHOD_LEN];
@@ -65,7 +68,15 @@ typedef struct {
   int body_complete;
 } isere_httpd_connection_t;
 
-typedef int (httpd_handler_t)(isere_t *isere, isere_httpd_connection_t *conn, const char *method, const char *path, httpd_header_t *request_headers, uint32_t request_headers_len, const char *body);
+typedef int (httpd_handler_t)(
+  isere_t *isere,
+  isere_httpd_connection_t *conn,
+  const char *method,
+  const char *path,
+  const char *query,
+  httpd_header_t *request_headers,
+  uint32_t request_headers_len,
+  const char *body);
 
 typedef struct {
   isere_httpd_t *httpd;

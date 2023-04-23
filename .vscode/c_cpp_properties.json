@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "name": "POSIX",
+            "intelliSenseMode": "gcc-arm64",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/portable/include",
+                "${workspaceFolder}/3rdparty/FreeRTOS/include",
+                "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/Posix",
+                "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/Posix/utils",
+                "${workspaceFolder}/3rdparty/quickjs/include",
+                "${workspaceFolder}/3rdparty/llhttp/build",
+                "${workspaceFolder}/3rdparty/libyuarel",
+                "${workspaceFolder}/3rdparty/cpputest/include",
+                "${workspaceFolder}/include"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c99",
+            "cppStandard": "c++17",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "configurationProvider": "ms-vscode.cpptools"
+        }
+    ],
+    "version": 4
+}
