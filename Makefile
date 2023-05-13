@@ -15,6 +15,7 @@ LWIP_DIR := ./3rdparty/lwip
 LLHTTP_DIR := ./3rdparty/llhttp
 LIBYUAREL_DIR := ./3rdparty/libyuarel
 CPPUTEST_DIR := ./3rdparty/cpputest
+INIH_DIR := ./3rdparty/inih
 
 INCLUDE_DIRS += -I./include
 INCLUDE_DIRS += -I./portable/include
@@ -29,6 +30,7 @@ INCLUDE_DIRS += -I${QUICKJS_DIR}/include
 # INCLUDE_DIRS += -I${LWIP_DIR}/src/include
 INCLUDE_DIRS += -I${LLHTTP_DIR}/build
 INCLUDE_DIRS += -I${LIBYUAREL_DIR}
+INCLUDE_DIRS += -I{INIH_DIR}
 
 SOURCE_FILES := $(filter-out src/main.c, $(wildcard src/*.c))
 SOURCE_FILES += $(wildcard portable/src/*.c)
@@ -56,6 +58,8 @@ SOURCE_FILES += ${LIBYUAREL_DIR}/yuarel.c
 SOURCE_FILES += ${INIH_DIR}/ini.c
 
 QUICKJS_DEFINES := -D_GNU_SOURCE -DCONFIG_BIGNUM -DCONFIG_VERSION=\"$(shell git rev-parse --short HEAD)\"
+INIH_DEFINES := -DINI_ALLOW_MULTILINE=0 -DINI_ALLOW_BOM=0 -DINI_ALLOW_NO_VALUE=1 -DINI_STOP_ON_FIRST_ERROR=1 -DINI_HANDLER_LINENO=1
+# INIH_DEFINES += -DINI_USE_STACK=0
 
 CFLAGS := -ggdb3 ${INIH_DEFINES} ${QUICKJS_DEFINES}
 LDFLAGS := -ggdb3 -pthread -ldl -lm

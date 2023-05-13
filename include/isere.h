@@ -51,6 +51,9 @@ typedef struct {
   void *k;
 } isere_fs_t;
 
+typedef struct {
+  void *k;
+} isere_ini_t;
 
 typedef struct {
   isere_logger_t *logger;
