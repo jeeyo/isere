@@ -40,6 +40,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [ ] Low-power mode
 - [ ] Benchmark
 - [ ] Port to Raspberry Pi Pico (RP2040) (LittleFs + FreeRTOS+POSIX + FreeRTOS+TCP)
+- [ ] Integrate with some Analytics and Monitoring Platforms
 - [ ] Port to ESP32?
 - [ ] MicroPython?
 

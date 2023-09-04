@@ -62,7 +62,7 @@ INIH_DEFINES := -DINI_ALLOW_MULTILINE=0 -DINI_ALLOW_BOM=0 -DINI_ALLOW_NO_VALUE=1
 # INIH_DEFINES += -DINI_USE_STACK=0
 
 CFLAGS := -ggdb3 ${INIH_DEFINES} ${QUICKJS_DEFINES}
-LDFLAGS := -ggdb3 -pthread -ldl -lm
+LDFLAGS := -ggdb3 -nostdlib -ldl -lm
 
 OBJ_FILES = $(SOURCE_FILES:%.c=$(ISERE_BUILD_DIR)/%.o)
 
@@ -122,8 +122,8 @@ deps:
 
 clean:
 # TODO: wait for xxd 2.9.0 to become stable
-	rm -f ./examples/*.so.c
-	rm -f ./tests/js/*.so.c
+# rm -f ./examples/*.so.c
+# rm -f ./tests/js/*.so.c
 	rm -rf $(TEST_BUILD_DIR)
 	rm -f $(TEST_BIN)
 	rm -rf $(ISERE_BUILD_DIR)
