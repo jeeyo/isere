@@ -99,7 +99,8 @@ ${TEST_BUILD_DIR}/%.o: %.cpp
 .PHONY: clean
 
 deps:
-	$(MAKE) .examples
+# TODO: wait for xxd 2.9.0 to become stable
+# $(MAKE) .examples
 	$(MAKE) .quickjs
 	$(MAKE) .llhttp
 	$(MAKE) .cpputest
