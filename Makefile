@@ -63,6 +63,7 @@ INIH_DEFINES := -DINI_ALLOW_MULTILINE=0 -DINI_ALLOW_BOM=0 -DINI_ALLOW_NO_VALUE=1
 
 CFLAGS := -ggdb3 ${INIH_DEFINES} ${QUICKJS_DEFINES}
 LDFLAGS := -ggdb3 -nostdlib -ldl -lm
+UNITTEST_LDFLAGS := -ggdb3 -ldl -lm
 
 OBJ_FILES = $(SOURCE_FILES:%.c=$(ISERE_BUILD_DIR)/%.o)
 
@@ -88,9 +89,9 @@ TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/Platforms/Gcc/*.cpp)
 TEST_OBJ_FILES := $(TEST_SOURCE_FILES:%.cpp=$(TEST_BUILD_DIR)/%.o)
 
 ${TEST_BIN}: ${OBJ_FILES} ${TEST_OBJ_FILES}
-	$(MAKE) .testjs
+	cd ./tests/js && $(MAKE)
 	-mkdir -p ${@D}
-	$(CPP) $^ ${LDFLAGS} -o $@
+	$(CPP) $^ ${UNITTEST_LDFLAGS} -o $@
 
 ${TEST_BUILD_DIR}/%.o: %.cpp
 	-mkdir -p $(@D)
