@@ -45,23 +45,24 @@ static int __http_handler(
     JS_SetPropertyStr(js.context, event, "httpMethod", JS_NewString(js.context, method));
     JS_SetPropertyStr(js.context, event, "path", JS_NewString(js.context, path));
 
+    // TODO: multi-value headers
     JSValue headers = JS_NewObject(js.context);
     for (int i = 0; i < request_headers_len; i++) {
       JS_SetPropertyStr(js.context, headers, request_headers[i].name, JS_NewString(js.context, request_headers[i].value));
     }
     JS_SetPropertyStr(js.context, event, "headers", headers);
-    // TODO: multi-value headers
-    JS_SetPropertyStr(js.context, event, "query", JS_NewString(js.context, query));
+
     // TODO: query string params
     // TODO: multi-value query string params
+    JS_SetPropertyStr(js.context, event, "query", JS_NewString(js.context, query != NULL ? query : ""));
 
     // TODO: check `Content-Type: application/json`
-    JSValue parsedBody = JS_ParseJSON(js.context, body, strlen(body), "<input>");
-    if (!JS_IsObject(parsedBody)) {
-      JS_FreeValue(js.context, parsedBody);
-      parsedBody = JS_NewString(js.context, body);
-    }
-    JS_SetPropertyStr(js.context, event, "body", parsedBody);
+    // JSValue parsedBody = JS_ParseJSON(js.context, body, strlen(body), "<input>");
+    // if (!JS_IsObject(parsedBody)) {
+    //   JS_FreeValue(js.context, parsedBody);
+    //   parsedBody = JS_NewString(js.context, body);
+    // }
+    // JS_SetPropertyStr(js.context, event, "body", parsedBody);
 
     // TODO: binary body
     JS_SetPropertyStr(js.context, event, "isBase64Encoded", JS_FALSE);

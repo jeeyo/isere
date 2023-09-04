@@ -23,10 +23,17 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] Configuration
 - [ ] Integration tests
 - [ ] Integration tests on CI
-- [ ] Node-like APIs
-  - [ ] net
+- [ ] Node-like APIs (ref. [workerd](https://github.com/cloudflare/workerd/tree/main/src/node))
+  - [ ] assert
+  - [ ] buffer
   - [ ] crypto
-  - [ ] fs
+  - [x] diagnostics_channel ❌
+  - [ ] events
+  - [ ] path
+  - [x] process.env
+  - [ ] stream (?)
+  - [ ] string_decoder
+  - [ ] util
 - [ ] QuickJS Memory Leak Check
 - [ ] Use less printf()
 - [ ] QuickJS Project Template
@@ -53,14 +60,8 @@ brew install autoconf automake libtool
 git clone <this f***ing repo>
 git submodule update --init
 
-# compile js example
-cd examples/
-make -j
-
-cd ..
-
-# compile llhttp
-make -j llhttp
+# compile dependencies
+make -j deps
 
 # compile isere
 make -j
@@ -71,12 +72,11 @@ make -j
 
 try to access `http://localhost:8080/` and see the process logs  
   
-feel free to try modify `examples/echo.esm.js` (don't forget to recompile it)
+feel free to try modify `examples/echo.esm.js` (don't forget to recompile it using `make -j .testjs`)
 
 ### Running Tests
 
 ```sh
-make -j cpputest
 make -j unittest
 ./unittest
 ```

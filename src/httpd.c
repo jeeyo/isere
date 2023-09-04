@@ -234,6 +234,7 @@ static int __httpd_read_and_parse(isere_httpd_connection_t *conn)
     // clear line buffer
     memset(linebuf, 0, sizeof(linebuf));
 
+    // TODO: add timeout
     int len = recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN, 0);
     if (len < 0) {
 

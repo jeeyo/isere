@@ -88,7 +88,7 @@ TEST_SOURCE_FILES += $(wildcard ${CPPUTEST_DIR}/src/Platforms/Gcc/*.cpp)
 TEST_OBJ_FILES := $(TEST_SOURCE_FILES:%.cpp=$(TEST_BUILD_DIR)/%.o)
 
 ${TEST_BIN}: ${OBJ_FILES} ${TEST_OBJ_FILES}
-	$(MAKE) testjs
+	$(MAKE) .testjs
 	-mkdir -p ${@D}
 	$(CPP) $^ ${LDFLAGS} -o $@
 
@@ -98,26 +98,32 @@ ${TEST_BUILD_DIR}/%.o: %.cpp
 
 .PHONY: clean
 
-llhttp:
+deps:
+	$(MAKE) .examples
+	$(MAKE) .quickjs
+	$(MAKE) .llhttp
+	$(MAKE) .cpputest
+
+.llhttp:
 	cd $(LLHTTP_DIR) && npm install
 	cd $(LLHTTP_DIR) && $(MAKE)
 
-cpputest:
+.cpputest:
 	cd $(CPPUTEST_DIR) && autoreconf . -i
 	cd $(CPPUTEST_DIR) && ./configure
 	cd $(CPPUTEST_DIR) && $(MAKE)
 
-quickjs:
+.quickjs:
 	mkdir -p $(QUICKJS_DIR)/include
 	cp $(QUICKJS_DIR)/*.h $(QUICKJS_DIR)/include
 
-testjs:
-	cd ./tests/js && $(MAKE)
+.examples:
+	cd ./examples && $(MAKE)
 
 clean:
 # TODO: wait for xxd 2.9.0 to become stable
-# rm -f ./tests/js/*.c
-	rm -f ./tests/js/*.so
+	rm -f ./examples/*.so.c
+	rm -f ./tests/js/*.so.c
 	rm -rf $(TEST_BUILD_DIR)
 	rm -f $(TEST_BIN)
 	rm -rf $(ISERE_BUILD_DIR)
