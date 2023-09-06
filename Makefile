@@ -1,5 +1,6 @@
 CC := gcc
 CPP := g++
+CLANG := gcc
 MAKE := make
 
 ISERE_BIN := isere
