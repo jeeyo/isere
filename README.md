@@ -10,7 +10,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [x] QuickJS as JavaScript runtime
 - [x] HTTP server
   - [ ] Event Loop
-  - [ ] Static Files
+  - [ ] Static Files (?)
 - [x] Unit tests
   - [x] loader
   - [x] js
@@ -52,11 +52,18 @@ The goal is to create a low-power serverless platform that can handle simple sta
 
 ### Building and Running
 
-Prerequisites: Node.js and Homebrew (macOS)
+Prerequisites:
+- Node.js (for generating llhttp C code)
+- autoconf
+- make
+- gcc
+- libtool
 
 ```sh
 # install dependencies
-brew install autoconf automake libtool
+brew install autoconf libtool
+# or
+sudo apt install -y build-essential libtool
 
 git clone <this f***ing repo>
 git submodule update --init
