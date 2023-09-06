@@ -19,9 +19,19 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
 
     // convert argument to C string
     size_t len;
-    const char *str = JS_ToCStringLen(ctx, &len, argv[i]);
+    const char *str = NULL;
+
+    if (JS_IsObject(argv[i])) {
+      JSValue stringified = JS_JSONStringify(ctx, argv[i], JS_UNDEFINED, JS_UNDEFINED);
+      str = JS_ToCStringLen(ctx, &len, stringified);
+      JS_FreeValue(ctx, stringified);
+    } else if (JS_IsString(argv[i])) {
+      str = JS_ToCStringLen(ctx, &len, argv[i]);
+    }
+
     if (!str) {
-      return JS_EXCEPTION;
+      puts("(null)");
+      continue;
     }
 
     // print string using logger
@@ -167,16 +177,16 @@ int js_eval(isere_js_t *js)
   JSValue global_obj = JS_GetGlobalObject(js->context);
 
   // create `event` object if undefined
-  JSValue event = JS_GetPropertyStr(js->context, global_obj, "event");
+  JSValue event = JS_GetPropertyStr(js->context, global_obj, "__event");
   if (JS_IsUndefined(event)) {
-    JS_SetPropertyStr(js->context, global_obj, "event", JS_NewObject(js->context));
+    JS_SetPropertyStr(js->context, global_obj, "__event", JS_NewObject(js->context));
   }
   JS_FreeValue(js->context, event);
 
   // create `context` object if undefined
-  JSValue context = JS_GetPropertyStr(js->context, global_obj, "context");
+  JSValue context = JS_GetPropertyStr(js->context, global_obj, "__context");
   if (JS_IsUndefined(context)) {
-    JS_SetPropertyStr(js->context, global_obj, "context", JS_NewObject(js->context));
+    JS_SetPropertyStr(js->context, global_obj, "__context", JS_NewObject(js->context));
   }
   JS_FreeValue(js->context, context);
 
@@ -186,7 +196,7 @@ int js_eval(isere_js_t *js)
 
   const char *eval = 
     "import { handler } from 'handler';\n"
-    "Promise.resolve(handler(event, context)).then(cb);";
+    "Promise.resolve(handler(__event, __context)).then(cb);";
 
   JSValue val = JS_Eval(js->context, (const char *)__isere->loader->fn, __isere->loader->fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
   if (JS_IsException(val)) {

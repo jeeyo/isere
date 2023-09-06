@@ -1,10 +1,7 @@
-#include "isere.h"
+#include "logger.h"
 
 #include <stdarg.h>
 #include <stdio.h>
-
-#include <FreeRTOS.h>
-#include <semphr.h>
 
 static SemaphoreHandle_t _stdio_mut = NULL;
 static StaticSemaphore_t _stdio_mutbuf;

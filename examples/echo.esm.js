@@ -1,18 +1,15 @@
 export const handler = async function(event, context, callback) {
+  console.log('globalThis.__event', globalThis.__event)
   console.log('Test ESM')
-  console.log('## ENVIRONMENT VARIABLES: ' + serialize(process.env))
-  console.log('## CONTEXT: ' + serialize(context))
-  console.log('## EVENT: ' + serialize(event))
+  console.log('## ENVIRONMENT VARIABLES: ', process.env)
+  console.log('## CONTEXT: ', context)
+  console.log('## EVENT: ', event)
 
   return {
     statusCode: 404,
     headers: { 'Content-Type': 'text/plain' },
     body: { k: 'v' }
   }
-}
-
-var serialize = function(object) {
-  return JSON.stringify(object, null, 2)
 }
 
 console.log('ESM Outside')

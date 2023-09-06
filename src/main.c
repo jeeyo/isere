@@ -17,7 +17,7 @@
 
 static int __http_handler(
   isere_t *isere,
-  isere_httpd_connection_t *conn,
+  isere_httpd_conn_t *conn,
   const char *method,
   const char *path,
   const char *query,
@@ -64,7 +64,7 @@ static int __http_handler(
 
     // TODO: binary body
     JS_SetPropertyStr(js.context, event, "isBase64Encoded", JS_FALSE);
-    JS_SetPropertyStr(js.context, global_obj, "event", event);
+    JS_SetPropertyStr(js.context, global_obj, "__event", event);
 
     // add `context` object
     JSValue context = JS_NewObject(js.context);
@@ -77,7 +77,7 @@ static int __http_handler(
     JS_SetPropertyStr(js.context, context, "logGroupName", JS_NewString(js.context, ISERE_APP_NAME));
     JS_SetPropertyStr(js.context, context, "logStreamName", JS_NewString(js.context, ISERE_APP_NAME));
     // JS_SetPropertyStr(js.context, context, "callbackWaitsForEmptyEventLoop", JS_NewBool(js.context, 1));
-    JS_SetPropertyStr(js.context, global_obj, "context", context);
+    JS_SetPropertyStr(js.context, global_obj, "__context", context);
 
     JS_FreeValue(js.context, global_obj);
   }
@@ -181,7 +181,7 @@ int main(void)
   memset(&logger, 0, sizeof(isere_logger_t));
   if (logger_init(&isere, &logger) < 0) {
     fprintf(stderr, "Unable to initialize logger module");
-    goto exit;
+    return EXIT_FAILURE;
   }
   isere.logger = &logger;
 
@@ -190,7 +190,7 @@ int main(void)
   memset(&loader, 0, sizeof(isere_loader_t));
   if (loader_init(&isere, &loader, ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize loader module");
-    goto cleanup1;
+    return EXIT_FAILURE;
   }
   isere.loader = &loader;
 
@@ -199,7 +199,7 @@ int main(void)
   memset(&httpd, 0, sizeof(isere_httpd_t));
   if (httpd_init(&isere, &httpd) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize httpd module");
-    goto cleanup2;
+    return EXIT_FAILURE;
   }
   isere.httpd = &httpd;
 
@@ -212,19 +212,11 @@ int main(void)
   TaskHandle_t httpd_task_handle;
   if (xTaskCreate(httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
     logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
-    goto cleanup3;
+    return EXIT_FAILURE;
   }
 
   // start FreeRTOS scheduler
   vTaskStartScheduler();
 
-  // cleanup
-cleanup3:
-  httpd_deinit(&httpd);
-cleanup2:
-  loader_deinit(&loader);
-cleanup1:
-  logger_deinit(&logger);
-exit:
   return EXIT_SUCCESS;
 }

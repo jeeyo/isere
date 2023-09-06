@@ -9,17 +9,21 @@
 
 #include "llhttp.h"
 #include "yuarel.h"
-// #include "event_groups.h"
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "event_groups.h"
 
 #define ISERE_HTTPD_PORT 8080
 #define ISERE_HTTPD_LOG_TAG "httpd"
 
-#define ISERE_HTTPD_MAX_CONNECTIONS 10
+#define ISERE_HTTPD_MAX_CONNECTIONS 6
+#define ISERE_HTTPD_HANDLER_TIMEOUT_MS 30000
 
 #define ISERE_HTTPD_LINE_BUFFER_LEN 64
 
 #define ISERE_HTTPD_MAX_HTTP_METHOD_LEN 16
-#define ISERE_HTTPD_MAX_HTTP_PATH_LEN 64
+#define ISERE_HTTPD_MAX_HTTP_PATH_LEN 256
 #define ISERE_HTTPD_MAX_HTTP_HEADERS 20
 #define ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN 64
 #define ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN 1024
@@ -66,11 +70,14 @@ typedef struct {
   char body[ISERE_HTTPD_MAX_HTTP_BODY_LEN];
   size_t body_len;
   int body_complete;
-} isere_httpd_connection_t;
+
+  // event flags
+  EventGroupHandle_t evt_flags;
+} isere_httpd_conn_t;
 
 typedef int (httpd_handler_t)(
   isere_t *isere,
-  isere_httpd_connection_t *conn,
+  isere_httpd_conn_t *conn,
   const char *method,
   const char *path,
   const char *query,
@@ -81,7 +88,6 @@ typedef int (httpd_handler_t)(
 typedef struct {
   isere_httpd_t *httpd;
   httpd_handler_t *handler;
-  // EventGroupHandle_t rxne;
 } httpd_task_params_t;
 
 int httpd_init(isere_t *isere, isere_httpd_t *httpd);
