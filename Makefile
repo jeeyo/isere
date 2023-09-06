@@ -108,8 +108,7 @@ deps:
 	$(MAKE) .cpputest
 
 .llhttp:
-	cd $(LLHTTP_DIR) && npm install
-	cd $(LLHTTP_DIR) && $(MAKE)
+	cd $(LLHTTP_DIR) && npm install && $(MAKE) generate
 
 .cpputest:
 	cd $(CPPUTEST_DIR) && autoreconf . -i

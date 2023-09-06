@@ -15,8 +15,6 @@
 #include "js.h"
 #include "httpd.h"
 
-#define ISERE_LOG_TAG "isere"
-
 static int __http_handler(
   isere_t *isere,
   isere_httpd_connection_t *conn,
@@ -74,10 +72,10 @@ static int __http_handler(
     // JS_SetPropertyStr(js.context, context, "getRemainingTimeInMillis", NULL);
     // TODO: make some of these dynamic and some correct
     JS_SetPropertyStr(js.context, context, "functionName", JS_NewString(js.context, "handler"));
-    JS_SetPropertyStr(js.context, context, "functionVersion", JS_NewString(js.context, "1.0.0"));
+    JS_SetPropertyStr(js.context, context, "functionVersion", JS_NewString(js.context, ISERE_APP_VERSION));
     JS_SetPropertyStr(js.context, context, "memoryLimitInMB", JS_NewInt32(js.context, 128));
-    JS_SetPropertyStr(js.context, context, "logGroupName", JS_NewString(js.context, "isere"));
-    JS_SetPropertyStr(js.context, context, "logStreamName", JS_NewString(js.context, "isere"));
+    JS_SetPropertyStr(js.context, context, "logGroupName", JS_NewString(js.context, ISERE_APP_NAME));
+    JS_SetPropertyStr(js.context, context, "logStreamName", JS_NewString(js.context, ISERE_APP_NAME));
     // JS_SetPropertyStr(js.context, context, "callbackWaitsForEmptyEventLoop", JS_NewBool(js.context, 1));
     JS_SetPropertyStr(js.context, global_obj, "context", context);
 
