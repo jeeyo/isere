@@ -5,7 +5,7 @@ CC := gcc
 all: echo.esm.so
 
 %.so: %.js
-	$(XXD) -n handler -i $< $@.c
+	$(QJSC) -c -N handler -m -o $@.c $<
 	$(CC) -I../include -shared -fPIC -o $@ $@.c
 
 clean:

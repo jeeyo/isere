@@ -100,8 +100,7 @@ ${TEST_BUILD_DIR}/%.o: %.cpp
 .PHONY: clean
 
 deps:
-# TODO: wait for xxd 2.9.0 to become stable
-# $(MAKE) .examples
+	$(MAKE) .examples
 	$(MAKE) .quickjs
 	$(MAKE) .cpputest
 
@@ -118,9 +117,8 @@ deps:
 	cd ./examples && $(MAKE)
 
 clean:
-# TODO: wait for xxd 2.9.0 to become stable
-# rm -f ./examples/*.so.c
-# rm -f ./tests/js/*.so.c
+	rm -f ./examples/*.so.c
+	rm -f ./tests/js/*.so.c
 	rm -rf $(TEST_BUILD_DIR)
 	rm -f $(TEST_BIN)
 	rm -rf $(ISERE_BUILD_DIR)

@@ -196,7 +196,7 @@ int js_eval(isere_js_t *js)
 
   const char *eval = 
     "import { handler } from 'handler';\n"
-    "Promise.resolve(handler(__event, __context)).then(cb);";
+    "Promise.resolve(handler(__event, __context, cb)).then(cb);";
 
   JSValue val = JS_Eval(js->context, (const char *)__isere->loader->fn, __isere->loader->fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
   if (JS_IsException(val)) {

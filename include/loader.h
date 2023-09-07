@@ -9,7 +9,7 @@
 
 #define ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH "./examples/echo.esm.so"
 #define ISERE_LOADER_HANDLER_FUNCTION "handler"
-#define ISERE_LOADER_HANDLER_SIZE_FUNCTION "handler_len"
+#define ISERE_LOADER_HANDLER_SIZE_FUNCTION "handler_size"
 
 #ifdef __cplusplus
 extern "C" {

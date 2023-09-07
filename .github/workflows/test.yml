@@ -14,7 +14,7 @@ jobs:
         with:
           submodules: recursive
 
-      # TODO: wait for xxd 2.9.0 to become stable
+      # TODO: quickjs
       # - name: Install dependencies
       #   run: sudo apt-get update && sudo apt-get install -y xxd
 

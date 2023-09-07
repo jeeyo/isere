@@ -1,6 +1,4 @@
 QJSC := qjsc
-# TODO: wait for xxd 2.9.0 to become stable
-# XXD := xxd
 CC := gcc
 
 TEST_JS_FILES += $(wildcard *.js)
@@ -9,8 +7,7 @@ TEST_DLL_FILES += $(TEST_JS_FILES:%.js=%.so)
 all: ${TEST_DLL_FILES}
 
 %.so: %.js
-# TODO: wait for xxd 2.9.0 to become stable
-# $(XXD) -n handler -i $< $@.c
+	$(QJSC) -c -N handler -m -o $@.c $<
 	$(CC) -I../include -shared -fPIC -o $@ $@.c
 
 clean:

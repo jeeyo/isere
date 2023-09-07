@@ -8,6 +8,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 
 - [x] FreeRTOS as Kernel
 - [x] QuickJS as JavaScript runtime
+  - [ ] Async Function
 - [x] HTTP server
   - [ ] Event Loop
   - [ ] Static Files (?)
@@ -57,18 +58,24 @@ Prerequisites:
 - make
 - gcc
 - libtool
+- qjsc (QuickJS compiler)
 
 ```sh
 # install dependencies
-brew install autoconf libtool
+brew install autoconf libtool quickjs
 # or
 sudo apt install -y build-essential libtool
+# linux users need to build and install qjsc manually
+# https://github.com/bellard/quickjs
 
 git clone <this f***ing repo>
 git submodule update --init
 
 # compile dependencies
 make -j deps
+
+# compile examples javascript
+make -j .examples
 
 # compile isere
 make -j
