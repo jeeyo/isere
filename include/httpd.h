@@ -12,7 +12,6 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
-#include "event_groups.h"
 
 #define ISERE_HTTPD_PORT 8080
 #define ISERE_HTTPD_LOG_TAG "httpd"
@@ -33,6 +32,12 @@
 extern "C" {
 #endif
 
+#define METHOD_COMPLETED (1 << 0)
+#define PATH_COMPLETED (1 << 1)
+#define HEADERS_COMPLETED (1 << 2)
+#define BODY_COMPLETED (1 << 3)
+#define ALL_COMPLETED (METHOD_COMPLETED | PATH_COMPLETED | HEADERS_COMPLETED | BODY_COMPLETED)
+
 typedef struct {
   char name[ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN];
   char value[ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN];
@@ -48,36 +53,30 @@ typedef struct {
   struct yuarel url_parser;
 
   // parser state
+  uint8_t completed;
+
   // HTTP method
   char method[ISERE_HTTPD_MAX_HTTP_METHOD_LEN];
-  size_t method_len;
-  int method_complete;
 
   // URL path
   char path[ISERE_HTTPD_MAX_HTTP_PATH_LEN];
-  size_t path_len;
-  int path_complete;
 
   // HTTP headers
   httpd_header_t headers[ISERE_HTTPD_MAX_HTTP_HEADERS];
-  size_t header_name_len[ISERE_HTTPD_MAX_HTTP_HEADERS];
-  uint32_t current_header_name_index;
-  size_t header_value_len[ISERE_HTTPD_MAX_HTTP_HEADERS];
-  uint32_t current_header_value_index;
-  int headers_complete;
+  uint32_t num_header_fields;
+  uint32_t num_header_values;
 
   // HTTP body
   char body[ISERE_HTTPD_MAX_HTTP_BODY_LEN];
-  size_t body_len;
-  int body_complete;
 
-  // event flags
-  EventGroupHandle_t evt_flags;
-} isere_httpd_conn_t;
+  // Client connection task
+  TaskHandle_t tsk;
+
+} httpd_conn_t;
 
 typedef int (httpd_handler_t)(
   isere_t *isere,
-  isere_httpd_conn_t *conn,
+  httpd_conn_t *conn,
   const char *method,
   const char *path,
   const char *query,
@@ -89,6 +88,11 @@ typedef struct {
   isere_httpd_t *httpd;
   httpd_handler_t *handler;
 } httpd_task_params_t;
+
+typedef struct {
+  httpd_conn_t *conn;
+  httpd_handler_t *handler;
+} httpd_client_task_params_t;
 
 int httpd_init(isere_t *isere, isere_httpd_t *httpd);
 int httpd_deinit(isere_httpd_t *httpd);

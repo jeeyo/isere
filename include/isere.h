@@ -54,10 +54,12 @@ typedef struct {
 
 typedef struct {
   void *k;
+} isere_tcp_t;
+
+typedef struct {
 } isere_fs_t;
 
 typedef struct {
-  void *k;
 } isere_ini_t;
 
 typedef struct {
@@ -67,6 +69,7 @@ typedef struct {
 typedef struct {
   isere_logger_t *logger;
   isere_loader_t *loader;
+  isere_tcp_t *tcp;
   isere_httpd_t *httpd;
   isere_fs_t *fs;
   isere_rtc_t *rtc;
