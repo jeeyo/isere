@@ -24,6 +24,3 @@
 [submodule "3rdparty/libyuarel"]
 	path = 3rdparty/libyuarel
 	url = https://github.com/jacketizer/libyuarel.git
-[submodule "3rdparty/coreHTTP"]
-	path = 3rdparty/coreHTTP
-	url = https://github.com/FreeRTOS/coreHTTP.git

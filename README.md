@@ -53,7 +53,6 @@ The goal is to create a low-power serverless platform that can handle simple sta
 ### Building and Running
 
 Prerequisites:
-- Node.js (for generating llhttp C code)
 - autoconf
 - make
 - gcc

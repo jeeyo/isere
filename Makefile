@@ -29,7 +29,7 @@ INCLUDE_DIRS += -I${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils
 # INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include/portable
 INCLUDE_DIRS += -I${QUICKJS_DIR}/include
 # INCLUDE_DIRS += -I${LWIP_DIR}/src/include
-INCLUDE_DIRS += -I${LLHTTP_DIR}/build
+INCLUDE_DIRS += -I${LLHTTP_DIR}/include
 INCLUDE_DIRS += -I${LIBYUAREL_DIR}
 INCLUDE_DIRS += -I{INIH_DIR}
 
@@ -53,8 +53,7 @@ SOURCE_FILES += ${QUICKJS_DIR}/cutils.c
 # SOURCE_FILES += ${LWIP_DIR}/src/netif/ethernet.c
 # SOURCE_FILES += $(wildcard ${LWIP_DIR}/src/netif/ppp/*.c)
 # SOURCE_FILES += $(wildcard ${LWIP_DIR}/src/netif/ppp/polarssl/*.c)
-SOURCE_FILES += $(wildcard ${LLHTTP_DIR}/src/native/*.c)
-SOURCE_FILES += ${LLHTTP_DIR}/build/c/llhttp.c
+SOURCE_FILES += $(wildcard ${LLHTTP_DIR}/src/*.c)
 SOURCE_FILES += ${LIBYUAREL_DIR}/yuarel.c
 SOURCE_FILES += ${INIH_DIR}/ini.c
 
@@ -104,11 +103,7 @@ deps:
 # TODO: wait for xxd 2.9.0 to become stable
 # $(MAKE) .examples
 	$(MAKE) .quickjs
-	$(MAKE) .llhttp
 	$(MAKE) .cpputest
-
-.llhttp:
-	cd $(LLHTTP_DIR) && npm install && $(MAKE) generate
 
 .cpputest:
 	cd $(CPPUTEST_DIR) && autoreconf . -i
