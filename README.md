@@ -58,15 +58,12 @@ Prerequisites:
 - make
 - gcc
 - libtool
-- qjsc (QuickJS compiler)
 
 ```sh
 # install dependencies
-brew install autoconf libtool quickjs
+brew install autoconf libtool
 # or
 sudo apt install -y build-essential libtool
-# linux users need to build and install qjsc manually
-# https://github.com/bellard/quickjs
 
 git clone <this f***ing repo>
 git submodule update --init
