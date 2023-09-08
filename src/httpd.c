@@ -193,7 +193,7 @@ int httpd_init(isere_t *isere, isere_httpd_t *httpd)
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
     memset(&__conns[i], 0, sizeof(httpd_conn_t));
     __conns[i].fd = -1;
-    __conns[i].recvd = -1;
+    __conns[i].recvd = 0;
   }
 
   return 0;
@@ -204,8 +204,6 @@ int httpd_deinit(isere_httpd_t *httpd)
   if (__isere) {
     __isere = NULL;
   }
-
-  tcp_socket_close(httpd->server_fd);
 
   // stop client tasks and close client sockets
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
@@ -220,9 +218,11 @@ int httpd_deinit(isere_httpd_t *httpd)
       tcp_socket_close(conn->fd);
       memset(conn, 0, sizeof(httpd_conn_t));
       conn->fd = -1;
-      conn->recvd = -1;
+      conn->recvd = 0;
     }
   }
+
+  tcp_socket_close(httpd->server_fd);
 
   // stop main httpd task
   should_exit = 1;
@@ -291,14 +291,14 @@ static void __httpd_cleanup_conn()
     // cleanup finished task
     // TODO: also cleanup timed out task
     if (conn->tsk != NULL && eTaskGetState(conn->tsk) == eSuspended) {
-      vTaskDelete(conn->tsk);
-      conn->tsk = NULL;
-
       // cleanup client socket
       tcp_socket_close(conn->fd);
       memset(conn, 0, sizeof(httpd_conn_t));
       conn->fd = -1;
-      conn->recvd = -1;
+      conn->recvd = 0;
+
+      vTaskDelete(conn->tsk);
+      conn->tsk = NULL;
     }
   }
 }
@@ -314,16 +314,8 @@ void httpd_client_handler_task(void *params)
   llhttp_finish(&conn->llhttp);
 
   if (ret < 0) {
-    switch (ret) {
-      case HTTP_STATUS_PAYLOAD_TOO_LARGE:
-        const char *buf = "HTTP/1.1 413 Payload Too Large\r\n\r\n";
-        tcp_write(conn->fd, buf, strlen(buf));
-        break;
-      default:
-        const char *buf = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-        tcp_write(conn->fd, buf, strlen(buf));
-    }
-
+    const char *buf = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+    tcp_write(conn->fd, buf, strlen(buf));
     vTaskSuspend(NULL);
   }
 
@@ -389,14 +381,33 @@ void httpd_task(void *params)
     // convert ip address to string
     __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Received connection from %s", ipaddr);
 
-    httpd_client_task_params_t client_task_params;
-    client_task_params.conn = conn;
-    client_task_params.handler = handler;
+    // read and parse http request
+    int ret = __httpd_process(conn);
+    llhttp_finish(&conn->llhttp);
 
-    // TODO: configurable stack size
-    if (xTaskCreate(httpd_client_handler_task, "httpd_client_handler", ISERE_JS_STACK_SIZE, (void *)&client_task_params, tskIDLE_PRIORITY + 1, &conn->tsk) != pdPASS) {
-      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
+    if (ret < 0) {
+      const char *buf = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+      tcp_write(conn->fd, buf, strlen(buf));
+      goto client_cleanup;
     }
+
+    uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
+    handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
+
+    // httpd_client_task_params_t client_task_params;
+    // client_task_params.conn = conn;
+    // client_task_params.handler = handler;
+
+    // // TODO: configurable stack size
+    // if (xTaskCreate(httpd_client_handler_task, "httpd_client_handler", ISERE_JS_STACK_SIZE, (void *)&client_task_params, tskIDLE_PRIORITY + 1, &conn->tsk) != pdPASS) {
+    //   __isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
+    // }
+
+client_cleanup:
+    tcp_socket_close(conn->fd);
+    memset(conn, 0, sizeof(httpd_conn_t));
+    conn->fd = -1;
+    conn->recvd = 0;
   }
 
 exit:

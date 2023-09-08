@@ -194,28 +194,32 @@ int js_eval(isere_js_t *js)
   JS_SetPropertyStr(js->context, global_obj, "cb", JS_NewCFunction(js->context, __handler_cb, "cb", 1));
   JS_FreeValue(js->context, global_obj);
 
-  const char *eval = 
-    "import { handler } from 'handler';\n"
-    "Promise.resolve(handler(__event, __context, cb)).then(cb);";
 
   JSValue val = JS_Eval(js->context, (const char *)__isere->loader->fn, __isere->loader->fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
   if (JS_IsException(val)) {
     // TODO: error goes to logger
+    js_std_dump_error(js->context);
     JS_FreeValue(js->context, val);
     return -1;
   }
 
   js_module_set_import_meta(js->context, val, 0, 0);
 
-  val = JS_Eval(js->context, eval, strlen(eval), "<cmdline>", JS_EVAL_TYPE_MODULE);
+  const char *eval = 
+    "import { handler } from 'handler';\n"
+    "Promise.resolve(handler(__event, __context, cb)).then(cb);";
+
+  JSValue val = JS_Eval(js->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE);
   if (JS_IsException(val)) {
     // TODO: error goes to logger
+    js_std_dump_error(js->context);
     JS_FreeValue(js->context, val);
     return -1;
   }
-  JS_FreeValue(js->context, val);
-  
+
   js_std_loop(js->context);
+
+  JS_FreeValue(js->context, val);
 
   return 0;
 }

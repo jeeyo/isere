@@ -15,7 +15,7 @@ httpd_handler_t __http_handler;
 static isere_t isere;
 
 void sigint(int dummy) {
-  isere.logger->error(ISERE_LOG_TAG, "got SIGINT");
+  isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
 
   httpd_deinit(isere.httpd);
   tcp_deinit(isere.tcp);
