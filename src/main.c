@@ -12,11 +12,22 @@
 #include "tcp.h"
 
 httpd_handler_t __http_handler;
+static isere_t isere;
+
+void sigint(int dummy) {
+  isere.logger->error(ISERE_LOG_TAG, "got SIGINT");
+
+  httpd_deinit(isere.httpd);
+  tcp_deinit(isere.tcp);
+  loader_deinit(isere.loader);
+  logger_deinit(isere.logger);
+
+  vTaskEndScheduler();
+}
 
 int main(void)
 {
   // create isere instance
-  isere_t isere;
   memset(&isere, 0, sizeof(isere_t));
 
   // initialize logger module
@@ -65,6 +76,8 @@ int main(void)
     logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
     return EXIT_FAILURE;
   }
+
+  signal(SIGINT, sigint);
 
   // start FreeRTOS scheduler
   vTaskStartScheduler();
