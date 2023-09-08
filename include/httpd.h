@@ -28,6 +28,9 @@
 #define ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN 1024
 #define ISERE_HTTPD_MAX_HTTP_BODY_LEN 2048
 
+#define ISERE_HTTPD_MAX_HTTP_REQUEST_LEN \
+  (ISERE_HTTPD_MAX_HTTP_METHOD_LEN + ISERE_HTTPD_MAX_HTTP_PATH_LEN + ISERE_HTTPD_MAX_HTTP_HEADERS * (ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN + ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN) + ISERE_HTTPD_MAX_HTTP_BODY_LEN)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -38,6 +41,11 @@ extern "C" {
 #define BODY_COMPLETED (1 << 3)
 #define ALL_COMPLETED (METHOD_COMPLETED | PATH_COMPLETED | HEADERS_COMPLETED | BODY_COMPLETED)
 
+#define HTTP_STATUS_BAD_REQUEST -400
+#define HTTP_STATUS_NOT_FOUND -404
+#define HTTP_STATUS_PAYLOAD_TOO_LARGE -413
+#define HTTP_STATUS_INTERNAL_SERVER_ERROR -500
+
 typedef struct {
   char name[ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN];
   char value[ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN];
@@ -46,31 +54,24 @@ typedef struct {
 typedef struct {
 
   int fd;
+  int recvd;  // number of bytes received
 
   llhttp_t llhttp;
   llhttp_settings_t llhttp_settings;
 
   struct yuarel url_parser;
 
-  // parser state
-  uint8_t completed;
+  uint8_t completed;  // bitfield of completed parts of the request
 
-  // HTTP method
-  char method[ISERE_HTTPD_MAX_HTTP_METHOD_LEN];
+  char method[ISERE_HTTPD_MAX_HTTP_METHOD_LEN]; // GET, POST, etc.
+  char path[ISERE_HTTPD_MAX_HTTP_PATH_LEN]; // /foo/bar
+  char body[ISERE_HTTPD_MAX_HTTP_BODY_LEN]; // request body
 
-  // URL path
-  char path[ISERE_HTTPD_MAX_HTTP_PATH_LEN];
-
-  // HTTP headers
   httpd_header_t headers[ISERE_HTTPD_MAX_HTTP_HEADERS];
   uint32_t num_header_fields;
   uint32_t num_header_values;
 
-  // HTTP body
-  char body[ISERE_HTTPD_MAX_HTTP_BODY_LEN];
-
-  // Client connection task
-  TaskHandle_t tsk;
+  TaskHandle_t tsk; // task handle for the client task
 
 } httpd_conn_t;
 
