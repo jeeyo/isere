@@ -14,9 +14,8 @@ jobs:
         with:
           submodules: recursive
 
-      # TODO: quickjs
-      # - name: Install dependencies
-      #   run: sudo apt-get update && sudo apt-get install -y xxd
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential automake libtool
 
       - name: Build dependencies
         run: make -j deps

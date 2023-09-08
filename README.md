@@ -8,7 +8,8 @@ The goal is to create a low-power serverless platform that can handle simple sta
 
 - [x] FreeRTOS as Kernel
 - [x] QuickJS as JavaScript runtime
-  - [ ] Async Function
+  - [ ] setTimeout / clearTimeout (FreeRTOS Software Timer)
+  - [ ] setInterval / clearInterval (FreeRTOS Software Timer)
 - [x] HTTP server
   - [ ] Event Loop
   - [ ] Static Files (?)
@@ -54,14 +55,14 @@ The goal is to create a low-power serverless platform that can handle simple sta
 ### Building and Running
 
 Prerequisites:
-- autoconf
+- automake
 - make
 - gcc
 - libtool
 
 ```sh
 # install dependencies
-brew install autoconf libtool
+brew install automake libtool
 # or
 sudo apt install -y build-essential libtool
 
