@@ -4,7 +4,10 @@ export const handler = async function(event, context, done) {
   console.log('## CONTEXT: ', context)
   console.log('## EVENT: ', event)
 
-  await Promise.resolve(resolve => setTimeout(resolve, 15000))
+  setTimeout(() => {
+    console.log('ESM Inside')
+  }, 5000)
+
   return {
     statusCode: 404,
     headers: { 'Content-Type': 'text/plain' },

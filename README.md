@@ -8,8 +8,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 
 - [x] FreeRTOS as Kernel
 - [x] QuickJS as JavaScript runtime
-  - [ ] setTimeout / clearTimeout (FreeRTOS Software Timer)
-  - [ ] setInterval / clearInterval (FreeRTOS Software Timer)
+  - [x] setTimeout / clearTimeout (FreeRTOS Software Timer)
 - [x] HTTP server
   - [ ] Event Loop
   - [ ] Static Files (?)
@@ -18,6 +17,8 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [x] js
   - [ ] httpd
   - [ ] logger
+  - [ ] polyfills
+    - [ ] setTimeout
 - [x] Unit tests on CI
 - [x] File System Abstraction
 - [ ] OTA

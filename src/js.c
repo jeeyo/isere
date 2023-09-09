@@ -1,4 +1,5 @@
 #include "js.h"
+#include "polyfills.h"
 
 #include <string.h>
 
@@ -116,6 +117,13 @@ int js_init(isere_t *isere, isere_js_t *js)
   JS_SetPropertyStr(js->context, process, "env", env);
   JS_SetPropertyStr(js->context, global_obj, "process", process);
 
+  // add setTimeout / clearTimeout
+  polyfill_timer_init();
+  JSValue setTimeout = JS_NewCFunction(js->context, polyfill_timer_setTimeout, "setTimeout", 2);
+  JSValue clearTimeout = JS_NewCFunction(js->context, polyfill_timer_clearTimeout, "clearTimeout", 1);
+  JS_SetPropertyStr(js->context, global_obj, "setTimeout", setTimeout);
+  JS_SetPropertyStr(js->context, global_obj, "clearTimeout", clearTimeout);
+
   JS_FreeValue(js->context, global_obj);
 
   return 0;
@@ -123,6 +131,8 @@ int js_init(isere_t *isere, isere_js_t *js)
 
 int js_deinit(isere_js_t *js)
 {
+  polyfill_timer_deinit();
+
   if (__isere) {
     __isere = NULL;
   }
@@ -206,11 +216,9 @@ int js_eval(isere_js_t *js)
 
   const char *eval =
     "import { handler } from 'handler';\n"
-    "(async () => {\n"
-    "  await Promise.resolve(handler(__event, __context, cb)).then(cb);\n"
-    "})();\n";
+    "Promise.resolve(handler(__event, __context, cb)).then(cb);";
 
-  JSValue val = JS_Eval(js->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE);
+  JSValue val = JS_Eval(js->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_BACKTRACE_BARRIER);
   if (JS_IsException(val)) {
     // TODO: error goes to logger
     js_std_dump_error(js->context);
@@ -218,7 +226,10 @@ int js_eval(isere_js_t *js)
     return -1;
   }
 
+  // TODO: make these a single event loop
+  // TODO: callbackWaitsForEmptyEventLoop
   js_std_loop(js->context);
+  polyfill_timer_poll();
 
   return 0;
 }

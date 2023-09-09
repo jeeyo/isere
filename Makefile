@@ -34,6 +34,7 @@ INCLUDE_DIRS += -I${LIBYUAREL_DIR}
 INCLUDE_DIRS += -I{INIH_DIR}
 
 SOURCE_FILES := $(filter-out src/main.c, $(wildcard src/*.c))
+SOURCE_FILES += $(wildcard src/polyfills/*.c)
 SOURCE_FILES += $(wildcard portable/src/*.c)
 SOURCE_FILES += $(wildcard ${FREERTOS_DIR}/*.c)
 SOURCE_FILES += ${FREERTOS_DIR}/portable/MemMang/heap_3.c

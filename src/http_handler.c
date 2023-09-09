@@ -68,7 +68,8 @@ int __http_handler(
     JS_SetPropertyStr(js.context, context, "memoryLimitInMB", JS_NewInt32(js.context, 128));
     JS_SetPropertyStr(js.context, context, "logGroupName", JS_NewString(js.context, ISERE_APP_NAME));
     JS_SetPropertyStr(js.context, context, "logStreamName", JS_NewString(js.context, ISERE_APP_NAME));
-    // JS_SetPropertyStr(js.context, context, "callbackWaitsForEmptyEventLoop", JS_NewBool(js.context, 1));
+    // TODO: callbackWaitsForEmptyEventLoop
+    JS_SetPropertyStr(js.context, context, "callbackWaitsForEmptyEventLoop", JS_NewBool(js.context, 1));
     JS_SetPropertyStr(js.context, global_obj, "__context", context);
 
     JS_FreeValue(js.context, global_obj);

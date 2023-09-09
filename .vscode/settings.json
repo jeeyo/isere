@@ -3,17 +3,7 @@
     "3rdparty/**": true
   },
   "files.associations": {
-    "isere.h": "c",
-    "freertos.h": "c",
-    "stdint.h": "c",
-    "event_groups.h": "c",
-    "httpd.h": "c",
-    "unistd.h": "c",
-    "stdio.h": "c",
-    "task.h": "c",
-    "in.h": "c",
-    "netdb.h": "c",
-    "tcp.h": "c",
-    "stdlib.h": "c"
+    "*.h": "c",
+    "*.c": "c"
   }
 }
