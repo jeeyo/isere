@@ -24,3 +24,6 @@
 [submodule "3rdparty/libyuarel"]
 	path = 3rdparty/libyuarel
 	url = https://github.com/jacketizer/libyuarel.git
+[submodule "3rdparty/c-capnproto"]
+	path = 3rdparty/c-capnproto
+	url = https://gitlab.com/dkml/ext/c-capnproto.git
