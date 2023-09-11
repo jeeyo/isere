@@ -16,7 +16,6 @@ LWIP_DIR := ./3rdparty/lwip
 LLHTTP_DIR := ./3rdparty/llhttp
 LIBYUAREL_DIR := ./3rdparty/libyuarel
 CPPUTEST_DIR := ./3rdparty/cpputest
-INIH_DIR := ./3rdparty/inih
 CAPNPROTO_DIR := ./3rdparty/c-capnproto
 
 INCLUDE_DIRS += -I./include
@@ -33,7 +32,6 @@ INCLUDE_DIRS += -I${QUICKJS_DIR}/include
 # INCLUDE_DIRS += -I${LWIP_DIR}/src/include
 INCLUDE_DIRS += -I${LLHTTP_DIR}/include
 INCLUDE_DIRS += -I${LIBYUAREL_DIR}
-INCLUDE_DIRS += -I{INIH_DIR}
 INCLUDE_DIRS += -I${CAPNPROTO_DIR}/lib
 
 SOURCE_FILES := $(filter-out src/main.c, $(wildcard src/*.c))
@@ -60,7 +58,6 @@ SOURCE_FILES += ${QUICKJS_DIR}/cutils.c
 # SOURCE_FILES += $(wildcard ${LWIP_DIR}/src/netif/ppp/polarssl/*.c)
 SOURCE_FILES += $(wildcard ${LLHTTP_DIR}/src/*.c)
 SOURCE_FILES += ${LIBYUAREL_DIR}/yuarel.c
-SOURCE_FILES += ${INIH_DIR}/ini.c
 SOURCE_FILES += $(wildcard ${CAPNPROTO_DIR}/lib/*.c)
 
 QUICKJS_DEFINES := -D_GNU_SOURCE -DCONFIG_BIGNUM -DCONFIG_VERSION=\"$(shell git rev-parse --short HEAD)\"
