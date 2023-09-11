@@ -66,7 +66,7 @@ Prerequisites:
 # install dependencies
 brew install automake libtool ninja
 # or
-sudo apt install -y build-essential libtool ninja
+sudo apt install -y build-essential libtool ninja-build
 
 git clone <this f***ing repo>
 git submodule update --init
