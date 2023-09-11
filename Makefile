@@ -108,8 +108,6 @@ ${TEST_BUILD_DIR}/%.o: %.cpp
 deps:
 	$(MAKE) .examples
 	$(MAKE) .quickjs
-	$(MAKE) .capnproto
-	$(MAKE) .capnp
 	$(MAKE) .cpputest
 
 .capnproto:

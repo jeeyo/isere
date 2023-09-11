@@ -60,12 +60,13 @@ Prerequisites:
 - make
 - gcc
 - libtool
+- ninja (optional for building c-capnproto)
 
 ```sh
 # install dependencies
-brew install automake libtool
+brew install automake libtool ninja
 # or
-sudo apt install -y build-essential libtool
+sudo apt install -y build-essential libtool ninja
 
 git clone <this f***ing repo>
 git submodule update --init

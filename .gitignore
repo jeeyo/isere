@@ -3,6 +3,8 @@
 *.so
 build/
 examples/*.c
+examples/*.c.bak
 tests/js/*.c
+tests/js/*.c.bak
 isere
 unittest
