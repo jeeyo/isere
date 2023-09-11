@@ -21,9 +21,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
     - [ ] setTimeout
 - [x] Unit tests on CI
 - [x] File System Abstraction
-- [ ] OTA
-  - [ ] Update JS Function DLL
-  - [ ] Configuration
+- [x] Configuration File
 - [ ] Integration tests
 - [ ] Integration tests on CI
 - [ ] Node-like APIs (ref. [workerd](https://github.com/cloudflare/workerd/tree/main/src/node))
@@ -37,6 +35,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] stream (?)
   - [ ] string_decoder
   - [ ] util
+- [ ] Fetch API
 - [ ] QuickJS Memory Leak Check
 - [ ] Use less printf()
 - [ ] QuickJS Project Template

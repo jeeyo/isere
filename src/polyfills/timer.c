@@ -34,12 +34,12 @@ static void polyfill_timer_callback(TimerHandle_t timer)
   JS_FreeValue(ctx, ret);
 }
 
-void polyfill_timer_init()
+void polyfill_timer_init(JSContext *ctx)
 {
   init_list_head(&timers);
 }
 
-void polyfill_timer_deinit()
+void polyfill_timer_deinit(JSContext *ctx)
 {
   struct list_head *el, *el1;
 
@@ -116,7 +116,7 @@ JSValue polyfill_timer_clearTimeout(JSContext *ctx, JSValueConst this_val, int a
   return JS_UNDEFINED;
 }
 
-int polyfill_timer_poll()
+int polyfill_timer_poll(JSContext *ctx)
 {
   struct list_head *el;
 

@@ -49,24 +49,16 @@ typedef struct {
 } isere_js_t;
 
 typedef struct {
-  int server_fd;
+  int fd;
 } isere_httpd_t;
 
-typedef struct {
-  void *k;
-} isere_tcp_t;
+typedef void * isere_tcp_t;
 
-typedef struct {
-  void *k;
-} isere_fs_t;
+typedef void * isere_fs_t;
 
-typedef struct {
-  void *k;
-} isere_ini_t;
+typedef void * isere_ini_t;
 
-typedef struct {
-  void *rtc;
-} isere_rtc_t;
+typedef void * isere_rtc_t;
 
 typedef struct {
   isere_logger_t *logger;
@@ -74,6 +66,7 @@ typedef struct {
   isere_tcp_t *tcp;
   isere_httpd_t *httpd;
   isere_fs_t *fs;
+  isere_ini_t *ini;
   isere_rtc_t *rtc;
 } isere_t;
 

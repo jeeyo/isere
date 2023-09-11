@@ -222,7 +222,7 @@ int httpd_deinit(isere_httpd_t *httpd)
     }
   }
 
-  tcp_socket_close(httpd->server_fd);
+  tcp_socket_close(httpd->fd);
 
   // stop main httpd task
   should_exit = 1;
@@ -332,13 +332,13 @@ void httpd_task(void *params)
   isere_httpd_t *httpd = task_params->httpd;
   httpd_handler_t *handler = task_params->handler;
 
-  httpd->server_fd = tcp_socket_new();
-  if (httpd->server_fd < 0) {
+  httpd->fd = tcp_socket_new();
+  if (httpd->fd < 0) {
     vTaskDelete(NULL);
     goto exit;
   }
 
-  if (tcp_listen(httpd->server_fd, ISERE_HTTPD_PORT) < 0) {
+  if (tcp_listen(httpd->fd, ISERE_HTTPD_PORT) < 0) {
     goto exit;
   }
 
@@ -356,7 +356,7 @@ void httpd_task(void *params)
 
     // accept connection
     char ipaddr[INET_ADDRSTRLEN + 1];
-    conn->fd = tcp_accept(httpd->server_fd, ipaddr);
+    conn->fd = tcp_accept(httpd->fd, ipaddr);
     if (conn->fd < 0) {
       conn->fd = -1;
       continue;

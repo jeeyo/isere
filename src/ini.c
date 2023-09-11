@@ -35,7 +35,7 @@ static int ini_write_default(isere_t *isere)
   capn_free(&c);
 
   fs_file_t fp = -1;
-  int fd = fs_open(isere->fs, &fp, "config.bin", O_WRONLY | O_CREAT);
+  int fd = fs_open(isere->fs, &fp, INI_FILENAME, O_WRONLY | O_CREAT);
   if (fd < 0) {
     return -1;
   }
@@ -65,7 +65,7 @@ int ini_init(isere_t *isere, isere_ini_t *ini)
   }
 
   fs_file_t fp = -1;
-  int fd = fs_open(isere->fs, &fp, "config.bin", O_RDONLY);
+  int fd = fs_open(isere->fs, &fp, INI_FILENAME, O_RDONLY);
   if (fd < 0) {
     return -1;
   }
@@ -94,9 +94,9 @@ int ini_init(isere_t *isere, isere_ini_t *ini)
   return 0;
 }
 
-int ini_getvalue(isere_ini_t *ini, const char *section, const char *key, char *value, size_t value_size)
+int ini_get_timeout(isere_ini_t *ini)
 {
-  return 0;
+  return config.timeout;
 }
 
 void ini_deinit(isere_ini_t *ini)

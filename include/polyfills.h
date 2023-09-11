@@ -21,11 +21,11 @@ typedef struct {
   TimerHandle_t timer;
 } polyfill_timer_t;
 
-void polyfill_timer_init();
-void polyfill_timer_deinit();
+void polyfill_timer_init(JSContext *ctx);
+void polyfill_timer_deinit(JSContext *ctx);
 JSValue polyfill_timer_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 JSValue polyfill_timer_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
-int polyfill_timer_poll();
+int polyfill_timer_poll(JSContext *ctx);
 
 #ifdef __cplusplus
 }

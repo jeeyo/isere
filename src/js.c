@@ -118,7 +118,7 @@ int js_init(isere_t *isere, isere_js_t *js)
   JS_SetPropertyStr(js->context, global_obj, "process", process);
 
   // add setTimeout / clearTimeout
-  polyfill_timer_init();
+  polyfill_timer_init(js->context);
   JSValue setTimeout = JS_NewCFunction(js->context, polyfill_timer_setTimeout, "setTimeout", 2);
   JSValue clearTimeout = JS_NewCFunction(js->context, polyfill_timer_clearTimeout, "clearTimeout", 1);
   JS_SetPropertyStr(js->context, global_obj, "setTimeout", setTimeout);
@@ -131,7 +131,7 @@ int js_init(isere_t *isere, isere_js_t *js)
 
 int js_deinit(isere_js_t *js)
 {
-  polyfill_timer_deinit();
+  polyfill_timer_deinit(js->context);
 
   if (__isere) {
     __isere = NULL;
@@ -229,7 +229,7 @@ int js_eval(isere_js_t *js)
   // TODO: make these a single event loop
   // TODO: callbackWaitsForEmptyEventLoop
   js_std_loop(js->context);
-  polyfill_timer_poll();
+  polyfill_timer_poll(js->context);
 
   return 0;
 }

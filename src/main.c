@@ -22,6 +22,8 @@ void sigint(int dummy) {
   httpd_deinit(isere.httpd);
   tcp_deinit(isere.tcp);
   loader_deinit(isere.loader);
+  fs_deinit(isere.fs);
+  ini_deinit(isere.ini);
   logger_deinit(isere.logger);
 
   vTaskEndScheduler();
@@ -41,20 +43,27 @@ int main(void)
   }
   isere.logger = &logger;
 
+  // initialize file system module
   isere_fs_t fs;
   memset(&fs, 0, sizeof(isere_fs_t));
   if (fs_init(&isere, &fs) < 0) {
-    logger.error(ISERE_LOG_TAG, "Unable to initialize fs module");
+    logger.error(ISERE_LOG_TAG, "Unable to initialize file system module");
     return EXIT_FAILURE;
   }
   isere.fs = &fs;
 
+  // initialize configuration file module
   isere_ini_t ini;
   memset(&ini, 0, sizeof(isere_ini_t));
   if (ini_init(&isere, &ini) < 0) {
-    logger.error(ISERE_LOG_TAG, "Unable to initialize ini module");
+    logger.error(ISERE_LOG_TAG, "Unable to initialize configuration file module");
     return EXIT_FAILURE;
   }
+  isere.ini = &ini;
+
+  logger.info(ISERE_LOG_TAG, "========== Configurations ==========");
+  logger.info(ISERE_LOG_TAG, "  timeout: %d", ini_get_timeout(&ini));
+  logger.info(ISERE_LOG_TAG, "====================================");
 
   // dynamically loading javascript serverless handler
   isere_loader_t loader;
@@ -65,6 +74,7 @@ int main(void)
   }
   isere.loader = &loader;
 
+  // initialize tcp module
   isere_tcp_t tcp;
   memset(&tcp, 0, sizeof(isere_tcp_t));
   if (tcp_init(&isere, &tcp) < 0) {
