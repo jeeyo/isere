@@ -17,9 +17,11 @@ LLHTTP_DIR := ./3rdparty/llhttp
 LIBYUAREL_DIR := ./3rdparty/libyuarel
 CPPUTEST_DIR := ./3rdparty/cpputest
 INIH_DIR := ./3rdparty/inih
+CAPNPROTO_DIR := ./3rdparty/c-capnproto
 
 INCLUDE_DIRS += -I./include
 INCLUDE_DIRS += -I./portable/include
+INCLUDE_DIRS += -I./schemas
 INCLUDE_DIRS += -I${FREERTOS_DIR}/include
 INCLUDE_DIRS += -I${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix
 INCLUDE_DIRS += -I${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils
@@ -32,10 +34,12 @@ INCLUDE_DIRS += -I${QUICKJS_DIR}/include
 INCLUDE_DIRS += -I${LLHTTP_DIR}/include
 INCLUDE_DIRS += -I${LIBYUAREL_DIR}
 INCLUDE_DIRS += -I{INIH_DIR}
+INCLUDE_DIRS += -I${CAPNPROTO_DIR}/lib
 
 SOURCE_FILES := $(filter-out src/main.c, $(wildcard src/*.c))
 SOURCE_FILES += $(wildcard src/polyfills/*.c)
 SOURCE_FILES += $(wildcard portable/src/*.c)
+SOURCE_FILES += $(wildcard schemas/*.c)
 SOURCE_FILES += $(wildcard ${FREERTOS_DIR}/*.c)
 SOURCE_FILES += ${FREERTOS_DIR}/portable/MemMang/heap_3.c
 SOURCE_FILES += ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils/wait_for_event.c
@@ -57,6 +61,7 @@ SOURCE_FILES += ${QUICKJS_DIR}/cutils.c
 SOURCE_FILES += $(wildcard ${LLHTTP_DIR}/src/*.c)
 SOURCE_FILES += ${LIBYUAREL_DIR}/yuarel.c
 SOURCE_FILES += ${INIH_DIR}/ini.c
+SOURCE_FILES += $(wildcard ${CAPNPROTO_DIR}/lib/*.c)
 
 QUICKJS_DEFINES := -D_GNU_SOURCE -DCONFIG_BIGNUM -DCONFIG_VERSION=\"$(shell git rev-parse --short HEAD)\"
 INIH_DEFINES := -DINI_ALLOW_MULTILINE=0 -DINI_ALLOW_BOM=0 -DINI_ALLOW_NO_VALUE=1 -DINI_STOP_ON_FIRST_ERROR=1 -DINI_HANDLER_LINENO=1
@@ -103,7 +108,16 @@ ${TEST_BUILD_DIR}/%.o: %.cpp
 deps:
 	$(MAKE) .examples
 	$(MAKE) .quickjs
+	$(MAKE) .capnproto
+	$(MAKE) .capnp
 	$(MAKE) .cpputest
+
+.capnproto:
+	cd $(CAPNPROTO_DIR) && cmake --preset=ci-linux_x86_64
+	cd $(CAPNPROTO_DIR) && cmake --build --preset=ci-tests
+
+.capnp:
+	capnp compile -o 3rdparty/c-capnproto/build/capnpc-c schemas/*.capnp
 
 .cpputest:
 	cd $(CPPUTEST_DIR) && autoreconf . -i

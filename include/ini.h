@@ -2,6 +2,8 @@
 
 #include "isere.h"
 
+#include "config.capnp.h"
+
 #define ISERE_INI_H
 
 #ifdef __cplusplus

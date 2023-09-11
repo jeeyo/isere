@@ -57,9 +57,11 @@ typedef struct {
 } isere_tcp_t;
 
 typedef struct {
+  void *k;
 } isere_fs_t;
 
 typedef struct {
+  void *k;
 } isere_ini_t;
 
 typedef struct {

@@ -57,16 +57,16 @@ TEST(JSTest, ShouldInitializeLoaderSuccessfully)
   LONGS_EQUAL_TEXT(ret, 0, "js_init() did not return 0");
 }
 
-static isere_loader_t fake_loader = {
-  .fn = (uint8_t *)"export const handler = (event, context) => { console.log('hello world'); };",
-  .fn_size = 75,
-};
-
 TEST(JSTest, ShouldEvaluateHelloWorldFunctionSuccessfully)
 {
   isere_t isere;
   memset(&isere, 0, sizeof(isere_t));
   isere.logger = &fake_logger;
+
+  isere_loader_t fake_loader = {
+    .fn = (uint8_t *)"export const handler = (event, context) => { console.log('hello world'); };",
+    .fn_size = 75,
+  };
   isere.loader = &fake_loader;
 
   isere_js_t js;

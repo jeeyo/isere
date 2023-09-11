@@ -6,13 +6,15 @@
             "includePath": [
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/portable/include",
+                "${workspaceFolder}/schemas",
                 "${workspaceFolder}/3rdparty/FreeRTOS/include",
                 "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/Posix",
                 "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/Posix/utils",
                 "${workspaceFolder}/3rdparty/quickjs/include",
                 "${workspaceFolder}/3rdparty/llhttp/include",
                 "${workspaceFolder}/3rdparty/libyuarel",
-                "${workspaceFolder}/3rdparty/cpputest/include"
+                "${workspaceFolder}/3rdparty/cpputest/include",
+                "${workspaceFolder}/3rdparty/c-capnproto/lib"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c99",
