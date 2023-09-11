@@ -5,6 +5,8 @@
 #include "task.h"
 
 #include "isere.h"
+#include "fs.h"
+#include "ini.h"
 #include "loader.h"
 #include "logger.h"
 #include "js.h"
@@ -38,6 +40,21 @@ int main(void)
     return EXIT_FAILURE;
   }
   isere.logger = &logger;
+
+  isere_fs_t fs;
+  memset(&fs, 0, sizeof(isere_fs_t));
+  if (fs_init(&isere, &fs) < 0) {
+    logger.error(ISERE_LOG_TAG, "Unable to initialize fs module");
+    return EXIT_FAILURE;
+  }
+  isere.fs = &fs;
+
+  isere_ini_t ini;
+  memset(&ini, 0, sizeof(isere_ini_t));
+  if (ini_init(&isere, &ini) < 0) {
+    logger.error(ISERE_LOG_TAG, "Unable to initialize ini module");
+    return EXIT_FAILURE;
+  }
 
   // dynamically loading javascript serverless handler
   isere_loader_t loader;

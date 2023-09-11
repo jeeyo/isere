@@ -4,6 +4,5 @@
 # $C.fieldgetset;
 
 struct Config {
-  path @0 :Text;
-  timeout @1 :Int32;
+  timeout @0 :Int32;
 }

@@ -10,6 +10,8 @@
 extern "C" {
 #endif
 
+#define INI_MAX_CONFIG_FILE_SIZE 256
+
 int ini_init(isere_t *isere, isere_ini_t *ini);
 int ini_getvalue(isere_ini_t *ini, const char *section, const char *key, char *value, size_t value_size);
 void ini_deinit(isere_ini_t *ini);

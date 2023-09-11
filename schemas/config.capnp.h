@@ -27,15 +27,14 @@ typedef struct {capn_ptr p;} Config_ptr;
 typedef struct {capn_ptr p;} Config_list;
 
 struct Config {
-	capn_text path;
 	int32_t timeout;
 };
 
 static const size_t Config_word_count = 1;
 
-static const size_t Config_pointer_count = 1;
+static const size_t Config_pointer_count = 0;
 
-static const size_t Config_struct_bytes_count = 16;
+static const size_t Config_struct_bytes_count = 8;
 
 
 Config_ptr new_Config(struct capn_segment*);

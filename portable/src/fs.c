@@ -5,6 +5,8 @@
 #include <string.h>
 #include <errno.h>
 
+#define FS_ROOT_DIR "virtfs/"
+
 static isere_t *__isere = NULL;
 
 int fs_init(isere_t *isere, isere_fs_t *fs)
@@ -34,7 +36,12 @@ int fs_open(isere_fs_t *fs, fs_file_t *file, const char *path, int flags)
     return -1;
   }
 
-  *file = open(path, flags, 0666);
+  char filepath[256];
+  memset(filepath, 0, sizeof(filepath));
+  strncpy(filepath, FS_ROOT_DIR, sizeof(filepath) - 1);
+  strncat(filepath, path, sizeof(filepath) - 1);
+
+  *file = open(filepath, flags, 0666);
   if (*file < 0) {
     __isere->logger->error(ISERE_FS_LOG_TAG, "open() error: %s", strerror(errno));
     return -1;
@@ -73,7 +80,7 @@ int fs_read(isere_fs_t *fs, fs_file_t *file, uint8_t *buf, size_t size)
   }
 
   ssize_t ret = read(*file, buf, size);
-  if (ret < 0) {
+  if (ret <= 0) {
     __isere->logger->error(ISERE_FS_LOG_TAG, "read() error: %s", strerror(errno));
     return -1;
   }

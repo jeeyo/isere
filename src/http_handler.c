@@ -17,8 +17,6 @@ int __http_handler(
   uint32_t request_headers_len,
   const char *body)
 {
-  // TODO: parse url path and check if it matches a route
-
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
   if (js_init(isere, &js) < 0) {
