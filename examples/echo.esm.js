@@ -8,6 +8,15 @@ export const handler = async function(event, context, done) {
     console.log('ESM Inside')
   }, 5000)
 
+  // done({
+  //   statusCode: 200,
+  //   headers: { 'Content-Type': 'text/plain' },
+  //   body: { k: 'j' }
+  // })
+
+  const a = await new Promise(resolve => resolve('555'));
+  console.log('a', a)
+
   return {
     statusCode: 404,
     headers: { 'Content-Type': 'text/plain' },
