@@ -25,3 +25,6 @@
 	path = 3rdparty/c-capnproto
 	url = https://gitlab.com/dkml/ext/c-capnproto.git
 	ignore = dirty
+[submodule "3rdparty/mbedtls"]
+	path = 3rdparty/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
