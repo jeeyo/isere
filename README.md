@@ -1,6 +1,6 @@
 # Isère
 
-Isère (/iːˈzɛər/) (https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=fr&q=Isère)
+Isère [(/iːˈzɛər/)](https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=fr&q=Isère)
 
 A serverless platform aimed to be running on Microcontrollers
 

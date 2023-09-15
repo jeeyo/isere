@@ -6,9 +6,10 @@
 #include "timers.h"
 
 #include "quickjs.h"
-#include "klist.h"
 
 #define ISERE_POLYFILLS_H
+
+#define ISERE_POLYFILLS_MAX_TIMERS 10
 
 extern JSClassID polyfill_timer_class_id;
 
@@ -17,15 +18,18 @@ extern "C" {
 #endif
 
 typedef struct {
-  struct list_head link;
   TimerHandle_t timer;
+  JSContext *ctx;
+  JSValue func;
 } polyfill_timer_t;
 
 void polyfill_timer_init(JSContext *ctx);
 void polyfill_timer_deinit(JSContext *ctx);
-JSValue polyfill_timer_setTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
-JSValue polyfill_timer_clearTimeout(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 int polyfill_timer_poll(JSContext *ctx);
+
+void polyfill_fetch_init(JSContext *ctx);
+void polyfill_fetch_deinit(JSContext *ctx);
+int polyfill_fetch_poll(JSContext *ctx);
 
 #ifdef __cplusplus
 }
