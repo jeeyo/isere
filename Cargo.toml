@@ -13,3 +13,6 @@ rquickjs = "0.3.1"
 
 [build-dependencies]
 freertos-cargo-build = "*"
+
+[toolchain]
+channel = "nightly"

@@ -1,10 +1,36 @@
 use rquickjs::{Context, Runtime, context::intrinsic, Object, Function, String as QjsString};
 use core::error::Error;
 use core::fmt;
-use heapless::String;
+use heapless::{String, Vec};
+
+const MAX_HTTP_HEADERS: usize = 20;
+const MAX_HTTP_HEADER_NAME_LEN: usize = 64;
+const MAX_HTTP_HEADER_VALUE_LEN: usize = 1024;
+const MAX_HTTP_BODY_LEN: usize = 2048;
+
+/*
+  Response object:
+  ```
+  {
+    "isBase64Encoded": false, // Set to `true` for binary support.
+    "statusCode": 200,
+    "headers": {
+        "header1Name": "header1Value",
+        "header2Name": "header2Value",
+    },
+    "body": "...",
+  }
+  ```
+*/
+pub struct Response {
+  is_base64_encoded: bool,
+  status_code: u32,
+  headers: Vec<(String<MAX_HTTP_HEADER_NAME_LEN>, String<MAX_HTTP_HEADER_VALUE_LEN>), MAX_HTTP_HEADERS>,
+  body: String<2048>,
+}
 
 #[derive(Debug)]
-struct JsError {
+pub struct JsError {
   message: String<128>,
 }
 
@@ -90,9 +116,8 @@ impl Js {
     Ok(Js { rt, ctx, callback })
   }
 
-  pub fn eval(&self, _js: &str) -> Result<Object, JsError> {
-    let val2: Object;
-    let val = match self.ctx.with(|ctx| -> Result<Object, JsError> {
+  pub fn eval(&self, _js: &str) -> Result<Response, JsError> {
+    let val = match self.ctx.with(|ctx| -> Result<Response, JsError> {
       // TODO: dynamically link this
       let handler = match ctx.compile("handler",
       "export const handler = async function(event, context, done) {
@@ -140,26 +165,23 @@ impl Js {
         Promise.resolve(handler1).then(cb)"
       ).unwrap();
 
-      // let headers: Object = val.get("headers").unwrap();
+      let headers = val.get::<_, Object>("headers").unwrap().props();
 
-      // Ok(Response {
-      //   is_base64_encoded: val.get::<_, bool>("isBase64Encoded").unwrap(),
-      //   status_code: val.get::<_, u32>("statusCode").unwrap(),
-      //   headers: headers
-      //     .props()
-      //     .collect::<Result<Vec<(String, String)>, _>>()
-      //     .unwrap(),
-      //   body: val.get::<_, String>("body").unwrap(),
-      // })
-
-      val2 = val.clone();
-      Ok(())
+      Ok(Response {
+        is_base64_encoded: val.get::<_, bool>("isBase64Encoded").unwrap(),
+        status_code: val.get::<_, u32>("statusCode").unwrap(),
+        headers: val.get::<_, Object>("headers").unwrap()
+          .props()
+          .collect::<Result<Vec<(String<MAX_HTTP_HEADER_NAME_LEN>, String<MAX_HTTP_HEADER_VALUE_LEN>), MAX_HTTP_HEADERS>, _>>()
+          .unwrap(),
+        body: val.get::<_, String<MAX_HTTP_BODY_LEN>>("body").unwrap(),
+      })
     }) {
       Ok(val) => val,
       Err(e) => return Err(e),
     };
 
     let _ = self.rt.execute_pending_job();
-    Ok(val2)
+    Ok(val)
   }
 }

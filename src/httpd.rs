@@ -9,26 +9,5 @@ extern "C" {
   pub fn tcp_write(sock: cty::c_int, buf: *const cty::c_char, len: cty::size_t);
 }
 
-/*
-  Response object:
-  ```
-  {
-    "isBase64Encoded": false, // Set to `true` for binary support.
-    "statusCode": 200,
-    "headers": {
-        "header1Name": "header1Value",
-        "header2Name": "header2Value",
-    },
-    "body": "...",
-  }
-  ```
-*/
-struct Response {
-  is_base64_encoded: bool,
-  status_code: u32,
-  headers: Vec<(String<64>, String<1024>), 10>,
-  body: String<1024>,
-}
-
 mod httpd {
 }
