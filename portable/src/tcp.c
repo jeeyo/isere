@@ -13,20 +13,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-static isere_t *__isere = NULL;
-
-int tcp_init(isere_t *isere, isere_tcp_t *tcp)
+int tcp_init()
 {
-  __isere = isere;
-
-  if (isere->logger == NULL) {
-    return -1;
-  }
-
   return 0;
 }
 
-int tcp_deinit(isere_tcp_t *tcp)
+int tcp_deinit()
 {
   return 0;
 }
@@ -35,7 +27,7 @@ int tcp_socket_new()
 {
   int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
   if (sock < 0) {
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "tcp_socket_new() error: %s", strerror(errno));
+    return -1;
   }
 
   return sock;
@@ -56,13 +48,11 @@ int tcp_listen(int sock, uint16_t port)
 
   int err = bind(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "tcp_listen() address bind error: %s", strerror(errno));
     return -1;
   }
 
   err = listen(sock, 1);
   if (err != 0) {
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "tcp_listen() listen error: %s", strerror(errno));
     return -1;
   }
 
@@ -80,7 +70,6 @@ int tcp_accept(int sock, char *ip_addr)
   }
 
   if (fd < 0) {
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "tcp_accept() error: %s (%d)", strerror(errno));
     return -1;
   }
 
@@ -102,7 +91,6 @@ int tcp_recv(int sock, char *buf, size_t len)
       return -2;
     }
 
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "tcp_recv() error: %s", strerror(errno));
     return -1;
   }
 

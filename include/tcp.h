@@ -10,8 +10,8 @@
 extern "C" {
 #endif
 
-int tcp_init(isere_t *isere, isere_tcp_t *tcp);
-int tcp_deinit(isere_tcp_t *tcp);
+int tcp_init();
+int tcp_deinit();
 
 int tcp_socket_new();
 void tcp_socket_close(int sock);
