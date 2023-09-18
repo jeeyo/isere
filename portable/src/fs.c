@@ -5,7 +5,7 @@
 #include <string.h>
 #include <errno.h>
 
-#define FS_ROOT_DIR "virtfs/"
+#define FS_ROOT_DIR "romfs/"
 
 static isere_t *__isere = NULL;
 
