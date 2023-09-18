@@ -184,20 +184,6 @@ int js_eval(isere_js_t *js)
 {
   JSValue global_obj = JS_GetGlobalObject(js->context);
 
-  // create `event` object if undefined
-  JSValue event = JS_GetPropertyStr(js->context, global_obj, "__event");
-  if (JS_IsUndefined(event)) {
-    JS_SetPropertyStr(js->context, global_obj, "__event", JS_NewObject(js->context));
-  }
-  JS_FreeValue(js->context, event);
-
-  // create `context` object if undefined
-  JSValue context = JS_GetPropertyStr(js->context, global_obj, "__context");
-  if (JS_IsUndefined(context)) {
-    JS_SetPropertyStr(js->context, global_obj, "__context", JS_NewObject(js->context));
-  }
-  JS_FreeValue(js->context, context);
-
   // add callback for getting the result
   JS_SetPropertyStr(js->context, global_obj, "cb", JS_NewCFunction(js->context, __handler_cb, "cb", 1));
   JS_FreeValue(js->context, global_obj);
