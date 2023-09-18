@@ -1,27 +1,23 @@
-use rquickjs::{Context, Runtime, context::intrinsic, Object, Function};
-use std::io::{Error, ErrorKind};
-use std::env;
-use log::{info, warn, error};
+use rquickjs::{Context, Runtime, context::intrinsic, Object, Function, String as QjsString};
+use core::error::Error;
+use core::fmt;
+use heapless::String;
 
-/*
-  Response object:
-  ```
-  {
-    "isBase64Encoded": false, // Set to `true` for binary support.
-    "statusCode": 200,
-    "headers": {
-        "header1Name": "header1Value",
-        "header2Name": "header2Value",
-    },
-    "body": "...",
+#[derive(Debug)]
+struct JsError {
+  message: String<128>,
+}
+
+impl fmt::Display for JsError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "")
   }
-  ```
-*/
-struct Response {
-  is_base64_encoded: bool,
-  status_code: u32,
-  headers: Vec<(String, String)>,
-  body: String,
+}
+
+impl Error for JsError {
+  fn description(&self) -> &str {
+    &self.message
+  }
 }
 
 type Callback = fn();
@@ -33,12 +29,12 @@ pub struct Js {
 }
 
 impl Js {
-  const ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME: &str = "__response";
+  const ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME: &'static str = "__response";
 
-  pub fn init(callback: Callback) -> Result<Js, Error> {
+  pub fn init(callback: Callback) -> Result<Js, JsError> {
     let rt = match Runtime::new() {
       Ok(rt) => rt,
-      Err(_e) => return Err(Error::new(ErrorKind::Other, "failed to create QuickJS runtime")),
+      Err(_e) => return Err(JsError { message: String::from("failed to create QuickJS runtime") }),
     };
 
     let ctx = match Context::builder()
@@ -55,7 +51,7 @@ impl Js {
       .with::<intrinsic::BigInt>()
       .build(&rt) {
         Ok(ctx) => ctx,
-        Err(_e) => return Err(Error::new(ErrorKind::Other, "failed to create QuickJS context")),
+        Err(_e) => return Err(JsError { message: String::from("failed to create QuickJS context") }),
     };
 
     // rt.set_max_stack_size(limit);
@@ -64,9 +60,13 @@ impl Js {
       // add console.log(), console.warn(), and console.error() function
       let console = Object::new(ctx).unwrap();
 
-      let log = Function::new(ctx.clone(), |msg: String| { info!("{}", msg); }).unwrap();
-      let warn = Function::new(ctx.clone(), |msg: String| { warn!("{}", msg); }).unwrap();
-      let error = Function::new(ctx.clone(), |msg: String| { error!("{}", msg); }).unwrap();
+      // TODO: no_std logging
+      // let log = Function::new(ctx.clone(), |msg: QjsString| { info!("{}", msg); }).unwrap();
+      // let warn = Function::new(ctx.clone(), |msg: QjsString| { warn!("{}", msg); }).unwrap();
+      // let error = Function::new(ctx.clone(), |msg: QjsString| { error!("{}", msg); }).unwrap();
+      let log = Function::new(ctx.clone(), |_msg: QjsString| { }).unwrap();
+      let warn = Function::new(ctx.clone(), |_msg: QjsString| { }).unwrap();
+      let error = Function::new(ctx.clone(), |_msg: QjsString| { }).unwrap();
 
       console.set("log", log).unwrap();
       console.set("warn", warn).unwrap();
@@ -75,7 +75,8 @@ impl Js {
 
       // add process.env
       let envvars = Object::new(ctx).unwrap();
-      envvars.set("NODE_ENV", env::var("NODE_ENV").unwrap_or("Development".to_string())).unwrap();
+      // envvars.set("NODE_ENV", env::var("NODE_ENV").unwrap_or("Development".to_string())).unwrap();
+      envvars.set("NODE_ENV", "Production").unwrap();
 
       let process = Object::new(ctx).unwrap();
       process.set("env", envvars).unwrap();
@@ -89,22 +90,9 @@ impl Js {
     Ok(Js { rt, ctx, callback })
   }
 
-  pub fn eval(&self, js: &str) -> Result<(), Error> {
-    /*
-      Response object:
-      ```
-      {
-        "isBase64Encoded": false, // Set to `true` for binary support.
-        "statusCode": 200,
-        "headers": {
-            "header1Name": "header1Value",
-            "header2Name": "header2Value",
-        },
-        "body": "...",
-      }
-      ```
-    */
-    let val = self.ctx.with(|ctx| -> Result<Response, Error> {
+  pub fn eval(&self, _js: &str) -> Result<Object, JsError> {
+    let val2: Object;
+    let val = match self.ctx.with(|ctx| -> Result<Object, JsError> {
       // TODO: dynamically link this
       let handler = match ctx.compile("handler",
       "export const handler = async function(event, context, done) {
@@ -112,37 +100,37 @@ impl Js {
           console.log('## ENVIRONMENT VARIABLES: ', process.env)
           console.log('## CONTEXT: ', context)
           console.log('## EVENT: ', event)
-        
+
           setTimeout(() => {
             console.log('ESM Inside')
           }, 5000)
-        
+
           // done({
           //   statusCode: 200,
           //   headers: { 'Content-Type': 'text/plain' },
           //   body: { k: 'j' }
           // })
-        
+
           const a = await new Promise(resolve => resolve('555'));
           console.log('a', a)
-        
+
           return {
             statusCode: 404,
             headers: { 'Content-Type': 'text/plain' },
             body: { k: 'v' }
           }
         }
-        
+
         console.log('ESM Outside')"
       ) {
         Ok(handler) => handler,
-        Err(e) => return Err(Error::new(ErrorKind::Other, format!("failed to compile handler module: {}", e))),
+        Err(_e) => return Err(JsError { message: String::from("failed to compile handler module") }),
       };
 
       unsafe {
         match handler.eval() {
           Ok(_) => (),
-          Err(e) => return Err(Error::new(ErrorKind::Other, format!("failed to evaluate handler module: {}", e))),
+          Err(_e) => return Err(JsError { message: String::from("failed to evaluate handler module") }),
         }
       };
 
@@ -152,20 +140,26 @@ impl Js {
         Promise.resolve(handler1).then(cb)"
       ).unwrap();
 
-      let headers: Object = val.get("headers").unwrap();
+      // let headers: Object = val.get("headers").unwrap();
 
-      Ok(Response {
-        is_base64_encoded: val.get::<_, bool>("isBase64Encoded").unwrap(),
-        status_code: val.get::<_, u32>("statusCode").unwrap(),
-        headers: headers
-          .props()
-          .collect::<Result<Vec<(String, String)>, _>>()
-          .unwrap(),
-        body: val.get::<_, String>("body").unwrap(),
-      })
-    });
+      // Ok(Response {
+      //   is_base64_encoded: val.get::<_, bool>("isBase64Encoded").unwrap(),
+      //   status_code: val.get::<_, u32>("statusCode").unwrap(),
+      //   headers: headers
+      //     .props()
+      //     .collect::<Result<Vec<(String, String)>, _>>()
+      //     .unwrap(),
+      //   body: val.get::<_, String>("body").unwrap(),
+      // })
+
+      val2 = val.clone();
+      Ok(())
+    }) {
+      Ok(val) => val,
+      Err(e) => return Err(e),
+    };
 
     let _ = self.rt.execute_pending_job();
-    Ok(())
+    Ok(val2)
   }
 }

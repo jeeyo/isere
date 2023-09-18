@@ -65,8 +65,8 @@ void vApplicationDaemonTaskStartupHook(void)
 void vAssertCalled(const char *const pcFileName,
                    unsigned long ulLine)
 {
-  static BaseType_t xPrinted = pdFALSE;
-  volatile uint32_t ulSetToNonZeroInDebuggerToContinue = 0;
+  // static BaseType_t xPrinted = pdFALSE;
+  // volatile uint32_t ulSetToNonZeroInDebuggerToContinue = 0;
 
   /* Called if an assertion passed to configASSERT() fails.  See
    * https://www.FreeRTOS.org/a00110.html#configASSERT for more information. */
