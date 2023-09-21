@@ -28,6 +28,7 @@ fn main() {
         b.freertos_config("portable/include");
         b.freertos_port("ThirdParty/GCC/Posix".to_string());
         b.get_cc().file("src/hooks.c");
+        b.get_cc().file("portable/src/tcp.c");
     // }
 
     // if target == "thumbv7m-none-eabi" {
