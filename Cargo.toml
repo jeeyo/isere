@@ -6,13 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+env_logger = "0.10.0"
 freertos-rust = "0.1.2"
-heapless = "0.7.16"
+libc-print = "0.1.21"
 log = "0.4.20"
-rquickjs = "0.3.1"
+rquickjs = { version = "0.4.0-beta.4", features = ["loader"] }
 
 [build-dependencies]
 freertos-cargo-build = "*"
-
-[toolchain]
-channel = "nightly"
