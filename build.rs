@@ -1,8 +1,10 @@
-fn main() {
-    // // Allows to show relevant environment variables for debugging purpose
-    // print_env();
+use std::env;
 
-    // let target = env::var("TARGET").unwrap_or_default();
+fn main() {
+    // Allows to show relevant environment variables for debugging purpose
+    print_env();
+
+    let target = env::var("TARGET").unwrap_or_default();
     // let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
     // let target_family = env::var("CARGO_CFG_TARGET_FAMILY").unwrap_or_default();
     // let out_dir = env::var("OUT_DIR").unwrap();
@@ -10,63 +12,33 @@ fn main() {
     let mut b = freertos_cargo_build::Builder::new();
 
     b.freertos("3rdparty/FreeRTOS");
+    b.freertos_config("portable/include");
 
-    // // Windows example specific stuff.
-    // if target_family == "windows" {
-    //     b.freertos_config("examples/win");
-    //     // TODO: in future all FreeRTOS API should be implemented by the freertos-rust crate
-    //     // until then, we need to compile some C code manually
-    //     b.add_build_file("examples/win/hooks.c");
-    //     b.add_build_file("examples/win/Run-time-stats-utils.c");
+    if target == "x86_64-unknown-linux-gnu" || target == "aarch64-apple-darwin" {
+      b.freertos_port("ThirdParty/GCC/Posix".to_string());
+    }
 
-    //     if target_env == "msvc" {
-    //         println!("cargo:rustc-link-lib=static=winmm");
-    //     }
-    // }
+    if target == "thumbv6m-none-eabi" {
+      b.freertos_port("ThirdParty/GCC/RP2040".to_string());
+      b.get_cc().include("3rdparty/FreeRTOS/portable/GCC/ARM_CM0");
+    }
 
-    // if target == "x86_64-unknown-linux-gnu" {
-        b.freertos_config("portable/include");
-        b.freertos_port("ThirdParty/GCC/Posix".to_string());
-        b.get_cc().file("src/hooks.c");
-        b.get_cc().file("portable/src/tcp.c");
-    // }
+    b.get_cc().file("src/hooks.c");
+    b.get_cc().file("portable/src/tcp.c");
 
-    // if target == "thumbv7m-none-eabi" {
-    //     b.freertos_config("examples/stm32-cortex-m3");
-    //     copy(
-    //         "examples/stm32-cortex-m3/memory.x",
-    //         PathBuf::from(out_dir.as_str()).join("memory.x"),
-    //     ).unwrap();
-    // }
-    // if target == "thumbv7em-none-eabihf" {
-    //     b.freertos_config("examples/stm32-cortex-m4-blackpill");
-    //     copy(
-    //         "examples/stm32-cortex-m4-blackpill/memory.x",
-    //         PathBuf::from(out_dir.as_str()).join("memory.x"),
-    //     )
-    //     .unwrap();
-    // }
-    // if target == "thumbv8m.main-none-eabihf" {
-    //     b.freertos_config("examples/nrf9160");
-    //     copy(
-    //         "examples/nrf9160/memory.x",
-    //         PathBuf::from(out_dir.as_str()).join("memory.x"),
-    //     ).unwrap();
-    // }
-
-    b.compile().unwrap_or_else(|e| { panic!("{}", e.to_string()) });
+    b.compile().unwrap_or_else(|e| panic!("{}", e.to_string()));
 }
 
-// /// Print relevant environment variables
-// fn print_env() {
-//     let env_keys = ["TARGET", "OUT_DIR", "HOST"];
-//     env::vars().for_each(|(key, val)| {
-//         if key.starts_with("CARGO") {
-//             println!("cargo:warning={}={}", key, val);
-//         } else if env_keys.contains(&key.as_str()) {
-//             println!("cargo:warning={}={}", key, val);
-//         } else {
-//             // println!("cargo:warning={}={}", key, val);
-//         }
-//     });
-// }
+/// Print relevant environment variables
+fn print_env() {
+    let env_keys = ["TARGET", "OUT_DIR", "HOST"];
+    env::vars().for_each(|(key, val)| {
+        if key.starts_with("CARGO") {
+            println!("cargo:warning={}={}", key, val);
+        } else if env_keys.contains(&key.as_str()) {
+            println!("cargo:warning={}={}", key, val);
+        } else {
+            // println!("cargo:warning={}={}", key, val);
+        }
+    });
+}

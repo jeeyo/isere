@@ -1,8 +1,8 @@
 use freertos_rust::{freertos_rs_delete_task, FreeRtosTaskHandle};
-use log::error;
+use log::{error, info};
 
 extern crate alloc;
-use alloc::{string::String, vec::Vec, format};
+use alloc::{string::String, vec::Vec};
 
 extern "C" {
   pub fn tcp_socket_new() -> cty::c_int;
@@ -35,14 +35,25 @@ pub struct Response {
   pub body: String,
 }
 
-pub struct Httpd {
-  socks: Vec<HttpdSocket>,
-}
-
 struct HttpdSocket {
-  sock: cty::c_int,
+  fd: cty::c_int,
   recvd: u32, // number of bytes received
   tsk: Option<FreeRtosTaskHandle>,
+}
+
+impl HttpdSocket {
+  pub fn new() -> Self {
+    Self {
+      fd: -1,
+      recvd: 0,
+      tsk: None
+    }
+  }
+}
+
+pub struct Httpd {
+  fd: cty::c_int,
+  socks: Vec<HttpdSocket>,
 }
 
 impl Drop for Httpd {
@@ -52,8 +63,8 @@ impl Drop for Httpd {
         unsafe { freertos_rs_delete_task(sock.tsk.unwrap()); }
       }
 
-      if sock.sock != -1 && unsafe { tcp_socket_close(sock.sock) } != 0 {
-        error!("failed to close socket {}", sock.sock);
+      if sock.fd != -1 && unsafe { tcp_socket_close(sock.fd) } != 0 {
+        error!("failed to close socket {}", sock.fd);
       }
     }
     // TODO: close all sockets & tasks
@@ -62,10 +73,30 @@ impl Drop for Httpd {
 
 impl Default for Httpd {
   fn default() -> Self {
-    Self { socks: Vec::new() }
+    Self {
+      fd: -1,
+      socks: Vec::new(),
+    }
   }
 }
 
 impl Httpd {
-  
+  const ISERE_HTTPD_PORT: u16 = 8080;
+
+  pub fn poll(&mut self) {
+    self.fd = unsafe { tcp_socket_new() };
+    if self.fd < 0 {
+      error!("unable to create new socket for server");
+      unsafe { freertos_rs_delete_task(core::ptr::null()); }
+      return;
+    }
+
+    if unsafe { tcp_listen(self.fd, Self::ISERE_HTTPD_PORT) } < 0 {
+      error!("unable to listen to port {}", Self::ISERE_HTTPD_PORT);
+      unsafe { freertos_rs_delete_task(core::ptr::null()); }
+      return;
+    }
+
+    info!("listening on port {}", Self::ISERE_HTTPD_PORT);
+  }
 }

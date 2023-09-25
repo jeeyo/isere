@@ -334,7 +334,6 @@ void httpd_task(void *params)
 
   httpd->fd = tcp_socket_new();
   if (httpd->fd < 0) {
-    vTaskDelete(NULL);
     goto exit;
   }
 

@@ -7,12 +7,15 @@ edition = "2021"
 
 [dependencies]
 cty = "0.2.2"
-env_logger = "0.10.0"
 freertos-rust = "0.1.2"
-httparse = "1.8.0"
-libc-print = "0.1.21"
 log = "0.4.20"
-rquickjs = { version = "0.4.0-beta.4", features = ["loader"] }
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+cortex-m = "0.6.0"
+cortex-m-rt = { version = "0.6.12" }
+
+[target.thumbv6m-none-eabi.dependencies]
+panic-halt = "0.2.0"
 
 [build-dependencies]
-freertos-cargo-build = "*"
+freertos-cargo-build = "0.1.1"

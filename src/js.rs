@@ -92,7 +92,7 @@ impl Js {
         ctx.globals().set("process", process).unwrap();
       }
 
-      // TODO: add `event` object: https://aws-lambda-for-python-developers.readthedocs.io/en/latest/02_event_and_context/
+      // add `event` object: https://aws-lambda-for-python-developers.readthedocs.io/en/latest/02_event_and_context/
       {
         // TODO: HTTP Request
         let event = Object::new(ctx.clone()).unwrap();
