@@ -10,12 +10,19 @@ static GLOBAL: FreeRtosAllocator = FreeRtosAllocator;
 
 use freertos_rust::*;
 use log::error;
+use core::panic::PanicInfo;
 
 // use js::Js;
 
 extern "C" {
   pub fn tcp_init() -> cty::c_int;
   pub fn tcp_deinit() -> cty::c_int;
+}
+
+
+#[panic_handler]
+fn panic(_panic: &PanicInfo<'_>) -> ! {
+    loop {}
 }
 
 fn main() {

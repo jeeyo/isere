@@ -16,18 +16,18 @@
 httpd_handler_t __http_handler;
 static isere_t isere;
 
-void sigint(int dummy) {
-  isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
+// void sigint(int dummy) {
+//   isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
 
-  httpd_deinit(isere.httpd);
-  tcp_deinit(isere.tcp);
-  loader_deinit(isere.loader);
-  fs_deinit(isere.fs);
-  ini_deinit(isere.ini);
-  logger_deinit(isere.logger);
+//   httpd_deinit(isere.httpd);
+//   tcp_deinit(isere.tcp);
+//   loader_deinit(isere.loader);
+//   fs_deinit(isere.fs);
+//   ini_deinit(isere.ini);
+//   logger_deinit(isere.logger);
 
-  vTaskEndScheduler();
-}
+//   vTaskEndScheduler();
+// }
 
 int main(void)
 {
@@ -104,7 +104,7 @@ int main(void)
     return EXIT_FAILURE;
   }
 
-  signal(SIGINT, sigint);
+  // signal(SIGINT, sigint);
 
   // start FreeRTOS scheduler
   vTaskStartScheduler();

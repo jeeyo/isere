@@ -3,8 +3,6 @@
 #include <string.h>
 #include <sys/param.h>
 
-#include <netinet/in.h>
-
 #include "tcp.h"
 #include "js.h"
 
@@ -354,7 +352,7 @@ void httpd_task(void *params)
     }
 
     // accept connection
-    char ipaddr[INET_ADDRSTRLEN + 1];
+    char ipaddr[16];
     conn->fd = tcp_accept(httpd->fd, ipaddr);
     if (conn->fd < 0) {
       conn->fd = -1;

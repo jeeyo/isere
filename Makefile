@@ -1,6 +1,7 @@
-CC := gcc
-CPP := g++
-CLANG := gcc
+CC := arm-none-eabi-gcc
+CPP := arm-none-eabi-g++
+# CC := gcc
+# CPP := g++
 MAKE := make
 
 ISERE_BIN := isere
@@ -10,7 +11,7 @@ ISERE_BUILD_DIR := ./build
 TEST_BUILD_DIR := ./build/tests
 
 FREERTOS_DIR := ./3rdparty/FreeRTOS
-# FREERTOS_POSIX_DIR := ./3rdparty/FreeRTOS-Plus-POSIX
+FREERTOS_POSIX_DIR := ./3rdparty/FreeRTOS-Plus-POSIX
 QUICKJS_DIR := ./3rdparty/quickjs
 LWIP_DIR := ./3rdparty/lwip
 LLHTTP_DIR := ./3rdparty/llhttp
@@ -24,10 +25,11 @@ INCLUDE_DIRS += -I./schemas
 INCLUDE_DIRS += -I${FREERTOS_DIR}/include
 INCLUDE_DIRS += -I${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix
 INCLUDE_DIRS += -I${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils
-# INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/include
-# INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/include/private
-# INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include
-# INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include/portable
+INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/include
+# INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/include/FreeRTOS_POSIX
+INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/include/private
+INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include
+INCLUDE_DIRS += -I${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include/portable
 INCLUDE_DIRS += -I${QUICKJS_DIR}/include
 # INCLUDE_DIRS += -I${LWIP_DIR}/src/include
 INCLUDE_DIRS += -I${LLHTTP_DIR}/include
@@ -40,12 +42,12 @@ SOURCE_FILES += $(wildcard portable/src/*.c)
 SOURCE_FILES += $(wildcard schemas/*.c)
 SOURCE_FILES += $(wildcard ${FREERTOS_DIR}/*.c)
 SOURCE_FILES += ${FREERTOS_DIR}/portable/MemMang/heap_4.c
-SOURCE_FILES += ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils/wait_for_event.c
-SOURCE_FILES += ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/port.c
-# SOURCE_FILES += ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_mutex.c
-# SOURCE_FILES += ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_utils.c
+# SOURCE_FILES += ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils/wait_for_event.c
+# SOURCE_FILES += ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/port.c
+# SOURCE_FILES += ${FREERTOS_DIR}/portable/ThirdParty/GCC/RP2040/port.c
+SOURCE_FILES += $(wildcard ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/*.c)
 SOURCE_FILES += ${QUICKJS_DIR}/quickjs.c
-SOURCE_FILES += ${QUICKJS_DIR}/quickjs-libc.c
+# SOURCE_FILES += ${QUICKJS_DIR}/quickjs-libc.c
 SOURCE_FILES += ${QUICKJS_DIR}/libbf.c
 SOURCE_FILES += ${QUICKJS_DIR}/libregexp.c
 SOURCE_FILES += ${QUICKJS_DIR}/libunicode.c
@@ -60,10 +62,10 @@ SOURCE_FILES += $(wildcard ${LLHTTP_DIR}/src/*.c)
 SOURCE_FILES += ${LIBYUAREL_DIR}/yuarel.c
 SOURCE_FILES += $(wildcard ${CAPNPROTO_DIR}/lib/*.c)
 
-QUICKJS_DEFINES := -D_GNU_SOURCE -DCONFIG_BIGNUM -DCONFIG_VERSION=\"$(shell git rev-parse --short HEAD)\"
+QUICKJS_DEFINES := -D_GNU_SOURCE -DCONFIG_BIGNUM -DEMSCRIPTEN -DCONFIG_VERSION=\"$(shell git rev-parse --short HEAD)\"
 
 CFLAGS := -ggdb3 ${QUICKJS_DEFINES}
-LDFLAGS := -ggdb3 -nostdlib -ldl -lm
+LDFLAGS := -ggdb3 -nostdlib -lm
 UNITTEST_LDFLAGS := -ggdb3 -ldl -lm
 
 OBJ_FILES = $(SOURCE_FILES:%.c=$(ISERE_BUILD_DIR)/%.o)

@@ -1,14 +1,17 @@
 #include "loader.h"
 
 #include <string.h>
-#include <dlfcn.h>
+// #include <dlfcn.h>
 
 static isere_t *__isere = NULL;
+static uint8_t test[] = {0x00, 0x01, 0x02, 0x03};
 
 static uint8_t *loader_get_fn(isere_loader_t *loader, uint32_t *size)
 {
-  *size = *(uint32_t *)(dlsym(loader->dll, ISERE_LOADER_HANDLER_SIZE_FUNCTION));
-  return (uint8_t *)(dlsym(loader->dll, ISERE_LOADER_HANDLER_FUNCTION));
+  // *size = *(uint32_t *)(dlsym(loader->dll, ISERE_LOADER_HANDLER_SIZE_FUNCTION));
+  // return (uint8_t *)(dlsym(loader->dll, ISERE_LOADER_HANDLER_FUNCTION));
+  *size = 0;
+  return test;
 }
 
 int loader_init(isere_t *isere, isere_loader_t *loader, const char *dll_path)
@@ -29,12 +32,12 @@ int loader_init(isere_t *isere, isere_loader_t *loader, const char *dll_path)
     return -1;
   }
 
-  loader->dll = dlopen(dll_path, RTLD_LAZY);
-  if (!loader->dll) {
-    loader->dll = NULL;
-    __isere->logger->error(ISERE_LOADER_LOG_TAG, "dlopen() error: %s", dlerror());
-    return -1;
-  }
+  // loader->dll = dlopen(dll_path, RTLD_LAZY);
+  // if (!loader->dll) {
+  //   loader->dll = NULL;
+  //   __isere->logger->error(ISERE_LOADER_LOG_TAG, "dlopen() error: %s", dlerror());
+  //   return -1;
+  // }
 
   // load javascript source code from the shared library
   loader->fn = loader_get_fn(loader, &loader->fn_size);
@@ -49,7 +52,7 @@ int loader_deinit(isere_loader_t *loader)
   }
 
   if (loader->dll) {
-    dlclose(loader->dll);
+    // dlclose(loader->dll);
   }
 
   return 0;

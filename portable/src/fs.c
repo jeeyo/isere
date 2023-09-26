@@ -1,7 +1,7 @@
 #include "fs.h"
 
-#include <fcntl.h>
-#include <unistd.h>
+// #include <fcntl.h>
+// #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 
@@ -41,11 +41,11 @@ int fs_open(isere_fs_t *fs, fs_file_t *file, const char *path, int flags)
   strncpy(filepath, FS_ROOT_DIR, sizeof(filepath) - 1);
   strncat(filepath, path, sizeof(filepath) - 1);
 
-  *file = open(filepath, flags, 0666);
-  if (*file < 0) {
-    __isere->logger->error(ISERE_FS_LOG_TAG, "open() error: %s", strerror(errno));
-    return -1;
-  }
+  // *file = open(filepath, flags, 0666);
+  // if (*file < 0) {
+  //   __isere->logger->error(ISERE_FS_LOG_TAG, "open() error: %s", strerror(errno));
+  //   return -1;
+  // }
 
   return 0;
 }
@@ -57,11 +57,11 @@ int fs_close(isere_fs_t *fs, fs_file_t *file)
     return -1;
   }
 
-  int ret = close(*file);
-  if (ret != 0) {
-    __isere->logger->error(ISERE_FS_LOG_TAG, "close() error: %s", strerror(errno));
-    return -1;
-  }
+  // int ret = close(*file);
+  // if (ret != 0) {
+  //   // __isere->logger->error(ISERE_FS_LOG_TAG, "close() error: %s", strerror(errno));
+  //   return -1;
+  // }
 
   *file = -1;
   return 0;
@@ -79,13 +79,14 @@ int fs_read(isere_fs_t *fs, fs_file_t *file, uint8_t *buf, size_t size)
     return -1;
   }
 
-  ssize_t ret = read(*file, buf, size);
-  if (ret <= 0) {
-    __isere->logger->error(ISERE_FS_LOG_TAG, "read() error: %s", strerror(errno));
-    return -1;
-  }
+  // ssize_t ret = read(*file, buf, size);
+  // if (ret <= 0) {
+  //   __isere->logger->error(ISERE_FS_LOG_TAG, "read() error: %s", strerror(errno));
+  //   return -1;
+  // }
 
-  return ret;
+  // return ret;
+  return 0;
 }
 
 int fs_write(isere_fs_t *fs, fs_file_t *file, uint8_t *buf, size_t size)
@@ -100,13 +101,14 @@ int fs_write(isere_fs_t *fs, fs_file_t *file, uint8_t *buf, size_t size)
     return -1;
   }
 
-  ssize_t ret = write(*file, buf, size);
-  if (ret < 0) {
-    __isere->logger->error(ISERE_FS_LOG_TAG, "write() error: %s", strerror(errno));
-    return -1;
-  }
+  // ssize_t ret = write(*file, buf, size);
+  // if (ret < 0) {
+  //   __isere->logger->error(ISERE_FS_LOG_TAG, "write() error: %s", strerror(errno));
+  //   return -1;
+  // }
 
-  return ret;
+  // return ret;
+  return 0;
 }
 
 int fs_rewind(isere_fs_t *fs, fs_file_t *file)
@@ -116,11 +118,11 @@ int fs_rewind(isere_fs_t *fs, fs_file_t *file)
     return -1;
   }
 
-  off_t ret = lseek(*file, 0, SEEK_SET);
-  if (ret < 0) {
-    __isere->logger->error(ISERE_FS_LOG_TAG, "lseek() error: %s", strerror(errno));
-    return -1;
-  }
+  // off_t ret = lseek(*file, 0, SEEK_SET);
+  // if (ret < 0) {
+  //   __isere->logger->error(ISERE_FS_LOG_TAG, "lseek() error: %s", strerror(errno));
+  //   return -1;
+  // }
 
   return 0;
 }

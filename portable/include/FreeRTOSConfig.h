@@ -86,7 +86,7 @@
  * requested. */
 #define configSTACK_DEPTH_TYPE                    uint32_t
 
-#define posixconfigENABLE_PTHREAD_MUTEX_T         1
+#define configUSE_POSIX_ERRNO                     1
 
 /* Set the following definitions to 1 to include the API function, or zero
  * to exclude the API function.  In most cases the linker will remove unused
