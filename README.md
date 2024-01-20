@@ -4,7 +4,7 @@ Isère [(/iːˈzɛər/)](https://translate.google.com/translate_tts?ie=UTF-8&cli
 
 A serverless platform aimed to be running on Microcontrollers
 
-The goal is to create a low-power serverless platform that can handle simple stateless request like logging in which will require accessing to database and create JWT token
+The goal is to create a low-power serverless platform that can handle simple stateless request like logging in which will require accessing to database and creating JWT token
 
 ### Current progress
 
