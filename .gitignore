@@ -8,5 +8,3 @@ tests/js/*.c
 tests/js/*.c.bak
 isere
 unittest
-
-target/

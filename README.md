@@ -6,8 +6,6 @@ A serverless platform aimed to be running on Microcontrollers
 
 The goal is to create a low-power serverless platform that can handle simple stateless request like logging in which will require accessing to database and create JWT token
 
-A RP2040 Port is being re-written in Rust [here](https://github.com/jeeyo/isere-rs)
-
 ### Current progress
 
 - [x] FreeRTOS as Kernel
