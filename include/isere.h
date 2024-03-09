@@ -66,7 +66,7 @@ typedef struct {
   isere_tcp_t *tcp;
   isere_httpd_t *httpd;
   isere_fs_t *fs;
-  isere_ini_t *ini;
+  // isere_ini_t *ini;
   isere_rtc_t *rtc;
 } isere_t;
 

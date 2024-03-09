@@ -113,4 +113,6 @@
 extern void vAssertCalled( const char * const pcFileName,
                            unsigned long ulLine );
 
+#define posixconfigENABLE_SSIZE_T                 0
+
 #endif /* FREERTOS_CONFIG_H */

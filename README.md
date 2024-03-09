@@ -87,7 +87,7 @@ make -j
 
 try to access `http://localhost:8080/` and see the process logs  
   
-feel free to try modify `examples/echo.esm.js` (don't forget to recompile it using `make -j .testjs`)
+feel free to try modify `examples/echo.esm.js` (don't forget to recompile it using `make -j .examples`)
 
 ### Running Tests
 

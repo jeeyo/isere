@@ -16,18 +16,18 @@
 httpd_handler_t __http_handler;
 static isere_t isere;
 
-// void sigint(int dummy) {
-//   isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
+void sigint(int dummy) {
+  isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
 
-//   httpd_deinit(isere.httpd);
-//   tcp_deinit(isere.tcp);
-//   loader_deinit(isere.loader);
-//   fs_deinit(isere.fs);
-//   ini_deinit(isere.ini);
-//   logger_deinit(isere.logger);
+  httpd_deinit(isere.httpd);
+  tcp_deinit(isere.tcp);
+  loader_deinit(isere.loader);
+  fs_deinit(isere.fs);
+  // ini_deinit(isere.ini);
+  logger_deinit(isere.logger);
 
-//   vTaskEndScheduler();
-// }
+  vTaskEndScheduler();
+}
 
 int main(void)
 {
@@ -52,18 +52,18 @@ int main(void)
   }
   isere.fs = &fs;
 
-  // initialize configuration file module
-  isere_ini_t ini;
-  memset(&ini, 0, sizeof(isere_ini_t));
-  if (ini_init(&isere, &ini) < 0) {
-    logger.error(ISERE_LOG_TAG, "Unable to initialize configuration file module");
-    return EXIT_FAILURE;
-  }
-  isere.ini = &ini;
+  // // initialize configuration file module
+  // isere_ini_t ini;
+  // memset(&ini, 0, sizeof(isere_ini_t));
+  // if (ini_init(&isere, &ini) < 0) {
+  //   logger.error(ISERE_LOG_TAG, "Unable to initialize configuration file module");
+  //   return EXIT_FAILURE;
+  // }
+  // isere.ini = &ini;
 
-  logger.info(ISERE_LOG_TAG, "========== Configurations ==========");
-  logger.info(ISERE_LOG_TAG, "  timeout: %d", ini_get_timeout(&ini));
-  logger.info(ISERE_LOG_TAG, "====================================");
+  // logger.info(ISERE_LOG_TAG, "========== Configurations ==========");
+  // logger.info(ISERE_LOG_TAG, "  timeout: %d", ini_get_timeout(&ini));
+  // logger.info(ISERE_LOG_TAG, "====================================");
 
   // dynamically loading javascript serverless handler
   isere_loader_t loader;
@@ -104,7 +104,7 @@ int main(void)
     return EXIT_FAILURE;
   }
 
-  // signal(SIGINT, sigint);
+  signal(SIGINT, sigint);
 
   // start FreeRTOS scheduler
   vTaskStartScheduler();
