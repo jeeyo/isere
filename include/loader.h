@@ -7,7 +7,7 @@
 
 #define ISERE_LOADER_LOG_TAG "loader"
 
-#define ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH "../examples/echo.esm.so"
+#define ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH "handler.so"
 #define ISERE_LOADER_HANDLER_FUNCTION "handler"
 #define ISERE_LOADER_HANDLER_SIZE_FUNCTION "handler_len"
 

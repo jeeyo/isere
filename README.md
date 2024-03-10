@@ -58,6 +58,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 
 Prerequisites:
 - automake
+- cmake
 - make
 - gcc
 - libtool
@@ -69,16 +70,13 @@ brew install automake libtool ninja
 # or
 sudo apt install -y build-essential libtool ninja-build
 
-git clone <this f***ing repo>
+git clone https://github.com/jeeyo/isere.git
 git submodule update --init
 
-# compile dependencies
-make -j deps
-
-# compile examples javascript
-make -j .examples
-
-# compile isere
+# build
+mkdir build
+cd build
+cmake ..
 make -j
 
 # run isere
@@ -87,7 +85,7 @@ make -j
 
 try to access `http://localhost:8080/` and see the process logs  
   
-feel free to try modify `examples/echo.esm.js` (don't forget to recompile it using `make -j .examples`)
+feel free to try modify `examples/handler.js` (don't forget to recompile it)
 
 ### Running Tests
 

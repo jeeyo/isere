@@ -82,7 +82,7 @@ set(SOURCES
   ${CAPNPROTO_DIR}/lib/capn-malloc.c
   ${CAPNPROTO_DIR}/lib/capn-stream.c
   ${CAPNPROTO_DIR}/lib/capn.c
-  )
+)
 
 add_executable(isere ${SOURCES})
 
@@ -118,13 +118,14 @@ target_include_directories(isere PRIVATE
 #   VERBATIM
 #   )
 
-add_library(js SHARED ${EXAMPLES_DIR}/echo.esm.c)
+add_library(handler SHARED handler.c)
+set_target_properties(handler PROPERTIES PREFIX "")
+set_target_properties(handler PROPERTIES SUFFIX ".so")
 add_custom_command(
-  OUTPUT ${EXAMPLES_DIR}/echo.esm.c
-  COMMAND xxd -i ${EXAMPLES_DIR}/echo.esm.js ${EXAMPLES_DIR}/echo.esm.c
-  COMMAND sed -i -E "s/[a-z_]+\\[\\]/handler\\[\\]/" ${EXAMPLES_DIR}/echo.esm.c # change code array variable name to "handler"
-  COMMAND sed -i -E "s/[a-z_]+_len/handler_len/" ${EXAMPLES_DIR}/echo.esm.c # change code length variable name to "handler_len"
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  OUTPUT handler.c
+  COMMAND xxd -i ../${EXAMPLES_DIR}/handler.js handler.c
+  COMMAND sed -i.bak -E "s/[a-z_]+\\[\\]/handler\\[\\]/" handler.c # change code array variable name to "handler"
+  COMMAND sed -i.bak -E "s/[a-z_]+_len/handler_len/" handler.c # change code length variable name to "handler_len"
   COMMENT "Compiling JavaScript files"
   VERBATIM
-  )
+)
