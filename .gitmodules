@@ -4,7 +4,6 @@
 [submodule "3rdparty/quickjs"]
 	path = 3rdparty/quickjs
 	url = https://github.com/bellard/quickjs.git
-	ignore = dirty
 [submodule "3rdparty/FreeRTOS-Plus-POSIX"]
 	path = 3rdparty/FreeRTOS-Plus-POSIX
 	url = https://github.com/FreeRTOS/Lab-Project-FreeRTOS-POSIX.git
@@ -15,9 +14,6 @@
 	path = 3rdparty/llhttp
 	url = https://github.com/nodejs/llhttp.git
 	ignore = dirty
-[submodule "3rdparty/cpputest"]
-	path = 3rdparty/cpputest
-	url = https://github.com/cpputest/cpputest.git
 [submodule "3rdparty/libyuarel"]
 	path = 3rdparty/libyuarel
 	url = https://github.com/jacketizer/libyuarel.git
