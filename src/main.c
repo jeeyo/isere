@@ -16,6 +16,7 @@
 httpd_handler_t __http_handler;
 static isere_t isere;
 
+#ifdef __linux__
 void sigint(int dummy) {
   isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
 
@@ -28,6 +29,7 @@ void sigint(int dummy) {
 
   vTaskEndScheduler();
 }
+#endif
 
 int main(void)
 {
@@ -104,7 +106,9 @@ int main(void)
     return EXIT_FAILURE;
   }
 
+#ifdef __linux__
   signal(SIGINT, sigint);
+#endif
 
   // start FreeRTOS scheduler
   vTaskStartScheduler();

@@ -1,3 +1,5 @@
+#include "isere.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -7,13 +9,25 @@
 // #include <sys/socket.h>
 // #include <arpa/inet.h>
 
-int tcp_init()
+static isere_t *__isere = NULL;
+
+int tcp_init(isere_t *isere, isere_tcp_t *tcp)
 {
+  __isere = isere;
+
+  if (isere->logger == NULL) {
+    return -1;
+  }
+
   return 0;
 }
 
-int tcp_deinit()
+int tcp_deinit(isere_tcp_t *tcp)
 {
+  if (__isere) {
+    __isere = NULL;
+  }
+
   return 0;
 }
 

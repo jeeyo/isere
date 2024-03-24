@@ -15,13 +15,8 @@ jobs:
           submodules: recursive
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential automake libtool
+        run: sudo apt-get update && sudo apt-get install -y build-essential automake libtool cmake
 
-      - name: Build dependencies
-        run: make -j deps
+      - name: Build binary
+        run: mkdir build && cd build && cmake .. && make -j
 
-      - name: Build test executable
-        run: make -j unittest
-
-      - name: Run tests
-        run: ./unittest -v

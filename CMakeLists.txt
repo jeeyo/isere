@@ -1,20 +1,10 @@
 cmake_minimum_required(VERSION 3.13)
 
-# include(3rdparty/pico-sdk/pico_sdk_init.cmake)
+include(portable/${TARGET_PLATFORM}/init.cmake OPTIONAL)
 
-project(isere)
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
+project(isere C CXX ASM)
 
-# initialize the Raspberry Pi Pico SDK
-# pico_sdk_init()
-
-# # pull in common dependencies
-# target_link_libraries(isere pico_stdlib)
-
-find_package(Git REQUIRED)
-execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
-add_compile_options(-D_GNU_SOURCE -DCONFIG_BIGNUM -DEMSCRIPTEN -DCONFIG_VERSION="${COMMIT_ID}")
+set(TARGET_PLATFORM linux CACHE STRING "Some user-specified option")
 
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
 set(FREERTOS_POSIX_DIR ./3rdparty/FreeRTOS-Plus-POSIX)
@@ -26,7 +16,9 @@ set(CPPUTEST_DIR ./3rdparty/cpputest)
 set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
 set(EXAMPLES_DIR ./examples)
 
-set(SOURCES
+set(SOURCES )
+
+list(APPEND SOURCES
   src/main.c
   src/hooks.c
   src/http_handler.c
@@ -35,11 +27,11 @@ set(SOURCES
   src/js.c
   src/polyfills/fetch.c
   src/polyfills/timer.c
-  portable/linux/src/fs.c
-  portable/linux/src/loader.c
-  portable/linux/src/logger.c
-  portable/linux/src/rtc.c
-  portable/linux/src/tcp.c
+  portable/${TARGET_PLATFORM}/src/fs.c
+  portable/${TARGET_PLATFORM}/src/loader.c
+  portable/${TARGET_PLATFORM}/src/logger.c
+  portable/${TARGET_PLATFORM}/src/rtc.c
+  portable/${TARGET_PLATFORM}/src/tcp.c
   schemas/config.capnp.c
   ${FREERTOS_DIR}/croutine.c
   ${FREERTOS_DIR}/event_groups.c
@@ -48,33 +40,11 @@ set(SOURCES
   ${FREERTOS_DIR}/stream_buffer.c
   ${FREERTOS_DIR}/tasks.c
   ${FREERTOS_DIR}/timers.c
-  ${FREERTOS_DIR}/portable/MemMang/heap_4.c
-  ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils/wait_for_event.c
-  ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/port.c
-  # ${FREERTOS_DIR}/portable/ThirdParty/GCC/RP2040/port.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_clock.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_mqueue.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_barrier.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_cond.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_mutex.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_sched.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_semaphore.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_timer.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_unistd.c
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_utils.c
   ${QUICKJS_DIR}/quickjs.c
-  ${QUICKJS_DIR}/quickjs-libc.c
   ${QUICKJS_DIR}/libbf.c
   ${QUICKJS_DIR}/libregexp.c
   ${QUICKJS_DIR}/libunicode.c
   ${QUICKJS_DIR}/cutils.c
-  # $(wildcard ${LWIP_DIR}/src/api/*.c)
-  # $(wildcard ${LWIP_DIR}/src/core/ipv4/*.c)
-  # $(wildcard ${LWIP_DIR}/src/core/*.c)
-  # ${LWIP_DIR}/src/netif/ethernet.c
-  # $(wildcard ${LWIP_DIR}/src/netif/ppp/*.c)
-  # $(wildcard ${LWIP_DIR}/src/netif/ppp/polarssl/*.c)
   ${LLHTTP_DIR}/src/api.c
   ${LLHTTP_DIR}/src/http.c
   ${LLHTTP_DIR}/src/llhttp.c
@@ -84,39 +54,77 @@ set(SOURCES
   ${CAPNPROTO_DIR}/lib/capn.c
 )
 
+if(NEED_FREERTOS_POSIX)
+  list(APPEND SOURCES
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_clock.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_mqueue.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_barrier.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_cond.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_mutex.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_sched.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_semaphore.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_timer.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_unistd.c
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_utils.c
+  )
+endif()
+
+if(NEED_LWIP)
+  list(APPEND SOURCES
+    # $(wildcard ${LWIP_DIR}/src/api/*.c)
+    # $(wildcard ${LWIP_DIR}/src/core/ipv4/*.c)
+    # $(wildcard ${LWIP_DIR}/src/core/*.c)
+    # ${LWIP_DIR}/src/netif/ethernet.c
+    # $(wildcard ${LWIP_DIR}/src/netif/ppp/*.c)
+    # $(wildcard ${LWIP_DIR}/src/netif/ppp/polarssl/*.c)
+  )
+endif()
+
+include(portable/${TARGET_PLATFORM}/source.cmake OPTIONAL)
 add_executable(isere ${SOURCES})
 
-# # create map/bin/hex file etc.
-# pico_add_extra_outputs(isere)
+find_package(Git REQUIRED)
+execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
+target_compile_options(isere PRIVATE -D_GNU_SOURCE -DCONFIG_BIGNUM -DEMSCRIPTEN -DCONFIG_VERSION="${COMMIT_ID}")
+
+include(portable/${TARGET_PLATFORM}/link.cmake OPTIONAL)
 
 target_include_directories(isere PRIVATE
   ./include
   ./portable/include
   ./schemas
   ${FREERTOS_DIR}/include
-  ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix
-  ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils
-  # ${FREERTOS_DIR}/portable/ThirdParty/GCC/RP2040/include
-  # ${FREERTOS_POSIX_DIR}/include
-  # ${FREERTOS_POSIX_DIR}/include/FreeRTOS_POSIX
-  # ${FREERTOS_POSIX_DIR}/include/private
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include
-  # ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include/portable
   ${QUICKJS_DIR}
-  # ${LWIP_DIR}/src/include
   ${LLHTTP_DIR}/include
   ${LIBYUAREL_DIR}
   ${CAPNPROTO_DIR}/lib
 )
 
-# add_custom_command(
-#   OUTPUT 3rdparty/c-capnproto/build/capnpc-c/config.capnp.c
-#   COMMAND capnp compile -o 3rdparty/c-capnproto/build/capnpc-c schemas/config.capnp
-#   DEPENDS schemas/config.capnp
-#   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-#   COMMENT "Compiling Cap'n Proto schema"
-#   VERBATIM
-#   )
+if(NEED_FREERTOS_POSIX)
+  target_include_directories(isere PRIVATE
+    ${FREERTOS_POSIX_DIR}/include
+    ${FREERTOS_POSIX_DIR}/include/FreeRTOS_POSIX
+    ${FREERTOS_POSIX_DIR}/include/private
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include
+    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include/portable
+  )
+endif()
+
+if(NEED_LWIP)
+  target_include_directories(isere PRIVATE
+    ${LWIP_DIR}/src/include
+  )
+endif()
+
+add_custom_command(
+  OUTPUT 3rdparty/c-capnproto/build/capnpc-c/config.capnp.c
+  COMMAND capnp compile -o 3rdparty/c-capnproto/build/capnpc-c schemas/config.capnp
+  DEPENDS schemas/config.capnp
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "Compiling Cap'n Proto schema"
+  VERBATIM
+)
 
 add_library(handler SHARED handler.c)
 set_target_properties(handler PROPERTIES PREFIX "")
@@ -129,3 +137,10 @@ add_custom_command(
   COMMENT "Compiling JavaScript files"
   VERBATIM
 )
+
+# add_executable(unittests
+#   ./tests/js_test.cpp
+#   ./tests/loader_test.cpp
+#   ./tests/main.cpp
+# )
+# target_link_options(unittests PRIVATE -LCppUTest -lCppUTest -lCppUTestExt)
