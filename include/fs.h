@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 #define ISERE_FS_LOG_TAG "fs"
+#define ISERE_FS_MAX_PATH 64
 
 typedef int fs_file_t;
 
