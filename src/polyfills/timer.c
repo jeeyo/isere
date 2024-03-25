@@ -10,7 +10,6 @@
 
 JSClassID polyfill_timer_class_id;
 
-// TODO: use statically allocated array instead of linked list
 static polyfill_timer_t timers[ISERE_POLYFILLS_MAX_TIMERS];
 
 static polyfill_timer_t *__polyfill_timer_get_free_slot()

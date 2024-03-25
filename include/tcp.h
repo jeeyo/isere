@@ -10,15 +10,17 @@
 extern "C" {
 #endif
 
-int tcp_init(isere_t *isere, isere_tcp_t *tcp);
-int tcp_deinit(isere_tcp_t *tcp);
+int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp);
+int isere_tcp_deinit(isere_tcp_t *tcp);
 
-int tcp_socket_new();
-void tcp_socket_close(int sock);
-int tcp_listen(int sock, uint16_t port);
-int tcp_accept(int sock, char *ip_addr);
-int tcp_recv(int sock, char *buf, size_t len);
-int tcp_write(int sock, const char *buf, size_t len);
+int isere_tcp_socket_new();
+void isere_tcp_socket_close(int sock);
+int isere_tcp_listen(int sock, uint16_t port);
+int isere_tcp_accept(int sock, char *ip_addr);
+int isere_tcp_recv(int sock, char *buf, size_t len);
+int isere_tcp_write(int sock, const char *buf, size_t len);
+
+void isere_tcp_poll();
 
 #ifdef __cplusplus
 }

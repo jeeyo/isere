@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.5)
 
 include(portable/${TARGET_PLATFORM}/init.cmake OPTIONAL)
 
 project(isere C CXX ASM)
 
-set(TARGET_PLATFORM linux CACHE STRING "Some user-specified option")
+set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
 set(FREERTOS_POSIX_DIR ./3rdparty/FreeRTOS-Plus-POSIX)
@@ -12,27 +12,27 @@ set(QUICKJS_DIR ./3rdparty/quickjs)
 set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
-set(CPPUTEST_DIR ./3rdparty/cpputest)
 set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
 set(EXAMPLES_DIR ./examples)
 
 set(SOURCES )
 
 list(APPEND SOURCES
-  src/main.c
-  src/hooks.c
-  src/http_handler.c
-  src/httpd.c
-  src/ini.c
-  src/js.c
-  src/polyfills/fetch.c
-  src/polyfills/timer.c
-  portable/${TARGET_PLATFORM}/src/fs.c
-  portable/${TARGET_PLATFORM}/src/loader.c
-  portable/${TARGET_PLATFORM}/src/logger.c
-  portable/${TARGET_PLATFORM}/src/rtc.c
-  portable/${TARGET_PLATFORM}/src/tcp.c
-  schemas/config.capnp.c
+  ./src/main.c
+  ./src/hooks.c
+  ./src/http_handler.c
+  ./src/httpd.c
+  ./src/ini.c
+  ./src/js.c
+  ./src/polyfills/fetch.c
+  ./src/polyfills/timer.c
+  ./portable/${TARGET_PLATFORM}/src/fs.c
+  ./portable/${TARGET_PLATFORM}/src/loader.c
+  ./portable/${TARGET_PLATFORM}/src/logger.c
+  ./portable/${TARGET_PLATFORM}/src/rtc.c
+  ./portable/${TARGET_PLATFORM}/src/tcp.c
+  ./portable/${TARGET_PLATFORM}/src/platform.c
+  ./schemas/config.capnp.c
   ${FREERTOS_DIR}/croutine.c
   ${FREERTOS_DIR}/event_groups.c
   ${FREERTOS_DIR}/list.c
@@ -70,19 +70,41 @@ if(NEED_FREERTOS_POSIX)
   )
 endif()
 
+include(portable/${TARGET_PLATFORM}/source.cmake OPTIONAL)
+
 if(NEED_LWIP)
+  set(LWIP_INCLUDE_DIRS
+    ${LWIP_DIR}/src/include
+    ./portable/${TARGET_PLATFORM}/include
+  )
+  include(${LWIP_DIR}/src/Filelists.cmake)
+endif()
+
+if(SUPPORT_DYNLINK)
+  add_executable(handler handler.c)
+  set_target_properties(handler PROPERTIES PREFIX "")
+  set_target_properties(handler PROPERTIES SUFFIX ".so")
+  target_link_options(handler PRIVATE -shared -fPIC)
+else()
   list(APPEND SOURCES
-    # $(wildcard ${LWIP_DIR}/src/api/*.c)
-    # $(wildcard ${LWIP_DIR}/src/core/ipv4/*.c)
-    # $(wildcard ${LWIP_DIR}/src/core/*.c)
-    # ${LWIP_DIR}/src/netif/ethernet.c
-    # $(wildcard ${LWIP_DIR}/src/netif/ppp/*.c)
-    # $(wildcard ${LWIP_DIR}/src/netif/ppp/polarssl/*.c)
+    handler.c
   )
 endif()
 
-include(portable/${TARGET_PLATFORM}/source.cmake OPTIONAL)
+add_custom_command(
+  OUTPUT handler.c
+  COMMAND xxd -i ../${EXAMPLES_DIR}/handler.js handler.c
+  COMMAND sed -i.bak -E "s/[a-z_]+\\[\\]/handler\\[\\]/" handler.c # change code array variable name to "handler"
+  COMMAND sed -i.bak -E "s/[a-z_]+_len/handler_len/" handler.c # change code length variable name to "handler_len"
+  COMMENT "Compiling JavaScript files"
+  VERBATIM
+)
+
 add_executable(isere ${SOURCES})
+
+if(SUPPORT_DYNLINK)
+  target_compile_options(isere PRIVATE -DISERE_USE_DYNLINK)
+endif()
 
 find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -93,6 +115,7 @@ include(portable/${TARGET_PLATFORM}/link.cmake OPTIONAL)
 target_include_directories(isere PRIVATE
   ./include
   ./portable/include
+  ./portable/${TARGET_PLATFORM}/include
   ./schemas
   ${FREERTOS_DIR}/include
   ${QUICKJS_DIR}
@@ -118,23 +141,11 @@ if(NEED_LWIP)
 endif()
 
 add_custom_command(
-  OUTPUT 3rdparty/c-capnproto/build/capnpc-c/config.capnp.c
-  COMMAND capnp compile -o 3rdparty/c-capnproto/build/capnpc-c schemas/config.capnp
+  OUTPUT ${CAPNPROTO_DIR}/build/capnpc-c/config.capnp.c
+  COMMAND capnp compile -o ${CAPNPROTO_DIR}/build/capnpc-c ./schemas/config.capnp
   DEPENDS schemas/config.capnp
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Compiling Cap'n Proto schema"
-  VERBATIM
-)
-
-add_library(handler SHARED handler.c)
-set_target_properties(handler PROPERTIES PREFIX "")
-set_target_properties(handler PROPERTIES SUFFIX ".so")
-add_custom_command(
-  OUTPUT handler.c
-  COMMAND xxd -i ../${EXAMPLES_DIR}/handler.js handler.c
-  COMMAND sed -i.bak -E "s/[a-z_]+\\[\\]/handler\\[\\]/" handler.c # change code array variable name to "handler"
-  COMMAND sed -i.bak -E "s/[a-z_]+_len/handler_len/" handler.c # change code length variable name to "handler_len"
-  COMMENT "Compiling JavaScript files"
   VERBATIM
 )
 

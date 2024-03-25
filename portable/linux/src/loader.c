@@ -4,7 +4,6 @@
 #include <dlfcn.h>
 
 static isere_t *__isere = NULL;
-static uint8_t test[] = {0x00, 0x01, 0x02, 0x03};
 
 static uint8_t *loader_get_fn(isere_loader_t *loader, uint32_t *size)
 {
@@ -12,7 +11,7 @@ static uint8_t *loader_get_fn(isere_loader_t *loader, uint32_t *size)
   return (uint8_t *)(dlsym(loader->dll, ISERE_LOADER_HANDLER_FUNCTION));
 }
 
-int loader_init(isere_t *isere, isere_loader_t *loader, const char *dll_path)
+int loader_init(isere_t *isere, isere_loader_t *loader)
 {
   __isere = isere;
 
@@ -25,12 +24,7 @@ int loader_init(isere_t *isere, isere_loader_t *loader, const char *dll_path)
     return -1;
   }
 
-  if (dll_path == NULL) {
-    __isere->logger->error(ISERE_LOADER_LOG_TAG, "dll_path is NULL");
-    return -1;
-  }
-
-  loader->dll = dlopen(dll_path, RTLD_LAZY);
+  loader->dll = dlopen(ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH, RTLD_LAZY);
   if (!loader->dll) {
     loader->dll = NULL;
     __isere->logger->error(ISERE_LOADER_LOG_TAG, "dlopen() error: %s", dlerror());

@@ -82,15 +82,15 @@ int __http_handler(
     JSValue response_obj = JS_GetPropertyStr(js.context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
 
     // send HTTP response code
-    tcp_write(conn->fd, "HTTP/1.1 ", 9);
+    isere_tcp_write(conn->fd, "HTTP/1.1 ", 9);
     JSValue statusCode = JS_GetPropertyStr(js.context, response_obj, ISERE_JS_RESPONSE_STATUS_CODE_PROP_NAME);
     if (!JS_IsNumber(statusCode)) {
-      tcp_write(conn->fd, "200", 3);
+      isere_tcp_write(conn->fd, "200", 3);
     } else {
       size_t len = 0;
-      tcp_write(conn->fd, JS_ToCStringLen(js.context, &len, statusCode), len);
+      isere_tcp_write(conn->fd, JS_ToCStringLen(js.context, &len, statusCode), len);
     }
-    tcp_write(conn->fd, "\r\n", 2);
+    isere_tcp_write(conn->fd, "\r\n", 2);
     JS_FreeValue(js.context, statusCode);
 
     // send HTTP response headers
@@ -110,10 +110,10 @@ int __http_handler(
           size_t header_value_len = 0;
           const char *header_value_str = JS_ToCStringLen(js.context, &header_value_len, header_value);
 
-          tcp_write(conn->fd, header_field_str, strlen(header_field_str));
-          tcp_write(conn->fd, ": ", 2);
-          tcp_write(conn->fd, header_value_str, header_value_len);
-          tcp_write(conn->fd, "\r\n", 2);
+          isere_tcp_write(conn->fd, header_field_str, strlen(header_field_str));
+          isere_tcp_write(conn->fd, ": ", 2);
+          isere_tcp_write(conn->fd, header_value_str, header_value_len);
+          isere_tcp_write(conn->fd, "\r\n", 2);
 
           JS_FreeCString(js.context, header_field_str);
           JS_FreeCString(js.context, header_value_str);
@@ -129,8 +129,8 @@ int __http_handler(
 
     // TODO: `Date`
     const char *server_header = "Server: isere\r\n";
-    tcp_write(conn->fd, server_header, strlen(server_header));
-    tcp_write(conn->fd, "\r\n", 2);
+    isere_tcp_write(conn->fd, server_header, strlen(server_header));
+    isere_tcp_write(conn->fd, "\r\n", 2);
 
     // send HTTP response body
     JSValue body = JS_GetPropertyStr(js.context, response_obj, ISERE_JS_RESPONSE_BODY_PROP_NAME);
@@ -146,7 +146,7 @@ int __http_handler(
     }
 
     if (body_str != NULL) {
-      tcp_write(conn->fd, body_str, body_len);
+      isere_tcp_write(conn->fd, body_str, body_len);
       JS_FreeCString(js.context, body_str);
     }
     JS_FreeValue(js.context, body);
@@ -154,7 +154,7 @@ int __http_handler(
     JS_FreeValue(js.context, response_obj);
     JS_FreeValue(js.context, global_obj);
 
-    tcp_write(conn->fd, "\r\n\r\n", 4);
+    isere_tcp_write(conn->fd, "\r\n\r\n", 4);
   }
 
   js_deinit(&js);

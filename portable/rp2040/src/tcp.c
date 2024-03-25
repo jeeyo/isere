@@ -6,12 +6,16 @@
 #include <unistd.h>
 #include <errno.h>
 
-// #include <sys/socket.h>
-// #include <arpa/inet.h>
+#include "pico/stdlib.h"
+#include "pico/bootrom.h"
+#include "hardware/watchdog.h"
+#include "hardware/structs/watchdog.h"
+
+#include "tusb_lwip_glue.h"
 
 static isere_t *__isere = NULL;
 
-int tcp_init(isere_t *isere, isere_tcp_t *tcp)
+int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 {
   __isere = isere;
 
@@ -19,10 +23,15 @@ int tcp_init(isere_t *isere, isere_tcp_t *tcp)
     return -1;
   }
 
+  init_lwip();
+  wait_for_netif_is_up();
+  dhcpd_init();
+  httpd_init();
+
   return 0;
 }
 
-int tcp_deinit(isere_tcp_t *tcp)
+int isere_tcp_deinit(isere_tcp_t *tcp)
 {
   if (__isere) {
     __isere = NULL;
@@ -31,7 +40,7 @@ int tcp_deinit(isere_tcp_t *tcp)
   return 0;
 }
 
-int tcp_socket_new()
+int isere_tcp_socket_new()
 {
   // int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
   // if (sock < 0) {
@@ -42,12 +51,12 @@ int tcp_socket_new()
   return -1;
 }
 
-void tcp_socket_close(int sock)
+void isere_tcp_socket_close(int sock)
 {
   // close(sock);
 }
 
-int tcp_listen(int sock, uint16_t port)
+int isere_tcp_listen(int sock, uint16_t port)
 {
   // struct sockaddr_in dest_addr;
   // bzero(&dest_addr, sizeof(dest_addr));
@@ -69,7 +78,7 @@ int tcp_listen(int sock, uint16_t port)
   return -1;
 }
 
-int tcp_accept(int sock, char *ip_addr)
+int isere_tcp_accept(int sock, char *ip_addr)
 {
   // struct sockaddr_in source_addr;
   // socklen_t addr_len = sizeof(source_addr);
@@ -94,7 +103,7 @@ int tcp_accept(int sock, char *ip_addr)
   return -1;
 }
 
-int tcp_recv(int sock, char *buf, size_t len)
+int isere_tcp_recv(int sock, char *buf, size_t len)
 {
   // int recvd = recv(sock, buf, len, 0);
   // if (recvd < 0) {
@@ -109,8 +118,13 @@ int tcp_recv(int sock, char *buf, size_t len)
   return -1;
 }
 
-int tcp_write(int sock, const char *buf, size_t len)
+int isere_tcp_write(int sock, const char *buf, size_t len)
 {
   // return write(sock, buf, len);
   return -1;
+}
+
+void isere_tcp_poll()
+{
+  tud_task();
 }

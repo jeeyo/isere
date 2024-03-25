@@ -38,7 +38,9 @@ typedef struct {
 } isere_logger_t;
 
 typedef struct {
+#ifdef ISERE_USE_DYNLINK
   void *dll;
+#endif /* ISERE_USE_DYNLINK */
   uint8_t *fn;
   uint32_t fn_size;
 } isere_loader_t;

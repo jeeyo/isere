@@ -1,6 +1,3 @@
-option(NEED_FREERTOS_POSIX "" false)
-option(NEED_LWIP "" false)
-
 list(APPEND SOURCES
   ${QUICKJS_DIR}/quickjs-libc.c
   ${FREERTOS_DIR}/portable/MemMang/heap_4.c

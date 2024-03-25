@@ -12,32 +12,26 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [x] QuickJS as JavaScript runtime
   - [x] setTimeout / clearTimeout (FreeRTOS Software Timer)
 - [x] HTTP server
-  - [ ] Event Loop
+  - [x] Event Loop ❌ (no Keep-Alive support)
   - [ ] Static Files (?)
 - [x] Unit tests
   - [x] loader
   - [x] js
   - [ ] httpd
   - [ ] logger
-  - [ ] polyfills
-    - [ ] setTimeout
 - [x] Unit tests on CI
 - [x] File System Abstraction
 - [x] Configuration File
-- [ ] Integration tests
+- [ ] Integration tests (Native / QEMU)
 - [ ] Integration tests on CI
-- [ ] Node-like APIs (ref. [workerd](https://github.com/cloudflare/workerd/tree/main/src/node))
-  - [ ] assert
+- [ ] APIs (ref. [Minimum Common Web Platform API](https://common-min-api.proposal.wintercg.org/))
   - [ ] buffer
   - [ ] crypto
-  - [x] diagnostics_channel ❌
   - [ ] events
-  - [ ] path
-  - [x] process.env
-  - [ ] stream (?)
-  - [ ] string_decoder
-  - [ ] util
-- [ ] Fetch API
+  - [ ] path (?)
+  - [ ] fetch
+  - [ ] base64
+  - [x] setTimeout
 - [ ] QuickJS Memory Leak Check
 - [ ] Use less printf()
 - [ ] QuickJS Project Template

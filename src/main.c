@@ -13,6 +13,8 @@
 #include "httpd.h"
 #include "tcp.h"
 
+#include "platform.h"
+
 httpd_handler_t __http_handler;
 static isere_t isere;
 
@@ -21,7 +23,7 @@ void sigint(int dummy) {
   isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
 
   httpd_deinit(isere.httpd);
-  tcp_deinit(isere.tcp);
+  isere_tcp_deinit(isere.tcp);
   loader_deinit(isere.loader);
   fs_deinit(isere.fs);
   // ini_deinit(isere.ini);
@@ -33,6 +35,8 @@ void sigint(int dummy) {
 
 int main(void)
 {
+  platform_init();
+
   // create isere instance
   memset(&isere, 0, sizeof(isere_t));
 
@@ -44,7 +48,7 @@ int main(void)
     return EXIT_FAILURE;
   }
   isere.logger = &logger;
-
+  
   // initialize file system module
   isere_fs_t fs;
   memset(&fs, 0, sizeof(isere_fs_t));
@@ -70,7 +74,7 @@ int main(void)
   // dynamically loading javascript serverless handler
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
-  if (loader_init(&isere, &loader, ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH) < 0) {
+  if (loader_init(&isere, &loader) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize loader module");
     return EXIT_FAILURE;
   }
@@ -79,7 +83,7 @@ int main(void)
   // initialize tcp module
   isere_tcp_t tcp;
   memset(&tcp, 0, sizeof(isere_tcp_t));
-  if (tcp_init(&isere, &tcp) < 0) {
+  if (isere_tcp_init(&isere, &tcp) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize tcp module");
     return EXIT_FAILURE;
   }

@@ -11,7 +11,7 @@
 
 static isere_t *__isere = NULL;
 
-int tcp_init(isere_t *isere, isere_tcp_t *tcp)
+int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 {
   __isere = isere;
 
@@ -22,12 +22,12 @@ int tcp_init(isere_t *isere, isere_tcp_t *tcp)
   return 0;
 }
 
-int tcp_deinit(isere_tcp_t *tcp)
+int isere_tcp_deinit(isere_tcp_t *tcp)
 {
   return 0;
 }
 
-int tcp_socket_new()
+int isere_tcp_socket_new()
 {
   int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
   if (sock < 0) {
@@ -37,12 +37,12 @@ int tcp_socket_new()
   return sock;
 }
 
-void tcp_socket_close(int sock)
+void isere_tcp_socket_close(int sock)
 {
   close(sock);
 }
 
-int tcp_listen(int sock, uint16_t port)
+int isere_tcp_listen(int sock, uint16_t port)
 {
   struct sockaddr_in dest_addr;
   bzero(&dest_addr, sizeof(dest_addr));
@@ -63,7 +63,7 @@ int tcp_listen(int sock, uint16_t port)
   return 0;
 }
 
-int tcp_accept(int sock, char *ip_addr)
+int isere_tcp_accept(int sock, char *ip_addr)
 {
   struct sockaddr_in source_addr;
   socklen_t addr_len = sizeof(source_addr);
@@ -87,7 +87,7 @@ int tcp_accept(int sock, char *ip_addr)
   return fd;
 }
 
-int tcp_recv(int sock, char *buf, size_t len)
+int isere_tcp_recv(int sock, char *buf, size_t len)
 {
   int recvd = recv(sock, buf, len, 0);
   if (recvd < 0) {
@@ -101,7 +101,11 @@ int tcp_recv(int sock, char *buf, size_t len)
   return recvd;
 }
 
-int tcp_write(int sock, const char *buf, size_t len)
+int isere_tcp_write(int sock, const char *buf, size_t len)
 {
   return write(sock, buf, len);
+}
+
+void isere_tcp_poll()
+{
 }
