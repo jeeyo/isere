@@ -220,7 +220,7 @@ int httpd_deinit(isere_httpd_t *httpd)
     }
   }
 
-  tcp_socket_close(httpd->fd);
+  isere_tcp_socket_close(httpd->fd);
 
   // stop main httpd task
   should_exit = 1;

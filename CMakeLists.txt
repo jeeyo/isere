@@ -1,10 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 
-include(portable/${TARGET_PLATFORM}/init.cmake OPTIONAL)
+set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
+
+option(NEED_FREERTOS_POSIX "Include FreeRTOS-Plus-POSIX" OFF)
+option(NEED_LWIP "Include LwIP" OFF)
+option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
+
+include(portable/${TARGET_PLATFORM}/init.cmake)
 
 project(isere C CXX ASM)
-
-set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
 set(FREERTOS_POSIX_DIR ./3rdparty/FreeRTOS-Plus-POSIX)
