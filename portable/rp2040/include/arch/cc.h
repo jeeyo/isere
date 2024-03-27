@@ -32,12 +32,6 @@
 #ifndef __CC_H__
 #define __CC_H__
 
-//#include "cpu.h"
-
-typedef int sys_prot_t;
-
-
-
 /* define compiler specific symbols */
 #if defined (__ICCARM__)
 
@@ -70,6 +64,19 @@ typedef int sys_prot_t;
 
 #endif
 
+// #ifndef LWIP_PLATFORM_ASSERT
+// #include "pico.h"
+// #define LWIP_PLATFORM_ASSERT(x) panic(x)
+// #endif
+
+// #ifndef LWIP_RAND
+// #include "pico/rand.h"
+// // Use the pico_rand library which goes to reasonable lengths to try to provide good entropy
+// #define LWIP_RAND() get_rand_32()
+// #endif
+
+#ifndef LWIP_PLATFORM_ASSERT
 #define LWIP_PLATFORM_ASSERT(x) do { if(!(x)) while(1); } while(0)
+#endif
 
 #endif /* __CC_H__ */

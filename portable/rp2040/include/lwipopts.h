@@ -33,7 +33,7 @@
 #define __LWIPOPTS_H__
 
 /* Prevent having to link sys_arch.c (we don't test the API layers in unit tests) */
-#define NO_SYS                          0
+#define NO_SYS                          1
 #define MEM_ALIGNMENT                   4
 #define LWIP_RAW                        0
 #define LWIP_NETCONN                    0
@@ -53,7 +53,7 @@
 
 #define ETHARP_SUPPORT_STATIC_ENTRIES   1
 
-#define LWIP_HTTPD_CGI                  0
+#define LWIP_HTTPD_CGI                  1
 #define LWIP_HTTPD_SSI                  0
 #define LWIP_HTTPD_SSI_INCLUDE_TAG      0
 
