@@ -24,6 +24,10 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 
 int isere_tcp_deinit(isere_tcp_t *tcp)
 {
+  if (__isere) {
+    __isere = NULL;
+  }
+
   return 0;
 }
 

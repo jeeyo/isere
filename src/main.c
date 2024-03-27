@@ -13,8 +13,6 @@
 #include "httpd.h"
 #include "tcp.h"
 
-#include "tusb_lwip_glue.h"
-
 #include "platform.h"
 
 httpd_handler_t __http_handler;
@@ -105,17 +103,11 @@ int main(void)
   httpd_params.httpd = &httpd;
   httpd_params.handler = &__http_handler;
 
-  // // start web server task
-  // TaskHandle_t httpd_task_handle;
-  // if (xTaskCreate(isere_httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
-  //   logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
-  //   return EXIT_FAILURE;
-  // }
-
-  while (true)
-  {
-    tud_task();
-    service_traffic();
+  // start web server task
+  TaskHandle_t httpd_task_handle;
+  if (xTaskCreate(isere_httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
+    logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
+    return EXIT_FAILURE;
   }
 
 #ifdef __linux__

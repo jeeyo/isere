@@ -6,12 +6,6 @@
 #include "tcp.h"
 #include "js.h"
 
-// #include "lwip/err.h"
-// #include "lwip/errno.h"
-// #include "lwip/sockets.h"
-// #include "lwip/sys.h"
-// #include "lwip/netdb.h"
-
 static uint8_t should_exit = 0;
 
 static isere_t *__isere = NULL;

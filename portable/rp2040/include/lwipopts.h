@@ -33,7 +33,7 @@
 #define __LWIPOPTS_H__
 
 /* Prevent having to link sys_arch.c (we don't test the API layers in unit tests) */
-#define NO_SYS                          1
+#define NO_SYS                          0
 #define MEM_ALIGNMENT                   4
 #define LWIP_RAW                        0
 #define LWIP_NETCONN                    0
