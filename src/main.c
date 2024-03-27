@@ -13,6 +13,8 @@
 #include "httpd.h"
 #include "tcp.h"
 
+#include "tusb_lwip_glue.h"
+
 #include "platform.h"
 
 httpd_handler_t __http_handler;
@@ -22,7 +24,7 @@ static isere_t isere;
 void sigint(int dummy) {
   isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
 
-  httpd_deinit(isere.httpd);
+  isere_httpd_deinit(isere.httpd);
   isere_tcp_deinit(isere.tcp);
   loader_deinit(isere.loader);
   fs_deinit(isere.fs);
@@ -92,7 +94,7 @@ int main(void)
   // initialize web server module
   isere_httpd_t httpd;
   memset(&httpd, 0, sizeof(isere_httpd_t));
-  if (httpd_init(&isere, &httpd) < 0) {
+  if (isere_httpd_init(&isere, &httpd) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize httpd module");
     return EXIT_FAILURE;
   }
@@ -103,11 +105,17 @@ int main(void)
   httpd_params.httpd = &httpd;
   httpd_params.handler = &__http_handler;
 
-  // start web server task
-  TaskHandle_t httpd_task_handle;
-  if (xTaskCreate(httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
-    logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
-    return EXIT_FAILURE;
+  // // start web server task
+  // TaskHandle_t httpd_task_handle;
+  // if (xTaskCreate(isere_httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
+  //   logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
+  //   return EXIT_FAILURE;
+  // }
+
+  while (true)
+  {
+    tud_task();
+    service_traffic();
   }
 
 #ifdef __linux__

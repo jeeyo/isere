@@ -180,7 +180,7 @@ static int __on_message_complete(llhttp_t *parser)
   return 0;
 }
 
-int httpd_init(isere_t *isere, isere_httpd_t *httpd)
+int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd)
 {
   __isere = isere;
 
@@ -197,7 +197,7 @@ int httpd_init(isere_t *isere, isere_httpd_t *httpd)
   return 0;
 }
 
-int httpd_deinit(isere_httpd_t *httpd)
+int isere_httpd_deinit(isere_httpd_t *httpd)
 {
   if (__isere) {
     __isere = NULL;
@@ -303,7 +303,7 @@ static void __httpd_cleanup_conn()
   }
 }
 
-void httpd_client_handler_task(void *params)
+void isere_httpd_client_handler_task(void *params)
 {
   httpd_client_task_params_t *task_params = (httpd_client_task_params_t *)params;
   httpd_conn_t *conn = task_params->conn;
@@ -326,7 +326,7 @@ void httpd_client_handler_task(void *params)
   vTaskSuspend(NULL);
 }
 
-void httpd_task(void *params)
+void isere_httpd_task(void *params)
 {
   httpd_task_params_t *task_params = (httpd_task_params_t *)params;
   isere_httpd_t *httpd = task_params->httpd;

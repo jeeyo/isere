@@ -38,7 +38,8 @@
       "postRestartCommands": [
         "break main",
         "continue"
-      ]
+      ],
+      "openOCDLaunchCommands": ["adapter speed 5000"]
     }
   ]
 }

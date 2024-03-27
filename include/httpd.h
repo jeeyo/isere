@@ -95,9 +95,9 @@ typedef struct {
   httpd_handler_t *handler;
 } httpd_client_task_params_t;
 
-int httpd_init(isere_t *isere, isere_httpd_t *httpd);
-int httpd_deinit(isere_httpd_t *httpd);
-void httpd_task(void *params);
+int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd);
+int isere_httpd_deinit(isere_httpd_t *httpd);
+void isere_httpd_task(void *params);
 
 #ifdef __cplusplus
 }

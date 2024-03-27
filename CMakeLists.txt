@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
+option(DEBUG "Debug mode" OFF)
 option(NEED_FREERTOS_POSIX "Include FreeRTOS-Plus-POSIX" OFF)
 option(NEED_LWIP "Include LwIP" OFF)
 option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
@@ -113,6 +114,10 @@ endif()
 find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
 target_compile_options(isere PRIVATE -D_GNU_SOURCE -DCONFIG_BIGNUM -DEMSCRIPTEN -DCONFIG_VERSION="${COMMIT_ID}")
+
+if(DEBUG)
+  target_compile_options(isere PRIVATE -O0 -g)
+endif()
 
 include(portable/${TARGET_PLATFORM}/link.cmake OPTIONAL)
 

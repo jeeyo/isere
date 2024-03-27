@@ -26,7 +26,6 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
   init_lwip();
   wait_for_netif_is_up();
   dhcpd_init();
-  httpd_init();
 
   return 0;
 }

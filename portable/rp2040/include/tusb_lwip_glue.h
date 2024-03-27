@@ -2,7 +2,7 @@
 #define _TUSB_LWIP_GLUE_H_
 
 #ifdef __cplusplus
-extern "C" {
+ extern "C" {
 #endif
 
 #include "tusb.h"
@@ -18,7 +18,7 @@ void dhcpd_init();
 void service_traffic();
 
 #ifdef __cplusplus
-}
+ }
 #endif
 
 #endif
