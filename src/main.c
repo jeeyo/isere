@@ -13,14 +13,17 @@
 #include "httpd.h"
 #include "tcp.h"
 
+#include "platform.h"
+
 httpd_handler_t __http_handler;
 static isere_t isere;
 
+#ifdef __linux__
 void sigint(int dummy) {
   isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
 
-  httpd_deinit(isere.httpd);
-  tcp_deinit(isere.tcp);
+  isere_httpd_deinit(isere.httpd);
+  isere_tcp_deinit(isere.tcp);
   loader_deinit(isere.loader);
   fs_deinit(isere.fs);
   // ini_deinit(isere.ini);
@@ -28,9 +31,12 @@ void sigint(int dummy) {
 
   vTaskEndScheduler();
 }
+#endif
 
 int main(void)
 {
+  platform_init();
+
   // create isere instance
   memset(&isere, 0, sizeof(isere_t));
 
@@ -42,7 +48,7 @@ int main(void)
     return EXIT_FAILURE;
   }
   isere.logger = &logger;
-
+  
   // initialize file system module
   isere_fs_t fs;
   memset(&fs, 0, sizeof(isere_fs_t));
@@ -68,7 +74,7 @@ int main(void)
   // dynamically loading javascript serverless handler
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
-  if (loader_init(&isere, &loader, ISERE_LOADER_HANDLER_FUNCTION_DLL_PATH) < 0) {
+  if (loader_init(&isere, &loader) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize loader module");
     return EXIT_FAILURE;
   }
@@ -77,7 +83,7 @@ int main(void)
   // initialize tcp module
   isere_tcp_t tcp;
   memset(&tcp, 0, sizeof(isere_tcp_t));
-  if (tcp_init(&isere, &tcp) < 0) {
+  if (isere_tcp_init(&isere, &tcp) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize tcp module");
     return EXIT_FAILURE;
   }
@@ -86,7 +92,7 @@ int main(void)
   // initialize web server module
   isere_httpd_t httpd;
   memset(&httpd, 0, sizeof(isere_httpd_t));
-  if (httpd_init(&isere, &httpd) < 0) {
+  if (isere_httpd_init(&isere, &httpd) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize httpd module");
     return EXIT_FAILURE;
   }
@@ -99,12 +105,14 @@ int main(void)
 
   // start web server task
   TaskHandle_t httpd_task_handle;
-  if (xTaskCreate(httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
+  if (xTaskCreate(isere_httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
     logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
     return EXIT_FAILURE;
   }
 
+#ifdef __linux__
   signal(SIGINT, sigint);
+#endif
 
   // start FreeRTOS scheduler
   vTaskStartScheduler();

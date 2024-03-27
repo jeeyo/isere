@@ -5,5 +5,7 @@
   "files.associations": {
     "*.h": "c",
     "*.c": "c"
-  }
+  },
+  "cmake.automaticReconfigure": false,
+  "cmake.configureOnEdit": false
 }

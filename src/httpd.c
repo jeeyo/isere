@@ -6,12 +6,6 @@
 #include "tcp.h"
 #include "js.h"
 
-// #include "lwip/err.h"
-// #include "lwip/errno.h"
-// #include "lwip/sockets.h"
-// #include "lwip/sys.h"
-// #include "lwip/netdb.h"
-
 static uint8_t should_exit = 0;
 
 static isere_t *__isere = NULL;
@@ -180,7 +174,7 @@ static int __on_message_complete(llhttp_t *parser)
   return 0;
 }
 
-int httpd_init(isere_t *isere, isere_httpd_t *httpd)
+int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd)
 {
   __isere = isere;
 
@@ -197,7 +191,7 @@ int httpd_init(isere_t *isere, isere_httpd_t *httpd)
   return 0;
 }
 
-int httpd_deinit(isere_httpd_t *httpd)
+int isere_httpd_deinit(isere_httpd_t *httpd)
 {
   if (__isere) {
     __isere = NULL;
@@ -213,14 +207,14 @@ int httpd_deinit(isere_httpd_t *httpd)
     }
 
     if (__conns[i].fd != -1) {
-      tcp_socket_close(conn->fd);
+      isere_tcp_socket_close(conn->fd);
       memset(conn, 0, sizeof(httpd_conn_t));
       conn->fd = -1;
       conn->recvd = 0;
     }
   }
 
-  tcp_socket_close(httpd->fd);
+  isere_tcp_socket_close(httpd->fd);
 
   // stop main httpd task
   should_exit = 1;
@@ -234,11 +228,13 @@ static int __httpd_process(httpd_conn_t *conn)
 
   for(;;) {
 
+    isere_tcp_poll();
+
     if (conn->completed == ALL_COMPLETED) {
       break;
     }
 
-    int len = tcp_recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
+    int len = isere_tcp_recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
     if (len == -2) {
       continue;
     }
@@ -290,7 +286,7 @@ static void __httpd_cleanup_conn()
     // TODO: also cleanup timed out task
     if (conn->tsk != NULL && eTaskGetState(conn->tsk) == eSuspended) {
       // cleanup client socket
-      tcp_socket_close(conn->fd);
+      isere_tcp_socket_close(conn->fd);
       memset(conn, 0, sizeof(httpd_conn_t));
       conn->fd = -1;
       conn->recvd = 0;
@@ -301,7 +297,7 @@ static void __httpd_cleanup_conn()
   }
 }
 
-void httpd_client_handler_task(void *params)
+void isere_httpd_client_handler_task(void *params)
 {
   httpd_client_task_params_t *task_params = (httpd_client_task_params_t *)params;
   httpd_conn_t *conn = task_params->conn;
@@ -313,7 +309,7 @@ void httpd_client_handler_task(void *params)
 
   if (ret < 0) {
     const char *buf = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-    tcp_write(conn->fd, buf, strlen(buf));
+    isere_tcp_write(conn->fd, buf, strlen(buf));
     vTaskSuspend(NULL);
   }
 
@@ -324,18 +320,18 @@ void httpd_client_handler_task(void *params)
   vTaskSuspend(NULL);
 }
 
-void httpd_task(void *params)
+void isere_httpd_task(void *params)
 {
   httpd_task_params_t *task_params = (httpd_task_params_t *)params;
   isere_httpd_t *httpd = task_params->httpd;
   httpd_handler_t *handler = task_params->handler;
 
-  httpd->fd = tcp_socket_new();
+  httpd->fd = isere_tcp_socket_new();
   if (httpd->fd < 0) {
     goto exit;
   }
 
-  if (tcp_listen(httpd->fd, ISERE_HTTPD_PORT) < 0) {
+  if (isere_tcp_listen(httpd->fd, ISERE_HTTPD_PORT) < 0) {
     goto exit;
   }
 
@@ -353,7 +349,7 @@ void httpd_task(void *params)
 
     // accept connection
     char ipaddr[16];
-    conn->fd = tcp_accept(httpd->fd, ipaddr);
+    conn->fd = isere_tcp_accept(httpd->fd, ipaddr);
     if (conn->fd < 0) {
       conn->fd = -1;
       continue;
@@ -384,7 +380,7 @@ void httpd_task(void *params)
 
     if (ret < 0) {
       const char *buf = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-      tcp_write(conn->fd, buf, strlen(buf));
+      isere_tcp_write(conn->fd, buf, strlen(buf));
       goto client_cleanup;
     }
 
@@ -401,7 +397,7 @@ void httpd_task(void *params)
     // }
 
 client_cleanup:
-    tcp_socket_close(conn->fd);
+    isere_tcp_socket_close(conn->fd);
     memset(conn, 0, sizeof(httpd_conn_t));
     conn->fd = -1;
     conn->recvd = 0;
