@@ -32,6 +32,8 @@
 #ifndef __CC_H__
 #define __CC_H__
 
+typedef int sys_prot_t;
+
 /* define compiler specific symbols */
 #if defined (__ICCARM__)
 
