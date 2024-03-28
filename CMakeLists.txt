@@ -108,12 +108,12 @@ add_custom_command(
 add_executable(isere ${SOURCES})
 
 if(SUPPORT_DYNLINK)
-  target_compile_options(isere PRIVATE -DISERE_USE_DYNLINK)
+  target_compile_definitions(isere PRIVATE ISERE_USE_DYNLINK)
 endif()
 
 find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
-target_compile_options(isere PRIVATE -D_GNU_SOURCE -DCONFIG_BIGNUM -DEMSCRIPTEN -DCONFIG_VERSION="${COMMIT_ID}")
+target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
 
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
@@ -147,6 +147,7 @@ if(NEED_LWIP)
   target_include_directories(isere PRIVATE
     ${LWIP_DIR}/src/include
   )
+  target_link_libraries(isere lwipallapps lwipcore)
 endif()
 
 add_custom_command(
