@@ -201,11 +201,6 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
     httpd_conn_t *conn = &__conns[i];
 
-    if (conn->tsk != NULL) {
-      vTaskDelete(conn->tsk);
-      conn->tsk = NULL;
-    }
-
     if (__conns[i].fd != -1) {
       isere_tcp_socket_close(conn->fd);
       memset(conn, 0, sizeof(httpd_conn_t));
@@ -282,18 +277,11 @@ static void __httpd_cleanup_conn()
       continue;
     }
 
-    // cleanup finished task
-    // TODO: also cleanup timed out task
-    if (conn->tsk != NULL && eTaskGetState(conn->tsk) == eSuspended) {
-      // cleanup client socket
-      isere_tcp_socket_close(conn->fd);
-      memset(conn, 0, sizeof(httpd_conn_t));
-      conn->fd = -1;
-      conn->recvd = 0;
-
-      vTaskDelete(conn->tsk);
-      conn->tsk = NULL;
-    }
+    // cleanup client socket
+    isere_tcp_socket_close(conn->fd);
+    memset(conn, 0, sizeof(httpd_conn_t));
+    conn->fd = -1;
+    conn->recvd = 0;
   }
 }
 
@@ -363,15 +351,6 @@ void isere_httpd_task(void *params)
 
     uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
     handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
-
-    // httpd_client_task_params_t client_task_params;
-    // client_task_params.conn = conn;
-    // client_task_params.handler = handler;
-
-    // // TODO: configurable stack size
-    // if (xTaskCreate(httpd_client_handler_task, "httpd_client_handler", ISERE_JS_STACK_SIZE, (void *)&client_task_params, tskIDLE_PRIORITY + 1, &conn->tsk) != pdPASS) {
-    //   __isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
-    // }
 
 client_cleanup:
     isere_tcp_socket_close(conn->fd);

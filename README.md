@@ -12,7 +12,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [x] QuickJS as JavaScript runtime
   - [x] setTimeout / clearTimeout (FreeRTOS Software Timer)
 - [x] HTTP server
-  - [x] Event Loop ❌ (no Keep-Alive support)
+  - [ ] Event Loop (no Keep-Alive support)
   - [ ] Static Files (?)
 - [x] Unit tests
   - [x] loader
@@ -37,7 +37,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [ ] QuickJS Project Template
 - [ ] Low-power mode
 - [ ] Benchmark
-- [ ] Port to Raspberry Pi Pico (RP2040) (LittleFs + FreeRTOS+POSIX + FreeRTOS+TCP)
+- [x] Port to Raspberry Pi Pico (RP2040)
 - [ ] Integrate with some Analytics and Monitoring Platforms
 - [ ] Port to ESP32?
 - [ ] MicroPython?

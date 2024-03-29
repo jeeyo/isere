@@ -74,6 +74,7 @@ int __http_handler(
   }
 
   // evaluate handler function
+  // TODO: make this async
   js_eval(&js);
 
   // write response

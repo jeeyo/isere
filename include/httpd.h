@@ -71,8 +71,6 @@ typedef struct {
   uint32_t num_header_fields;
   uint32_t num_header_values;
 
-  TaskHandle_t tsk; // task handle for the client task
-
 } httpd_conn_t;
 
 typedef int (httpd_handler_t)(
