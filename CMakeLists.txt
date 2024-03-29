@@ -7,7 +7,7 @@ option(NEED_FREERTOS_POSIX "Include FreeRTOS-Plus-POSIX" OFF)
 option(NEED_LWIP "Include LwIP" OFF)
 option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
 
-include(portable/${TARGET_PLATFORM}/init.cmake)
+include(portable/${TARGET_PLATFORM}/platform_features.cmake)
 
 project(isere C CXX ASM)
 
@@ -75,7 +75,7 @@ if(NEED_FREERTOS_POSIX)
   )
 endif()
 
-include(portable/${TARGET_PLATFORM}/source.cmake OPTIONAL)
+include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
 
 if(NEED_LWIP)
   set(LWIP_INCLUDE_DIRS
@@ -119,7 +119,7 @@ if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
 endif()
 
-include(portable/${TARGET_PLATFORM}/link.cmake OPTIONAL)
+include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)
 
 target_include_directories(isere PRIVATE
   ./include
