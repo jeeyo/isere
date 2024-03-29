@@ -117,8 +117,6 @@ void isere_tcp_task(void *params)
 {
   for (;;)
   {
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-
     tud_task();
     service_traffic();
   }

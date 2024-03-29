@@ -121,7 +121,7 @@ void polyfill_timer_deinit(JSContext *ctx)
     polyfill_timer_t *tmr = &timers[i];
 
     if (tmr->timer != NULL) {
-      xTimerHandle timer = tmr->timer;
+      TimerHandle_t timer = tmr->timer;
       xTimerStop(timer, 0);
       xTimerDelete(timer, 0);
     }
@@ -146,7 +146,7 @@ poll:
 
     for (int i = 0; i < ISERE_POLYFILLS_MAX_TIMERS; i++) {
       polyfill_timer_t *tmr = &timers[i];
-      xTimerHandle timer = tmr->timer;
+      TimerHandle_t timer = tmr->timer;
       if (timer != NULL && xTimerIsTimerActive(timer)) {
         goto poll;
       }

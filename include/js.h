@@ -15,8 +15,7 @@
 #define ISERE_JS_RESPONSE_BODY_PROP_NAME "body"
 
 // TODO: make this configurable
-#define ISERE_JS_STACK_SIZE 65536
-#define ISERE_JS_CONSOLE_LOG_BUFFER_SIZE 1024
+#define ISERE_JS_STACK_SIZE 32768
 
 #ifdef __cplusplus
 extern "C" {

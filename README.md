@@ -1,6 +1,6 @@
-# Isère
+# isère
 
-Isère [(/iːˈzɛər/)](https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=fr&q=Isère)
+isère [(/iːˈzɛər/)](https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=fr&q=Isère)
 
 A serverless platform aimed to be running on Microcontrollers
 
@@ -38,9 +38,10 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [ ] Low-power mode
 - [ ] Benchmark
 - [x] Port to Raspberry Pi Pico (RP2040)
+  - [ ] Multi-core support
 - [ ] Integrate with some Analytics and Monitoring Platforms
 - [ ] Port to ESP32?
-- [ ] MicroPython?
+- [x] MicroPython ❌
 
 ### Limitations
 

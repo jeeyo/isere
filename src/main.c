@@ -5,8 +5,8 @@
 #include "task.h"
 
 #include "isere.h"
-#include "fs.h"
-#include "ini.h"
+// #include "fs.h"
+// #include "ini.h"
 #include "loader.h"
 #include "logger.h"
 #include "js.h"
@@ -14,6 +14,8 @@
 #include "tcp.h"
 
 #include "platform.h"
+
+#include "tusb_lwip_glue.h"
 
 httpd_handler_t __http_handler;
 static isere_t isere;
@@ -25,7 +27,7 @@ void sigint(int dummy) {
   isere_httpd_deinit(isere.httpd);
   isere_tcp_deinit(isere.tcp);
   loader_deinit(isere.loader);
-  fs_deinit(isere.fs);
+  // fs_deinit(isere.fs);
   // ini_deinit(isere.ini);
   logger_deinit(isere.logger);
 
@@ -49,14 +51,14 @@ int main(void)
   }
   isere.logger = &logger;
   
-  // initialize file system module
-  isere_fs_t fs;
-  memset(&fs, 0, sizeof(isere_fs_t));
-  if (fs_init(&isere, &fs) < 0) {
-    logger.error(ISERE_LOG_TAG, "Unable to initialize file system module");
-    return EXIT_FAILURE;
-  }
-  isere.fs = &fs;
+  // // initialize file system module
+  // isere_fs_t fs;
+  // memset(&fs, 0, sizeof(isere_fs_t));
+  // if (fs_init(&isere, &fs) < 0) {
+  //   logger.error(ISERE_LOG_TAG, "Unable to initialize file system module");
+  //   return EXIT_FAILURE;
+  // }
+  // isere.fs = &fs;
 
   // // initialize configuration file module
   // isere_ini_t ini;

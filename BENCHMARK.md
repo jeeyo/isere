@@ -15,7 +15,7 @@ Requests/sec:  85861.04
 Transfer/sec:     14.08MB
 ```
 
-### Isere
+### isère
 
 ```
 $ wrk -t12 -c400 -d10s http://127.0.0.1:8080
