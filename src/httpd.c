@@ -297,29 +297,6 @@ static void __httpd_cleanup_conn()
   }
 }
 
-void isere_httpd_client_handler_task(void *params)
-{
-  httpd_client_task_params_t *task_params = (httpd_client_task_params_t *)params;
-  httpd_conn_t *conn = task_params->conn;
-  httpd_handler_t *http_handler = task_params->handler;
-
-  // read and parse http request
-  int ret = __httpd_process(conn);
-  llhttp_finish(&conn->llhttp);
-
-  if (ret < 0) {
-    const char *buf = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-    isere_tcp_write(conn->fd, buf, strlen(buf));
-    vTaskSuspend(NULL);
-  }
-
-  uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
-  http_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
-
-  // suspend task once http handler done, wait for the main loop to delete it
-  vTaskSuspend(NULL);
-}
-
 void isere_httpd_task(void *params)
 {
   httpd_task_params_t *task_params = (httpd_task_params_t *)params;
