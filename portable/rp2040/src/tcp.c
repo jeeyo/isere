@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "FreeRTOS.h"
+#include "task.h"
+
 #include "lwip/inet.h"
 #include "lwip/opt.h"
 #include "lwip/sys.h"
@@ -110,8 +113,15 @@ int isere_tcp_write(int sock, const char *buf, size_t len)
   return lwip_write(sock, buf, len);
 }
 
-void isere_tcp_poll()
+void isere_tcp_task(void *params)
 {
-  tud_task();
-  service_traffic();
+  for (;;)
+  {
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+
+    tud_task();
+    service_traffic();
+  }
+
+  vTaskDelete(NULL);
 }

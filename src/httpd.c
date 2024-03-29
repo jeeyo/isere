@@ -223,8 +223,6 @@ static int __httpd_process(httpd_conn_t *conn)
 
   for(;;) {
 
-    isere_tcp_poll();
-
     if (conn->completed == ALL_COMPLETED) {
       break;
     }

@@ -20,7 +20,7 @@ int isere_tcp_accept(int sock, char *ip_addr);
 int isere_tcp_recv(int sock, char *buf, size_t len);
 int isere_tcp_write(int sock, const char *buf, size_t len);
 
-void isere_tcp_poll();
+void isere_tcp_task(void *params);
 
 #ifdef __cplusplus
 }

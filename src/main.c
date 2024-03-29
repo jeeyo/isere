@@ -103,6 +103,13 @@ int main(void)
   httpd_params.httpd = &httpd;
   httpd_params.handler = &__http_handler;
 
+  // start tcp daemon task
+  TaskHandle_t tcp_task_handle;
+  if (xTaskCreate(isere_tcp_task, "tcp", configMINIMAL_STACK_SIZE, (void *)&tcp, tskIDLE_PRIORITY + 2, &tcp_task_handle) != pdPASS) {
+    logger.error(ISERE_LOG_TAG, "Unable to create tcp task");
+    return EXIT_FAILURE;
+  }
+
   // start web server task
   TaskHandle_t httpd_task_handle;
   if (xTaskCreate(isere_httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {

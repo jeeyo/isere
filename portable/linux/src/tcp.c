@@ -110,6 +110,8 @@ int isere_tcp_write(int sock, const char *buf, size_t len)
   return write(sock, buf, len);
 }
 
-void isere_tcp_poll()
+void isere_tcp_task(void *params)
 {
+  // we don't need this task in Linux
+  vTaskDelete(NULL);
 }
