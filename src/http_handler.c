@@ -2,12 +2,11 @@
 #include <unistd.h>
 
 #include "isere.h"
-#include "logger.h"
 #include "js.h"
 #include "httpd.h"
 #include "tcp.h"
 
-int __http_handler(
+int32_t __http_handler(
   isere_t *isere,
   httpd_conn_t *conn,
   const char *method,

@@ -1,30 +1,30 @@
-/* 
-* The MIT License (MIT)
-*
-* Based on tinyUSB example that is: Copyright (c) 2020 Peter Lawrence
-* Modified for Pico by Floris Bos
-*
-* influenced by lrndis https://github.com/fetisov/lrndis
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in
-* all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-* THE SOFTWARE.
-*
-*/
+/*
+ * The MIT License (MIT)
+ *
+ * Based on tinyUSB example that is: Copyright (c) 2020 Peter Lawrence
+ * Modified for Pico by Floris Bos
+ *
+ * influenced by lrndis https://github.com/fetisov/lrndis
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ */
 
 #include "tusb_lwip_glue.h"
 #include "pico/unique_id.h"
@@ -38,10 +38,10 @@ static struct pbuf *received_frame;
 /* this is used by this code, ./class/net/net_driver.c, and usb_descriptors.c */
 /* ideally speaking, this should be generated from the hardware's unique ID (if available) */
 /* it is suggested that the first byte is 0x02 to indicate a link-local address */
-const uint8_t tud_network_mac_address[6] = {0x02,0x02,0x84,0x6A,0x96,0x00};
+const uint8_t tud_network_mac_address[6] = {0x02, 0x02, 0x84, 0x6A, 0x96, 0x00};
 
 /* network parameters of this MCU */
-static const ip_addr_t ipaddr  = IPADDR4_INIT_BYTES(192, 168, 7, 1);
+static const ip_addr_t ipaddr = IPADDR4_INIT_BYTES(192, 168, 7, 1);
 static const ip_addr_t netmask = IPADDR4_INIT_BYTES(255, 255, 255, 0);
 static const ip_addr_t gateway = IPADDR4_INIT_BYTES(0, 0, 0, 0);
 
@@ -49,25 +49,25 @@ static const ip_addr_t gateway = IPADDR4_INIT_BYTES(0, 0, 0, 0);
 static dhcp_entry_t entries[] =
 {
   /* mac ip address                          lease time */
-  { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 2), 24 * 60 * 60 },
-  { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 3), 24 * 60 * 60 },
-  { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 4), 24 * 60 * 60 },
+  {{0}, IPADDR4_INIT_BYTES(192, 168, 7, 2), 24 * 60 * 60},
+  {{0}, IPADDR4_INIT_BYTES(192, 168, 7, 3), 24 * 60 * 60},
+  {{0}, IPADDR4_INIT_BYTES(192, 168, 7, 4), 24 * 60 * 60},
 };
 
 static const dhcp_config_t dhcp_config =
 {
-  .router = IPADDR4_INIT_BYTES(0, 0, 0, 0),  /* router address (if any) */
-  .port = 67,                                /* listen port */
-  .dns = IPADDR4_INIT_BYTES(0, 0, 0, 0),     /* dns server (if any) */
-  "",                                        /* dns suffix */
-  TU_ARRAY_SIZE(entries),                    /* num entry */
-  entries                                    /* entries */
+  .router = IPADDR4_INIT_BYTES(0, 0, 0, 0), /* router address (if any) */
+  .port = 67,                               /* listen port */
+  .dns = IPADDR4_INIT_BYTES(0, 0, 0, 0),    /* dns server (if any) */
+  "",                                       /* dns suffix */
+  TU_ARRAY_SIZE(entries),                   /* num entry */
+  entries                                   /* entries */
 };
 
 static err_t linkoutput_fn(struct netif *netif, struct pbuf *p)
 {
   (void)netif;
-  
+
   for (;;)
   {
     /* if TinyUSB isn't ready, we must signal back to lwip that there is nothing we can do */
@@ -108,11 +108,11 @@ void init_lwip(void)
 {
   struct netif *netif = &netif_data;
 
-  /* Fixup MAC address based on flash serial */
-  //pico_unique_board_id_t id;
-  //pico_get_unique_board_id(&id);
-  //memcpy( (tud_network_mac_address)+1, id.id, 5);
-  // Fixing up does not work because tud_network_mac_address is const
+  /* TODO: Fixup MAC address based on flash serial */
+  // pico_unique_board_id_t id;
+  // pico_get_unique_board_id(&id);
+  // memcpy( (tud_network_mac_address)+1, id.id, 5);
+  //  Fixing up does not work because tud_network_mac_address is const
 
   /* Initialize tinyUSB */
   tusb_init();
@@ -141,9 +141,10 @@ void tud_network_init_cb(void)
 
 bool tud_network_recv_cb(const uint8_t *src, uint16_t size)
 {
-  /* this shouldn't happen, but if we get another packet before 
+  /* this shouldn't happen, but if we get another packet before
   parsing the previous, we must signal our inability to accept it */
-  if (received_frame) return false;
+  if (received_frame)
+    return false;
 
   if (size)
   {
@@ -171,12 +172,13 @@ uint16_t tud_network_xmit_cb(uint8_t *dst, void *ref, uint16_t arg)
   (void)arg; /* unused for this example */
 
   /* traverse the "pbuf chain"; see ./lwip/src/core/pbuf.c for more info */
-  for(q = p; q != NULL; q = q->next)
+  for (q = p; q != NULL; q = q->next)
   {
     memcpy(dst, (char *)q->payload, q->len);
     dst += q->len;
     len += q->len;
-    if (q->len == q->tot_len) break;
+    if (q->len == q->tot_len)
+      break;
   }
 
   return len;
@@ -204,4 +206,44 @@ void dhcpd_init()
 void wait_for_netif_is_up()
 {
   while (!netif_is_up(&netif_data));
+}
+
+/* lwip platform specific routines for Pico */
+auto_init_mutex(lwip_mutex);
+static int lwip_mutex_count = 0;
+
+sys_prot_t sys_arch_protect(void)
+{
+  uint32_t owner;
+  if (!mutex_try_enter(&lwip_mutex, &owner))
+  {
+    if (owner != get_core_num())
+    {
+      // Wait until other core releases mutex
+      mutex_enter_blocking(&lwip_mutex);
+    }
+  }
+
+  lwip_mutex_count++;
+
+  return 0;
+}
+
+void sys_arch_unprotect(sys_prot_t pval)
+{
+  (void)pval;
+
+  if (lwip_mutex_count)
+  {
+    lwip_mutex_count--;
+    if (!lwip_mutex_count)
+    {
+      mutex_exit(&lwip_mutex);
+    }
+  }
+}
+
+uint32_t sys_now(void)
+{
+  return to_ms_since_boot(get_absolute_time());
 }

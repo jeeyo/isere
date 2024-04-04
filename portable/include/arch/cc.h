@@ -26,34 +26,46 @@
  *
  * This file is part of the lwIP TCP/IP stack.
  *
- * Author: Simon Goldschmidt
+ * Author: Adam Dunkels <adam@sics.se>
  *
  */
-#ifndef __LWIPOPTS_H__
-#define __LWIPOPTS_H__
+#ifndef __CC_H__
+#define __CC_H__
 
-#define NO_SYS                          1
-#define MEM_ALIGNMENT                   4
-#define LWIP_RAW                        0
-#define LWIP_NETCONN                    0
-#define LWIP_SOCKET                     0
-#define LWIP_DHCP                       0
-#define LWIP_ICMP                       1
-#define LWIP_UDP                        1
-#define LWIP_TCP                        1
-#define ETH_PAD_SIZE                    0
-#define LWIP_IP_ACCEPT_UDP_PORT(p)      ((p) == PP_NTOHS(67))
+typedef int sys_prot_t;
 
-#define TCP_MSS                         (1500 /*mtu*/ - 20 /*iphdr*/ - 20 /*tcphhr*/)
-#define TCP_SND_BUF                     (2 * TCP_MSS)
+/* define compiler specific symbols */
+#if defined (__ICCARM__)
 
-#define ETHARP_SUPPORT_STATIC_ENTRIES   1
-#define LWIP_SINGLE_NETIF               1
+#define PACK_STRUCT_BEGIN
+#define PACK_STRUCT_STRUCT
+#define PACK_STRUCT_END
+#define PACK_STRUCT_FIELD(x) x
+#define PACK_STRUCT_USE_INCLUDES
 
-#define LWIP_TIMEVAL_PRIVATE            0
-#define LWIP_PROVIDE_ERRNO              1
+#elif defined (__CC_ARM)
 
-// not necessary, can be done either way
-#define LWIP_TCPIP_CORE_LOCKING_INPUT   1
+#define PACK_STRUCT_BEGIN __packed
+#define PACK_STRUCT_STRUCT
+#define PACK_STRUCT_END
+#define PACK_STRUCT_FIELD(x) x
 
-#endif /* __LWIPOPTS_H__ */
+#elif defined (__GNUC__)
+
+#define PACK_STRUCT_BEGIN
+#define PACK_STRUCT_STRUCT __attribute__ ((__packed__))
+#define PACK_STRUCT_END
+#define PACK_STRUCT_FIELD(x) x
+
+#elif defined (__TASKING__)
+
+#define PACK_STRUCT_BEGIN
+#define PACK_STRUCT_STRUCT
+#define PACK_STRUCT_END
+#define PACK_STRUCT_FIELD(x) x
+
+#endif
+
+#define LWIP_PLATFORM_ASSERT(x) do { if(!(x)) while(1); } while(0)
+
+#endif /* __CC_H__ */

@@ -17,6 +17,8 @@ Transfer/sec:     14.08MB
 
 ### isère
 
+##### single-threaded + no event loop
+
 ```
 $ wrk -t12 -c400 -d10s http://127.0.0.1:8080
 Running 10s test @ http://127.0.0.1:8080

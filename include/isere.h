@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+#include "platform.h"
+
 #include "quickjs.h"
 
 #ifdef __cplusplus
@@ -11,7 +13,10 @@ extern "C" {
 #endif
 
 #define ISERE_APP_NAME "isere"
+
+#ifndef ISERE_APP_VERSION
 #define ISERE_APP_VERSION "0.0.1"
+#endif /* ISERE_APP_VERSION */
 
 #define ISERE_LOG_TAG "isere"
 
@@ -51,7 +56,7 @@ typedef struct {
 } isere_js_t;
 
 typedef struct {
-  int fd;
+  platform_socket_t fd;
 } isere_httpd_t;
 
 typedef void * isere_tcp_t;

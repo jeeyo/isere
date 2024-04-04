@@ -15,8 +15,6 @@
 
 #include "platform.h"
 
-#include "tusb_lwip_glue.h"
-
 httpd_handler_t __http_handler;
 static isere_t isere;
 
@@ -94,30 +92,11 @@ int main(void)
   // initialize web server module
   isere_httpd_t httpd;
   memset(&httpd, 0, sizeof(isere_httpd_t));
-  if (isere_httpd_init(&isere, &httpd) < 0) {
+  if (isere_httpd_init(&isere, &httpd, &__http_handler) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize httpd module");
     return EXIT_FAILURE;
   }
   isere.httpd = &httpd;
-
-  httpd_task_params_t httpd_params;
-  memset(&httpd_params, 0, sizeof(httpd_task_params_t));
-  httpd_params.httpd = &httpd;
-  httpd_params.handler = &__http_handler;
-
-  // start tcp daemon task
-  TaskHandle_t tcp_task_handle;
-  if (xTaskCreate(isere_tcp_task, "tcp", configMINIMAL_STACK_SIZE, (void *)&tcp, tskIDLE_PRIORITY + 2, &tcp_task_handle) != pdPASS) {
-    logger.error(ISERE_LOG_TAG, "Unable to create tcp task");
-    return EXIT_FAILURE;
-  }
-
-  // start web server task
-  TaskHandle_t httpd_task_handle;
-  if (xTaskCreate(isere_httpd_task, "httpd", configMINIMAL_STACK_SIZE, (void *)&httpd_params, tskIDLE_PRIORITY + 1, &httpd_task_handle) != pdPASS) {
-    logger.error(ISERE_LOG_TAG, "Unable to create httpd task");
-    return EXIT_FAILURE;
-  }
 
 #ifdef __linux__
   signal(SIGINT, sigint);

@@ -4,6 +4,8 @@
 
 #include "isere.h"
 
+#include "platform.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -16,7 +18,7 @@
 #define ISERE_HTTPD_PORT 8080
 #define ISERE_HTTPD_LOG_TAG "httpd"
 
-#define ISERE_HTTPD_MAX_CONNECTIONS 2
+#define ISERE_HTTPD_MAX_CONNECTIONS 10
 #define ISERE_HTTPD_HANDLER_TIMEOUT_MS 30000
 
 #define ISERE_HTTPD_LINE_BUFFER_LEN 64
@@ -26,7 +28,7 @@
 #define ISERE_HTTPD_MAX_HTTP_HEADERS 20
 #define ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN 64
 #define ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN 1024
-#define ISERE_HTTPD_MAX_HTTP_BODY_LEN 2048
+#define ISERE_HTTPD_MAX_HTTP_BODY_LEN 512
 
 #define ISERE_HTTPD_MAX_HTTP_REQUEST_LEN \
   (ISERE_HTTPD_MAX_HTTP_METHOD_LEN + ISERE_HTTPD_MAX_HTTP_PATH_LEN + ISERE_HTTPD_MAX_HTTP_HEADERS * (ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN + ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN) + ISERE_HTTPD_MAX_HTTP_BODY_LEN)
@@ -53,8 +55,8 @@ typedef struct {
 
 typedef struct {
 
-  int fd;
-  int recvd;  // number of bytes received
+  platform_socket_t fd;
+  int32_t recvd;  // number of bytes received
 
   llhttp_t llhttp;
   llhttp_settings_t llhttp_settings;
@@ -73,7 +75,7 @@ typedef struct {
 
 } httpd_conn_t;
 
-typedef int (httpd_handler_t)(
+typedef int32_t (httpd_handler_t)(
   isere_t *isere,
   httpd_conn_t *conn,
   const char *method,
@@ -83,19 +85,8 @@ typedef int (httpd_handler_t)(
   uint32_t request_headers_len,
   const char *body);
 
-typedef struct {
-  isere_httpd_t *httpd;
-  httpd_handler_t *handler;
-} httpd_task_params_t;
-
-typedef struct {
-  httpd_conn_t *conn;
-  httpd_handler_t *handler;
-} httpd_client_task_params_t;
-
-int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd);
+int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *handler);
 int isere_httpd_deinit(isere_httpd_t *httpd);
-void isere_httpd_task(void *params);
 
 #ifdef __cplusplus
 }
