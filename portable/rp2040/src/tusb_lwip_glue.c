@@ -29,6 +29,11 @@
 #include "tusb_lwip_glue.h"
 #include "pico/unique_id.h"
 
+#include "lwip/tcpip.h"
+
+#include "FreeRTOS.h"
+#include "semphr.h"
+
 /* lwip context */
 static struct netif netif_data;
 
@@ -104,6 +109,29 @@ static err_t netif_init_cb(struct netif *netif)
   return ERR_OK;
 }
 
+static SemaphoreHandle_t tcpip_task_blocker;
+static int done_lwip_init = 0;
+
+static void tcpip_init_done(void *param) {
+  xSemaphoreGive((SemaphoreHandle_t)param);
+}
+
+static int lwip_freertos_init()
+{
+  if (!done_lwip_init) {
+    done_lwip_init = 1;
+    SemaphoreHandle_t init_sem = xSemaphoreCreateBinary();
+    tcpip_task_blocker = xSemaphoreCreateBinary();
+    tcpip_init(tcpip_init_done, init_sem);
+    xSemaphoreTake(init_sem, portMAX_DELAY);
+    vSemaphoreDelete(init_sem);
+  } else {
+    xSemaphoreGive(tcpip_task_blocker);
+  }
+
+  return 1;
+}
+
 void init_lwip(void)
 {
   struct netif *netif = &netif_data;
@@ -117,8 +145,7 @@ void init_lwip(void)
   /* Initialize tinyUSB */
   tusb_init();
 
-  /* Initialize lwip */
-  lwip_init();
+  lwip_freertos_init();
 
   /* the lwip virtual MAC address must be different from the host's; to ensure this, we toggle the LSbit */
   netif->hwaddr_len = sizeof(tud_network_mac_address);
@@ -206,44 +233,4 @@ void dhcpd_init()
 void wait_for_netif_is_up()
 {
   while (!netif_is_up(&netif_data));
-}
-
-/* lwip platform specific routines for Pico */
-auto_init_mutex(lwip_mutex);
-static int lwip_mutex_count = 0;
-
-sys_prot_t sys_arch_protect(void)
-{
-  uint32_t owner;
-  if (!mutex_try_enter(&lwip_mutex, &owner))
-  {
-    if (owner != get_core_num())
-    {
-      // Wait until other core releases mutex
-      mutex_enter_blocking(&lwip_mutex);
-    }
-  }
-
-  lwip_mutex_count++;
-
-  return 0;
-}
-
-void sys_arch_unprotect(sys_prot_t pval)
-{
-  (void)pval;
-
-  if (lwip_mutex_count)
-  {
-    lwip_mutex_count--;
-    if (!lwip_mutex_count)
-    {
-      mutex_exit(&lwip_mutex);
-    }
-  }
-}
-
-uint32_t sys_now(void)
-{
-  return to_ms_since_boot(get_absolute_time());
 }

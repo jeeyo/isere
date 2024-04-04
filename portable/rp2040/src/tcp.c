@@ -12,20 +12,20 @@
 #include "hardware/structs/watchdog.h"
 
 #include "FreeRTOS.h"
-#include "queue.h"
+#include "task.h"
 
-#include "lwip/tcp.h"
+#include "lwip/sockets.h"
 #include "lwip/inet.h"
 
 #include "tusb_lwip_glue.h"
 
-static err_t __tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err);
-static err_t __tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err);
+static uint8_t should_exit = 0;
 
 static isere_t *__isere = NULL;
 
-static QueueHandle_t __tcp_accept_queue;
-static QueueHandle_t __tcp_recv_queue;
+static TaskHandle_t __tcp_task_handle;
+
+static void __isere_tcp_task(void *param);
 
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 {
@@ -39,15 +39,8 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
   wait_for_netif_is_up();
   dhcpd_init();
 
-  __tcp_accept_queue = xQueueCreate(1, sizeof(struct tcp_pcb *));
-  if (__tcp_accept_queue == NULL) {
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tcp accept queue");
-    return -1;
-  }
-
-  __tcp_recv_queue = xQueueCreate(1, sizeof(struct pbuf *));
-  if (__tcp_recv_queue == NULL) {
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tcp recv queue");
+  if (xTaskCreate(__isere_tcp_task, "tcp", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, &__tcp_task_handle) != pdPASS) {
+    isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tcp task");
     return -1;
   }
 
@@ -60,104 +53,91 @@ int isere_tcp_deinit(isere_tcp_t *tcp)
     __isere = NULL;
   }
 
+  should_exit = 1;
+
   return 0;
 }
 
-platform_socket_t isere_tcp_socket_new()
+int isere_tcp_socket_new()
 {
-  struct tcp_pcb *sock = tcp_new();
-  if (sock == NULL) {
-    return PLATFORM_SOCKET_INVALID;
+  int sock = lwip_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  if (sock < 0) {
+    return -1;
   }
 
-  return (struct tcp_pcb *)sock;
+  return sock;
 }
 
-void isere_tcp_socket_close(platform_socket_t sock)
+void isere_tcp_socket_close(int sock)
 {
-  tcp_close((struct tcp_pcb *)sock);
+  lwip_close(sock);
 }
 
-int isere_tcp_listen(platform_socket_t sock, uint16_t port)
+int isere_tcp_listen(int sock, uint16_t port)
 {
-  int err = tcp_bind((struct tcp_pcb *)sock, IP_ADDR_ANY, port);
+  struct sockaddr_in dest_addr;
+  bzero(&dest_addr, sizeof(dest_addr));
+  dest_addr.sin_family = AF_INET;
+  dest_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  dest_addr.sin_port = htons(port);
+
+  int err = lwip_bind(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {
     return -1;
   }
 
-  struct tcp_pcb *new_sock = tcp_listen((struct tcp_pcb *)sock);
-  if (new_sock == NULL) {
+  err = lwip_listen(sock, ISERE_TCP_MAX_CONNECTIONS);
+  if (err != 0) {
     return -1;
   }
-
-  sock = new_sock;
 
   return 0;
 }
 
-platform_socket_t isere_tcp_accept(platform_socket_t sock, char *ip_addr)
+int isere_tcp_accept(int sock, char *ip_addr)
 {
-  platform_socket_t newsock = NULL;
-  if (xQueueReceive(__tcp_accept_queue, newsock, portMAX_DELAY) != pdPASS) {
-    return PLATFORM_SOCKET_INVALID;
-  }
+  struct sockaddr_in source_addr;
+  socklen_t addr_len = sizeof(source_addr);
 
-  tcp_recv(sock, __tcp_recv);
-
-  // // copy ip address string
-  // strncpy(ip_addr, inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr), INET_ADDRSTRLEN);
-
-  return newsock;
-}
-
-int isere_tcp_recv(platform_socket_t sock, char *buf, size_t len)
-{
-  struct pbuf *pbuf = NULL;
-  if (xQueueReceive(__tcp_recv_queue, pbuf, portMAX_DELAY) != pdPASS) {
+  int fd = lwip_accept(sock, (struct sockaddr *)&source_addr, &addr_len);
+  if (fd < 0 && errno == EINTR) {
     return -1;
   }
 
-  if (pbuf == NULL) {
-    return 0;
+  if (fd < 0) {
+    return -1;
   }
 
-  return recvd;
+  // disable tcp keepalive
+  int keep_alive = 0;
+  lwip_setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
+
+  // copy ip address string
+  strncpy(ip_addr, inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr), INET_ADDRSTRLEN);
+
+  return fd;
 }
 
-int isere_tcp_write(platform_socket_t sock, const char *buf, size_t len)
+int isere_tcp_recv(int sock, char *buf, size_t len)
 {
-  // return write(sock, buf, len);
-  return -1;
+  return lwip_read(sock, buf, len);
 }
 
-void isere_tcp_poll()
+int isere_tcp_write(int sock, const char *buf, size_t len)
 {
-  tud_task();
+  return lwip_write(sock, buf, len);
 }
 
-static err_t __tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
+static void __isere_tcp_task(void *param)
 {
-  if (xQueueSend(__tcp_accept_queue, newpcb, pdMS_TO_TICKS(50)) != pdPASS) {
-    return ERR_MEM;
+  while (!should_exit)
+  {
+    taskYIELD();
+
+    tud_task();
+    service_traffic();
   }
 
-  return ERR_OK;
-}
-
-static err_t __tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
-{
-  err_t ret = err;
-
-  if (p == NULL) {
-    return ERR_OK;
-  }
-
-  if (xQueueSend(__tcp_recv_queue, p, pdMS_TO_TICKS(50)) != pdPASS) {
-    return ERR_MEM;
-  }
-
-  tcp_recved(tpcb, p->tot_len);
-  pbuf_free(p);
-
-  return ERR_OK;
+  should_exit = 1;
+  vTaskDelete(NULL);
 }

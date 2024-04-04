@@ -14,7 +14,6 @@
 #include <arpa/inet.h>
 
 static isere_t *__isere = NULL;
-QueueHandle_t tcp_queue;
 
 static void __tcp_task(void *params);
 
@@ -23,12 +22,6 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
   __isere = isere;
 
   if (isere->logger == NULL) {
-    return -1;
-  }
-
-  tcp_queue = xQueueCreate(ISERE_TCP_MAX_CONNECTIONS, sizeof(platform_socket_t *));
-  if (tcp_queue == NULL) {
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tcp queue");
     return -1;
   }
 
@@ -48,18 +41,18 @@ int isere_tcp_socket_new()
 {
   int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
   if (sock < 0) {
-    return PLATFORM_SOCKET_INVALID;
+    return -1;
   }
 
   return sock;
 }
 
-void isere_tcp_socket_close(platform_socket_t sock)
+void isere_tcp_socket_close(int sock)
 {
   close(sock);
 }
 
-int isere_tcp_listen(platform_socket_t sock, uint16_t port)
+int isere_tcp_listen(int sock, uint16_t port)
 {
   struct sockaddr_in dest_addr;
   bzero(&dest_addr, sizeof(dest_addr));
@@ -69,29 +62,29 @@ int isere_tcp_listen(platform_socket_t sock, uint16_t port)
 
   int err = bind(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {
-    return PLATFORM_SOCKET_INVALID;
+    return -1;
   }
 
   err = listen(sock, ISERE_TCP_MAX_CONNECTIONS);
   if (err != 0) {
-    return PLATFORM_SOCKET_INVALID;
+    return -1;
   }
 
   return 0;
 }
 
-platform_socket_t isere_tcp_accept(platform_socket_t sock, char *ip_addr)
+int isere_tcp_accept(int sock, char *ip_addr)
 {
   struct sockaddr_in source_addr;
   socklen_t addr_len = sizeof(source_addr);
 
-  platform_socket_t fd = accept(sock, (struct sockaddr *)&source_addr, &addr_len);
+  int fd = accept(sock, (struct sockaddr *)&source_addr, &addr_len);
   if (fd < 0 && errno == EINTR) {
-    return PLATFORM_SOCKET_INVALID;
+    return -1;
   }
 
   if (fd < 0) {
-    return PLATFORM_SOCKET_INVALID;
+    return -1;
   }
 
   // disable tcp keepalive
@@ -104,7 +97,7 @@ platform_socket_t isere_tcp_accept(platform_socket_t sock, char *ip_addr)
   return fd;
 }
 
-ssize_t isere_tcp_recv(platform_socket_t sock, char *buf, size_t len)
+ssize_t isere_tcp_recv(int sock, char *buf, size_t len)
 {
   int recvd = recv(sock, buf, len, 0);
   if (recvd < 0) {
@@ -118,7 +111,7 @@ ssize_t isere_tcp_recv(platform_socket_t sock, char *buf, size_t len)
   return recvd;
 }
 
-ssize_t isere_tcp_write(platform_socket_t sock, const char *buf, size_t len)
+ssize_t isere_tcp_write(int sock, const char *buf, size_t len)
 {
   return write(sock, buf, len);
 }

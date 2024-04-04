@@ -245,7 +245,7 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
 static httpd_conn_t *__httpd_get_free_slot()
 {
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-    if (__conns[i].fd == PLATFORM_SOCKET_INVALID) {
+    if (__conns[i].fd == -1) {
       return &__conns[i];
     }
   }
@@ -255,7 +255,7 @@ static httpd_conn_t *__httpd_get_free_slot()
 
 static void __httpd_cleanup_conn(httpd_conn_t *conn)
 {
-  if (conn->fd == PLATFORM_SOCKET_INVALID) {
+  if (conn->fd == -1) {
     return;
   }
 
@@ -264,7 +264,7 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   // cleanup client socket
   isere_tcp_socket_close(conn->fd);
   memset(conn, 0, sizeof(httpd_conn_t));
-  conn->fd = PLATFORM_SOCKET_INVALID;
+  conn->fd = -1;
   conn->recvd = 0;
 }
 
@@ -338,7 +338,7 @@ static void __isere_httpd_server_task(void *params)
   isere_httpd_t *httpd = (isere_httpd_t *)params;
 
   httpd->fd = isere_tcp_socket_new();
-  if (httpd->fd == PLATFORM_SOCKET_INVALID) {
+  if (httpd->fd == -1) {
     goto exit;
   }
 
@@ -354,8 +354,8 @@ static void __isere_httpd_server_task(void *params)
 
     // accept connection
     char ipaddr[16];
-    platform_socket_t fd = isere_tcp_accept(httpd->fd, ipaddr);
-    if (fd == PLATFORM_SOCKET_INVALID) {
+    int fd = isere_tcp_accept(httpd->fd, ipaddr);
+    if (fd == -1) {
       continue;
     }
 

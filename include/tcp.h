@@ -15,12 +15,12 @@ int isere_tcp_deinit(isere_tcp_t *tcp);
 
 #define ISERE_TCP_MAX_CONNECTIONS 5
 
-platform_socket_t isere_tcp_socket_new();
-void isere_tcp_socket_close(platform_socket_t sock);
-int isere_tcp_listen(platform_socket_t sock, uint16_t port);
-platform_socket_t isere_tcp_accept(platform_socket_t sock, char *ip_addr);
-ssize_t isere_tcp_recv(platform_socket_t sock, char *buf, size_t len);
-ssize_t isere_tcp_write(platform_socket_t sock, const char *buf, size_t len);
+int isere_tcp_socket_new();
+void isere_tcp_socket_close(int sock);
+int isere_tcp_listen(int sock, uint16_t port);
+int isere_tcp_accept(int sock, char *ip_addr);
+ssize_t isere_tcp_recv(int sock, char *buf, size_t len);
+ssize_t isere_tcp_write(int sock, const char *buf, size_t len);
 
 #ifdef __cplusplus
 }

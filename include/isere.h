@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#include "isere_platform.h"
+#include "platform.h"
 
 #include "quickjs.h"
 
@@ -56,7 +56,7 @@ typedef struct {
 } isere_js_t;
 
 typedef struct {
-  platform_socket_t fd;
+  int fd;
 } isere_httpd_t;
 
 typedef void * isere_tcp_t;

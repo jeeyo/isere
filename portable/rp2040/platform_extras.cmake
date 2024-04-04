@@ -7,6 +7,7 @@ target_include_directories(isere PRIVATE
 target_link_libraries(isere
   pico_stdlib
   pico_lwip
+  pico_lwip_contrib_freertos
   hardware_exception
   pico_unique_id
   tinyusb_device

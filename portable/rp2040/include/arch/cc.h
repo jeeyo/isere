@@ -32,7 +32,7 @@
 #ifndef __CC_H__
 #define __CC_H__
 
-typedef int sys_prot_t;
+#include <time.h>
 
 /* define compiler specific symbols */
 #if defined (__ICCARM__)
@@ -66,6 +66,15 @@ typedef int sys_prot_t;
 
 #endif
 
-#define LWIP_PLATFORM_ASSERT(x) do { if(!(x)) while(1); } while(0)
+#ifndef LWIP_PLATFORM_ASSERT
+#include "pico.h"
+#define LWIP_PLATFORM_ASSERT(x) panic(x)
+#endif
+
+#ifndef LWIP_RAND
+#include "pico/rand.h"
+// Use the pico_rand library which goes to reasonable lengths to try to provide good entropy
+#define LWIP_RAND() get_rand_32()
+#endif
 
 #endif /* __CC_H__ */
