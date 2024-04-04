@@ -3,6 +3,7 @@
 #define ISERE_HTTPD_H_
 
 #include "isere.h"
+#include "tcp.h"
 
 #include "platform.h"
 
@@ -18,7 +19,7 @@
 #define ISERE_HTTPD_PORT 8080
 #define ISERE_HTTPD_LOG_TAG "httpd"
 
-#define ISERE_HTTPD_MAX_CONNECTIONS 10
+#define ISERE_HTTPD_MAX_CONNECTIONS ISERE_TCP_MAX_CONNECTIONS
 #define ISERE_HTTPD_HANDLER_TIMEOUT_MS 30000
 
 #define ISERE_HTTPD_LINE_BUFFER_LEN 64
@@ -37,11 +38,11 @@
 extern "C" {
 #endif
 
-#define METHOD_COMPLETED (1 << 0)
-#define PATH_COMPLETED (1 << 1)
-#define HEADERS_COMPLETED (1 << 2)
-#define BODY_COMPLETED (1 << 3)
-#define ALL_COMPLETED (METHOD_COMPLETED | PATH_COMPLETED | HEADERS_COMPLETED | BODY_COMPLETED)
+#define METHODED (1 << 0)
+#define PATHED (1 << 1)
+#define HEADERED (1 << 2)
+#define BODYED (1 << 3)
+#define DONE (METHODED | PATHED | HEADERED | BODYED)
 
 #define HTTP_STATUS_BAD_REQUEST -400
 #define HTTP_STATUS_NOT_FOUND -404
@@ -75,7 +76,7 @@ typedef struct {
 
 } httpd_conn_t;
 
-typedef int32_t (httpd_handler_t)(
+typedef int (httpd_handler_t)(
   isere_t *isere,
   httpd_conn_t *conn,
   const char *method,

@@ -6,7 +6,7 @@
 #include "httpd.h"
 #include "tcp.h"
 
-int32_t __http_handler(
+int __http_handler(
   isere_t *isere,
   httpd_conn_t *conn,
   const char *method,
@@ -19,7 +19,8 @@ int32_t __http_handler(
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
   if (js_init(isere, &js) < 0) {
-    isere->logger->error(ISERE_LOG_TAG, "Unable to initialize JavaScript module");
+    // isere->logger->error(ISERE_LOG_TAG, "Unable to initialize JavaScript module");
+    printf("Unable to initialize JavaScript module\n");
     return -1;
   }
 
