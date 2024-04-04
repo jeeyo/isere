@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#include "platform.h"
+#include "isere_platform.h"
 
 #include "quickjs.h"
 

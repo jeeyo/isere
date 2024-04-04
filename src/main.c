@@ -13,8 +13,6 @@
 #include "httpd.h"
 #include "tcp.h"
 
-#include "platform.h"
-
 httpd_handler_t __http_handler;
 static isere_t isere;
 

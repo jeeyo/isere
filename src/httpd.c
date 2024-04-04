@@ -15,7 +15,7 @@ static httpd_handler_t *__httpd_handler = NULL;
 
 static TaskHandle_t __httpd_server_task_handle;
 static TaskHandle_t __httpd_process_task_handle;
-static xQueueHandle __httpd_conn_queue;
+static QueueHandle_t __httpd_conn_queue;
 
 static httpd_conn_t __conns[ISERE_HTTPD_MAX_CONNECTIONS];
 
