@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define ISERE_TCP_MAX_CONNECTIONS 10
+#define ISERE_TCP_MAX_CONNECTIONS 12
 
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp);
 int isere_tcp_deinit(isere_tcp_t *tcp);
