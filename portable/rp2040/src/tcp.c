@@ -24,9 +24,9 @@ static uint8_t initialized = 0;
 
 static isere_t *__isere = NULL;
 
-static TaskHandle_t __tcp_task_handle;
+static TaskHandle_t __tusb_task_handle;
 
-static void __isere_tcp_task(void *param);
+static void __isere_tusb_task(void *param);
 
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 {
@@ -36,8 +36,10 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
     return -1;
   }
 
-  if (xTaskCreate(__isere_tcp_task, "tcp", 512, NULL, tskIDLE_PRIORITY + 2, &__tcp_task_handle) != pdPASS) {
-    isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tcp task");
+  rndis_tusb_init();
+
+  if (xTaskCreate(__isere_tusb_task, "tusb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle) != pdPASS) {
+    isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
     return -1;
   }
 
@@ -130,10 +132,8 @@ int isere_tcp_is_initialized()
   return initialized;
 }
 
-static void __isere_tcp_task(void *param)
+static void __isere_tusb_task(void *param)
 {
-  rndis_tusb_init();
-
   lwip_freertos_init();
   wait_for_netif_is_up();
   dhcpd_init();
@@ -141,7 +141,7 @@ static void __isere_tcp_task(void *param)
 
   while (!should_exit)
   {
-    taskYIELD();
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
     tud_task();
     service_traffic();

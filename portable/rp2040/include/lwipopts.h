@@ -111,15 +111,13 @@
 
 #define TCPIP_THREAD_STACKSIZE          1024
 #define DEFAULT_THREAD_STACKSIZE        1024
-#define TCPIP_MBOX_SIZE                 10
-#define DEFAULT_RAW_RECVMBOX_SIZE       10
-#define DEFAULT_TCP_RECVMBOX_SIZE       10
-#define DEFAULT_ACCEPTMBOX_SIZE         10
+#define TCPIP_MBOX_SIZE                 12
+#define DEFAULT_RAW_RECVMBOX_SIZE       12
+#define DEFAULT_TCP_RECVMBOX_SIZE       12
+#define DEFAULT_ACCEPTMBOX_SIZE         12
 
-#include "FreeRTOS.h"
-#include "task.h"
-#define TCPIP_THREAD_PRIO               (tskIDLE_PRIORITY + 3)
-#define DEFAULT_THREAD_PRIO             (tskIDLE_PRIORITY + 3)
+// #define TCPIP_THREAD_PRIO               (tskIDLE_PRIORITY + 3)
+// #define DEFAULT_THREAD_PRIO             (tskIDLE_PRIORITY + 3)
 
 // not necessary, can be done either way
 // #define LWIP_TCPIP_CORE_LOCKING         1

@@ -13,7 +13,7 @@ target_link_libraries(isere
   tinyusb_device
 )
 
-target_compile_options(isere PRIVATE -fno-math-errno)
+# target_compile_options(isere PRIVATE -fno-math-errno)
 
 pico_enable_stdio_usb(isere 0)
 pico_enable_stdio_uart(isere 0)

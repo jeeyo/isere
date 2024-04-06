@@ -167,7 +167,7 @@ static char const* string_desc_arr [] =
 {
   [STRID_LANGID]       = (const char[]) { 0x09, 0x04 }, // supported language is English (0x0409)
   [STRID_MANUFACTURER] = "TinyUSB",                     // Manufacturer
-  [STRID_PRODUCT]      = "isere 192.168.7.1",           // Product
+  [STRID_PRODUCT]      = "isere",                       // Product
   [STRID_SERIAL]       = NULL,                          // Serials will use unique ID if possible
   [STRID_INTERFACE]    = "TinyUSB Network Interface"    // Interface Description
 

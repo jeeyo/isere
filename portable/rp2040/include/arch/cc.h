@@ -66,6 +66,10 @@
 
 #endif
 
+// #ifndef LWIP_PLATFORM_ASSERT
+// #define LWIP_PLATFORM_ASSERT(x) do { if(!(x)) while(1); } while(0)
+// #endif
+
 #ifndef LWIP_PLATFORM_ASSERT
 #include "pico.h"
 #define LWIP_PLATFORM_ASSERT(x) panic(x)

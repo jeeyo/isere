@@ -63,8 +63,8 @@ static const dhcp_config_t dhcp_config =
 {
   .router = IPADDR4_INIT_BYTES(0, 0, 0, 0), /* router address (if any) */
   .port = 67,                               /* listen port */
-  .dns = IPADDR4_INIT_BYTES(192, 168, 7, 1), /* dns server (if any) */
-  "",                                       /* dns suffix */
+  .dns = IPADDR4_INIT_BYTES(0, 0, 0, 0),    /* dns server (if any) */
+  "usb",                                    /* dns suffix */
   TU_ARRAY_SIZE(entries),                   /* num entry */
   entries                                   /* entries */
 };
