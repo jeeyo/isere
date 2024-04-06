@@ -3,7 +3,7 @@
 	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
 [submodule "3rdparty/quickjs"]
 	path = 3rdparty/quickjs
-	url = https://github.com/bellard/quickjs.git
+	url = https://github.com/jeeyo/quickjs.git
 [submodule "3rdparty/FreeRTOS-Plus-POSIX"]
 	path = 3rdparty/FreeRTOS-Plus-POSIX
 	url = https://github.com/FreeRTOS/Lab-Project-FreeRTOS-POSIX.git

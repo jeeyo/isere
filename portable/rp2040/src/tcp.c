@@ -8,6 +8,7 @@
 
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
+#include "pico/multicore.h"
 #include "hardware/watchdog.h"
 #include "hardware/structs/watchdog.h"
 
@@ -28,6 +29,15 @@ static TaskHandle_t __tusb_task_handle;
 
 static void __isere_tusb_task(void *param);
 
+static int __isere_start_tusb_task()
+{
+  if (xTaskCreate(__isere_tusb_task, "tusb", 512, NULL, tskIDLE_PRIORITY + 2, &__tusb_task_handle) != pdPASS) {
+    return -1;
+  }
+
+  return 0;
+}
+
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 {
   __isere = isere;
@@ -38,10 +48,14 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 
   rndis_tusb_init();
 
-  if (xTaskCreate(__isere_tusb_task, "tusb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle) != pdPASS) {
+#if configNUMBER_OF_CORES > 1
+  multicore_launch_core1(__isere_start_tusb_task);
+#else
+  if (__isere_start_tusb_task() < 0) {
     isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
     return -1;
   }
+#endif
 
   return 0;
 }
@@ -141,8 +155,6 @@ static void __isere_tusb_task(void *param)
 
   while (!should_exit)
   {
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-
     tud_task();
     service_traffic();
   }

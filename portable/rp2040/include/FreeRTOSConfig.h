@@ -87,6 +87,19 @@
  * requested. */
 #define configSTACK_DEPTH_TYPE                    uint32_t
 
+/* SMP port only */
+#define configNUMBER_OF_CORES                     2
+#define configTICK_CORE                           0
+#define configRUN_MULTIPLE_PRIORITIES             0
+
+/* RP2040 specific */
+#define configSUPPORT_PICO_SYNC_INTEROP           1
+#define configSUPPORT_PICO_TIME_INTEROP           1
+
+/* SMP Related config. */
+#define configUSE_PASSIVE_IDLE_HOOK               0
+#define portSUPPORT_SMP                           1
+
 /* Set the following definitions to 1 to include the API function, or zero
  * to exclude the API function.  In most cases the linker will remove unused
  * functions anyway. */
