@@ -8,11 +8,13 @@
 #include "tusb.h"
 #include "dhserver.h"
 #include "dnserver.h"
+
 #include "lwip/init.h"
 #include "lwip/timeouts.h"
-#include "lwip/apps/httpd.h"
 
-void init_lwip();
+void rndis_tusb_init();
+void lwip_freertos_init(void);
+void lwip_add_netif();
 void wait_for_netif_is_up();
 void dhcpd_init();
 void service_traffic();

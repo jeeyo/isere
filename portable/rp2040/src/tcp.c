@@ -20,6 +20,7 @@
 #include "tusb_lwip_glue.h"
 
 static uint8_t should_exit = 0;
+static uint8_t initialized = 0;
 
 static isere_t *__isere = NULL;
 
@@ -35,11 +36,7 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
     return -1;
   }
 
-  init_lwip();
-  wait_for_netif_is_up();
-  dhcpd_init();
-
-  if (xTaskCreate(__isere_tcp_task, "tcp", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, &__tcp_task_handle) != pdPASS) {
+  if (xTaskCreate(__isere_tcp_task, "tcp", 512, NULL, tskIDLE_PRIORITY + 2, &__tcp_task_handle) != pdPASS) {
     isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tcp task");
     return -1;
   }
@@ -128,8 +125,20 @@ int isere_tcp_write(int sock, const char *buf, size_t len)
   return lwip_write(sock, buf, len);
 }
 
+int isere_tcp_is_initialized()
+{
+  return initialized;
+}
+
 static void __isere_tcp_task(void *param)
 {
+  rndis_tusb_init();
+
+  lwip_freertos_init();
+  wait_for_netif_is_up();
+  dhcpd_init();
+  initialized = 1;
+
   while (!should_exit)
   {
     taskYIELD();

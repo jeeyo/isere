@@ -1,4 +1,4 @@
-#include "isere_platform.h"
+#include "platform.h"
 
 void platform_init() {
 }

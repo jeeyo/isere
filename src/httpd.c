@@ -208,7 +208,7 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
   }
 
   // start web server task
-  if (xTaskCreate(__isere_httpd_server_task, "httpd_server", configMINIMAL_STACK_SIZE, (void *)httpd, tskIDLE_PRIORITY + 2, &__httpd_server_task_handle) != pdPASS) {
+  if (xTaskCreate(__isere_httpd_server_task, "httpd_server", 1024, (void *)httpd, tskIDLE_PRIORITY + 2, &__httpd_server_task_handle) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd server task");
     return -1;
   }
@@ -335,6 +335,10 @@ finally:
 
 static void __isere_httpd_server_task(void *params)
 {
+  while (!isere_tcp_is_initialized()) {
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+
   isere_httpd_t *httpd = (isere_httpd_t *)params;
 
   httpd->fd = isere_tcp_socket_new();

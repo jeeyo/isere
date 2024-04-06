@@ -43,7 +43,7 @@ static struct pbuf *received_frame;
 /* this is used by this code, ./class/net/net_driver.c, and usb_descriptors.c */
 /* ideally speaking, this should be generated from the hardware's unique ID (if available) */
 /* it is suggested that the first byte is 0x02 to indicate a link-local address */
-const uint8_t tud_network_mac_address[6] = {0x02, 0x02, 0x84, 0x6A, 0x96, 0x00};
+const uint8_t tud_network_mac_address[6] = { 0x02, 0x02, 0x84, 0x6A, 0x96, 0x00 };
 
 /* network parameters of this MCU */
 static const ip_addr_t ipaddr = IPADDR4_INIT_BYTES(192, 168, 7, 1);
@@ -54,16 +54,16 @@ static const ip_addr_t gateway = IPADDR4_INIT_BYTES(0, 0, 0, 0);
 static dhcp_entry_t entries[] =
 {
   /* mac ip address                          lease time */
-  {{0}, IPADDR4_INIT_BYTES(192, 168, 7, 2), 24 * 60 * 60},
-  {{0}, IPADDR4_INIT_BYTES(192, 168, 7, 3), 24 * 60 * 60},
-  {{0}, IPADDR4_INIT_BYTES(192, 168, 7, 4), 24 * 60 * 60},
+  { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 2), 24 * 60 * 60 },
+  { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 3), 24 * 60 * 60 },
+  { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 4), 24 * 60 * 60 },
 };
 
 static const dhcp_config_t dhcp_config =
 {
   .router = IPADDR4_INIT_BYTES(0, 0, 0, 0), /* router address (if any) */
   .port = 67,                               /* listen port */
-  .dns = IPADDR4_INIT_BYTES(0, 0, 0, 0),    /* dns server (if any) */
+  .dns = IPADDR4_INIT_BYTES(192, 168, 7, 1), /* dns server (if any) */
   "",                                       /* dns suffix */
   TU_ARRAY_SIZE(entries),                   /* num entry */
   entries                                   /* entries */
@@ -109,33 +109,23 @@ static err_t netif_init_cb(struct netif *netif)
   return ERR_OK;
 }
 
-static SemaphoreHandle_t tcpip_task_blocker;
 static int done_lwip_init = 0;
 
 static void tcpip_init_done(void *param) {
+  lwip_add_netif();
   xSemaphoreGive((SemaphoreHandle_t)param);
 }
 
-static int lwip_freertos_init()
+void lwip_freertos_init(void)
 {
-  if (!done_lwip_init) {
-    done_lwip_init = 1;
-    SemaphoreHandle_t init_sem = xSemaphoreCreateBinary();
-    tcpip_task_blocker = xSemaphoreCreateBinary();
-    tcpip_init(tcpip_init_done, init_sem);
-    xSemaphoreTake(init_sem, portMAX_DELAY);
-    vSemaphoreDelete(init_sem);
-  } else {
-    xSemaphoreGive(tcpip_task_blocker);
-  }
-
-  return 1;
+  SemaphoreHandle_t init_sem = xSemaphoreCreateBinary();
+  tcpip_init(tcpip_init_done, init_sem);
+  xSemaphoreTake(init_sem, portMAX_DELAY);
+  vSemaphoreDelete(init_sem);
 }
 
-void init_lwip(void)
+void rndis_tusb_init(void)
 {
-  struct netif *netif = &netif_data;
-
   /* TODO: Fixup MAC address based on flash serial */
   // pico_unique_board_id_t id;
   // pico_get_unique_board_id(&id);
@@ -144,8 +134,11 @@ void init_lwip(void)
 
   /* Initialize tinyUSB */
   tusb_init();
+}
 
-  lwip_freertos_init();
+void lwip_add_netif()
+{
+  struct netif *netif = &netif_data;
 
   /* the lwip virtual MAC address must be different from the host's; to ensure this, we toggle the LSbit */
   netif->hwaddr_len = sizeof(tud_network_mac_address);

@@ -115,3 +115,8 @@ ssize_t isere_tcp_write(int sock, const char *buf, size_t len)
 {
   return write(sock, buf, len);
 }
+
+int isere_tcp_is_initialized()
+{
+  return 1;
+}
