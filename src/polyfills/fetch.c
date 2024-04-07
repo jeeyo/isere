@@ -5,7 +5,7 @@
 #include "quickjs.h"
 #include "quickjs-libc.h"
 
-JSValue polyfill_fetch_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+static JSValue __polyfill_fetch_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
   int64_t delay;
   JSValueConst url, method;
@@ -35,7 +35,7 @@ void polyfill_fetch_init(JSContext *ctx)
   */
 
   JSValue global_obj = JS_GetGlobalObject(ctx);
-  JS_SetPropertyStr(ctx, global_obj, "__fetch", JS_NewCFunction(ctx, polyfill_fetch_internal, "__fetch", 1));
+  JS_SetPropertyStr(ctx, global_obj, "__fetch", JS_NewCFunction(ctx, __polyfill_fetch_internal, "__fetch", 1));
   JS_FreeValue(ctx, global_obj);
 
   // TODO: support standard Fetch Request object (https://developer.mozilla.org/en-US/docs/Web/API/Request)

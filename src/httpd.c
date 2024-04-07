@@ -15,7 +15,6 @@ static httpd_handler_t *__httpd_handler = NULL;
 
 static TaskHandle_t __httpd_server_task_handle;
 static TaskHandle_t __httpd_process_task_handle;
-static QueueHandle_t __httpd_conn_queue;
 
 static httpd_conn_t __conns[ISERE_HTTPD_MAX_CONNECTIONS];
 
@@ -201,12 +200,6 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
     __httpd_cleanup_conn(&__conns[i]);
   }
 
-  __httpd_conn_queue = xQueueCreate(ISERE_HTTPD_MAX_CONNECTIONS * 2, sizeof(httpd_conn_t *));
-  if (__httpd_conn_queue == NULL) {
-    __isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd queue");
-    return -1;
-  }
-
   // start web server task
   if (xTaskCreate(__isere_httpd_server_task, "httpd_server", 1024, (void *)httpd, tskIDLE_PRIORITY + 2, &__httpd_server_task_handle) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd server task");
@@ -274,21 +267,28 @@ static void __isere_httpd_process_task(void *param)
 
   while (!should_exit)
   {
-    httpd_conn_t *conn = NULL;
-    if (xQueueReceive(__httpd_conn_queue, &conn, portMAX_DELAY) != pdPASS) {
-      goto finally;
+    int allfds[ISERE_HTTPD_MAX_CONNECTIONS] = {-1};
+    for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
+      allfds[i] = __conns[i].fd;
     }
 
-    if (conn == NULL) {
+    // TODO: optimize this poll shit
+    uint8_t revents[ISERE_HTTPD_MAX_CONNECTIONS] = {0};
+    int ready = isere_tcp_poll(allfds, ISERE_HTTPD_MAX_CONNECTIONS, revents, TCP_POLL_READ, -1);
+    if (ready < 0) {
       continue;
+    }
+
+    httpd_conn_t *conn = NULL;
+    for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
+      if (revents[i] & TCP_POLL_READ_READY) {
+        conn = &__conns[i];
+        break;
+      }
     }
 
     int len = isere_tcp_recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
     if (len == -2) {
-      if (xQueueSend(__httpd_conn_queue, &conn, pdMS_TO_TICKS(50)) != pdPASS) {
-        goto finally;
-      }
-
       continue;
     }
 
@@ -308,10 +308,6 @@ static void __isere_httpd_process_task(void *param)
     }
 
     if (conn->completed != DONE) {
-      if (xQueueSend(__httpd_conn_queue, &conn, pdMS_TO_TICKS(50)) != pdPASS) {
-        goto finally;
-      }
-
       continue;
     }
 
@@ -388,10 +384,6 @@ static void __isere_httpd_server_task(void *params)
     conn->llhttp_settings.on_message_complete = __on_message_complete;
     llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
     conn->llhttp.data = (void *)conn;
-
-    if (xQueueSend(__httpd_conn_queue, &conn, pdMS_TO_TICKS(50)) != pdPASS) {
-      __httpd_cleanup_conn(conn);
-    }
   }
 
 exit:

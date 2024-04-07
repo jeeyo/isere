@@ -73,7 +73,7 @@ int js_init(isere_t *isere, isere_js_t *js)
 
   // initialize quickjs runtime
   js->runtime = JS_NewRuntime();
-  if (!js->runtime)
+  if (js->runtime == NULL)
   {
     __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");
     return -1;
@@ -84,7 +84,7 @@ int js_init(isere_t *isere, isere_js_t *js)
 
   // initialize quickjs context
   js->context = JS_NewContextRaw(js->runtime);
-  if (!js->context)
+  if (js->context == NULL)
   {
     __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS context");
     return -1;
@@ -117,9 +117,9 @@ int js_init(isere_t *isere, isere_js_t *js)
   JS_SetPropertyStr(js->context, process, "env", env);
   JS_SetPropertyStr(js->context, global_obj, "process", process);
 
-  // add setTimeout / clearTimeout
+  // // add setTimeout / clearTimeout
   polyfill_timer_init(js->context);
-  polyfill_fetch_init(js->context);
+  // polyfill_fetch_init(js->context);
 
   JS_FreeValue(js->context, global_obj);
 
@@ -129,7 +129,7 @@ int js_init(isere_t *isere, isere_js_t *js)
 int js_deinit(isere_js_t *js)
 {
   polyfill_timer_deinit(js->context);
-  polyfill_fetch_deinit(js->context);
+  // polyfill_fetch_deinit(js->context);
 
   if (__isere) {
     __isere = NULL;
@@ -199,7 +199,7 @@ int js_eval(isere_js_t *js)
   js_module_set_import_meta(js->context, handler, 0, 0);
 
   const char *eval =
-    "import { handler } from 'handler';\n"
+    "import { handler } from 'handler'\n"
     "const handler1 = new Promise(async resolve => resolve(await handler(__event, __context, resolve)))\n"
     "Promise.resolve(handler1).then(cb)";
 
@@ -210,12 +210,13 @@ int js_eval(isere_js_t *js)
     JS_FreeValue(js->context, val);
     return -1;
   }
+  val = js_std_await(js->context, val);
 
-  // TODO: make these a single event loop
+  // TODO: make these a single event loop (and optimize it)
   // TODO: callbackWaitsForEmptyEventLoop
   js_std_loop(js->context);
   polyfill_timer_poll(js->context);
-  polyfill_fetch_poll(js->context);
+  // polyfill_fetch_poll(js->context);
 
   return 0;
 }

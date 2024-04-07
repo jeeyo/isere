@@ -133,8 +133,15 @@ void polyfill_timer_deinit(JSContext *ctx)
   }
 
   JSValue global_obj = JS_GetGlobalObject(ctx);
-  JS_DeleteProperty(ctx, global_obj, JS_NewAtom(ctx, "setTimeout"), 0);
-  JS_DeleteProperty(ctx, global_obj, JS_NewAtom(ctx, "clearTimeout"), 0);
+
+  JSAtom setTimeout = JS_NewAtom(ctx, "setTimeout");
+  JS_DeleteProperty(ctx, global_obj, setTimeout, 0);
+  JS_FreeAtom(ctx, setTimeout);
+
+  JSAtom clearTimeout = JS_NewAtom(ctx, "clearTimeout");
+  JS_DeleteProperty(ctx, global_obj, clearTimeout, 0);
+  JS_FreeAtom(ctx, clearTimeout);
+
   JS_FreeValue(ctx, global_obj);
 }
 
@@ -142,7 +149,7 @@ int polyfill_timer_poll(JSContext *ctx)
 {
   for (;;) {
 poll:
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    vTaskDelay(1 / portTICK_PERIOD_MS);
 
     for (int i = 0; i < ISERE_POLYFILLS_MAX_TIMERS; i++) {
       polyfill_timer_t *tmr = &timers[i];

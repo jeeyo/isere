@@ -117,6 +117,7 @@ target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CO
 
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
+  target_compile_definitions(isere PRIVATE DUMP_LEAKS)
 endif()
 
 include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)

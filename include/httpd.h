@@ -36,10 +36,10 @@
 extern "C" {
 #endif
 
-#define METHODED (1 << 1)
-#define PATHED (1 << 2)
-#define HEADERED (1 << 3)
-#define BODYED (1 << 4)
+#define METHODED (1 << 0)
+#define PATHED (1 << 1)
+#define HEADERED (1 << 2)
+#define BODYED (1 << 3)
 #define DONE (METHODED | PATHED | HEADERED | BODYED)
 
 // #define HTTP_STATUS_BAD_REQUEST -400

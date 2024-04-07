@@ -75,7 +75,9 @@ int __http_handler(
 
   // evaluate handler function
   // TODO: make this async
-  js_eval(&js);
+  if (js_eval(&js) < 0) {
+    // TODO: this should be logged
+  }
 
   // write response
   {
@@ -86,10 +88,15 @@ int __http_handler(
     isere_tcp_write(conn->fd, "HTTP/1.1 ", 9);
     JSValue statusCode = JS_GetPropertyStr(js.context, response_obj, ISERE_JS_RESPONSE_STATUS_CODE_PROP_NAME);
     if (!JS_IsNumber(statusCode)) {
-      isere_tcp_write(conn->fd, "200", 3);
+      isere_tcp_write(conn->fd, "200 OK", 3);
     } else {
       size_t len = 0;
-      isere_tcp_write(conn->fd, JS_ToCStringLen(js.context, &len, statusCode), len);
+      const char *statusCode1 = JS_ToCStringLen(js.context, &len, statusCode);
+      isere_tcp_write(conn->fd, statusCode1, len);
+
+      // TODO: status code to status text
+
+      JS_FreeCString(js.context, statusCode1);
     }
     isere_tcp_write(conn->fd, "\r\n", 2);
     JS_FreeValue(js.context, statusCode);

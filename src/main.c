@@ -90,8 +90,8 @@ int main(void)
   // initialize web server module
   isere_httpd_t httpd;
   memset(&httpd, 0, sizeof(isere_httpd_t));
-  // if (isere_httpd_init(&isere, &httpd, &__http_handler) < 0) {
-  if (isere_httpd_init(&isere, &httpd, NULL) < 0) {
+  if (isere_httpd_init(&isere, &httpd, &__http_handler) < 0) {
+  // if (isere_httpd_init(&isere, &httpd, NULL) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize httpd module");
     return EXIT_FAILURE;
   }
