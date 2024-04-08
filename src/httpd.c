@@ -268,13 +268,23 @@ static void __isere_httpd_process_task(void *param)
   while (!should_exit)
   {
     int allfds[ISERE_HTTPD_MAX_CONNECTIONS] = {-1};
+    int nfds = 0;
     for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-      allfds[i] = __conns[i].fd;
+      if (__conns[i].fd == -1) {
+        continue;
+      }
+
+      allfds[nfds++] = __conns[i].fd;
+    }
+
+    if (nfds == 0) {
+      vTaskDelay(10 / portTICK_PERIOD_MS);
+      continue;
     }
 
     // TODO: optimize this poll shit
     uint8_t revents[ISERE_HTTPD_MAX_CONNECTIONS] = {0};
-    int ready = isere_tcp_poll(allfds, ISERE_HTTPD_MAX_CONNECTIONS, revents, TCP_POLL_READ, -1);
+    int ready = isere_tcp_poll(allfds, nfds, revents, TCP_POLL_READ, -1);
     if (ready < 0) {
       continue;
     }
@@ -367,8 +377,6 @@ static void __isere_httpd_server_task(void *params)
       continue;
     }
 
-    conn->fd = fd;
-
     // initialize llhttp
     llhttp_settings_init(&conn->llhttp_settings);
     conn->llhttp_settings.on_method = __on_method;
@@ -384,6 +392,8 @@ static void __isere_httpd_server_task(void *params)
     conn->llhttp_settings.on_message_complete = __on_message_complete;
     llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
     conn->llhttp.data = (void *)conn;
+
+    conn->fd = fd;
   }
 
 exit:

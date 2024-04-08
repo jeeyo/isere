@@ -117,7 +117,7 @@ ssize_t isere_tcp_write(int sock, const char *buf, size_t len)
   return write(sock, buf, len);
 }
 
-// TODO: make this safer by maintaining TCP connections in a static array
+// TODO: make this safer
 int isere_tcp_poll(int sock[], int num_of_socks, uint8_t revents[], uint8_t events, int timeout_ms)
 {
   struct pollfd pfds[num_of_socks];

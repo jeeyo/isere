@@ -29,13 +29,11 @@ static TaskHandle_t __tusb_task_handle;
 
 static void __isere_tusb_task(void *param);
 
-static int __isere_start_tusb_task()
+static void __isere_start_tusb_task()
 {
-  if (xTaskCreate(__isere_tusb_task, "tusb", 512, NULL, tskIDLE_PRIORITY + 2, &__tusb_task_handle) != pdPASS) {
-    return -1;
+  if (xTaskCreate(__isere_tusb_task, "tusb", 512, NULL, tskIDLE_PRIORITY + 2, &__tusb_task_handle)) {
+    __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
   }
-
-  return 0;
 }
 
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
@@ -51,10 +49,7 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 #if configNUMBER_OF_CORES > 1
   multicore_launch_core1(__isere_start_tusb_task);
 #else
-  if (__isere_start_tusb_task() < 0) {
-    isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
-    return -1;
-  }
+  __isere_start_tusb_task();
 #endif
 
   return 0;
@@ -144,6 +139,51 @@ int isere_tcp_write(int sock, const char *buf, size_t len)
 int isere_tcp_is_initialized()
 {
   return initialized;
+}
+
+
+// TODO: make this safer
+int isere_tcp_poll(int sock[], int num_of_socks, uint8_t revents[], uint8_t events, int timeout_ms)
+{
+  struct pollfd pfds[num_of_socks];
+
+  for (int i = 0; i < num_of_socks; i++) {
+    pfds[i].fd = sock[i];
+    pfds[i].revents = 0;
+    pfds[i].events = 0;
+
+    if (events & TCP_POLL_READ) {
+      pfds[i].events |= POLLIN;
+    }
+    if (events & TCP_POLL_WRITE) {
+      pfds[i].events |= POLLOUT;
+    }
+    if (events & TCP_POLL_ERROR) {
+      pfds[i].events |= POLLERR;
+    }
+  }
+
+  int ready = lwip_poll(pfds, num_of_socks, timeout_ms);
+  if (ready < 0) {
+    return -1;
+  }
+
+  for (int i = 0; i < num_of_socks; i++) {
+    revents[i] = 0;
+
+    /* convert poll flags to our flags */
+    if (pfds[i].revents & POLLIN) {
+      revents[i] |= TCP_POLL_READ_READY;
+    }
+    if (pfds[i].revents & POLLOUT) {
+      revents[i] |= TCP_POLL_WRITE_READY;
+    }
+    if (pfds[i].revents & POLLERR) {
+      revents[i] |= TCP_POLL_ERROR_READY;
+    }
+  }
+
+  return 0;
 }
 
 static void __isere_tusb_task(void *param)
