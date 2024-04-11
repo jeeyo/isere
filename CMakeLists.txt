@@ -29,6 +29,7 @@ list(APPEND SOURCES
   ./src/httpd.c
   ./src/ini.c
   ./src/js.c
+  ./src/quickjs-libc.c
   ./src/polyfills/fetch.c
   ./src/polyfills/timer.c
   ./portable/${TARGET_PLATFORM}/src/fs.c

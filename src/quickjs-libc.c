@@ -1,6 +1,6 @@
 #include "quickjs-libc.h"
 
-#include "fs.h"
+#include "polyfills.h"
 
 #include <string.h>
 #include <assert.h>
@@ -9,7 +9,6 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val,
                               JS_BOOL use_realpath, JS_BOOL is_main)
 {
     JSModuleDef *m;
-    char buf[ISERE_FS_MAX_PATH + 16];
     JSValue meta_obj;
     JSAtom module_name_atom;
     const char *module_name;
@@ -22,22 +21,22 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val,
     JS_FreeAtom(ctx, module_name_atom);
     if (!module_name)
         return -1;
-    if (!strchr(module_name, ':')) {
-        strcpy(buf, "file://");
-        {
-            strlcat(buf, module_name, sizeof(buf));
-        }
-    } else {
-        strlcpy(buf, module_name, sizeof(buf));
-    }
+    // if (!strchr(module_name, ':')) {
+    //     strcpy(buf, "file://");
+    //     {
+    //         strlcat(buf, module_name, sizeof(buf));
+    //     }
+    // } else {
+    //     strlcpy(buf, module_name, sizeof(buf));
+    // }
     JS_FreeCString(ctx, module_name);
     
     meta_obj = JS_GetImportMeta(ctx, m);
     if (JS_IsException(meta_obj))
         return -1;
-    JS_DefinePropertyValueStr(ctx, meta_obj, "url",
-                              JS_NewString(ctx, buf),
-                              JS_PROP_C_W_E);
+    // JS_DefinePropertyValueStr(ctx, meta_obj, "url",
+    //                           JS_NewString(ctx, buf),
+    //                           JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, meta_obj, "main",
                               JS_NewBool(ctx, is_main),
                               JS_PROP_C_W_E);
@@ -50,22 +49,25 @@ void js_std_loop(JSContext *ctx)
 {
     JSContext *ctx1;
     int err;
+    int tmrerr = 0;
 
-    for(;;) {
+    // for(;;) {
         /* execute the pending jobs */
         for(;;) {
+            // tmrerr = polyfill_timer_poll(ctx);
             err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
-            if (err <= 0) {
-                if (err < 0) {
-                    js_std_dump_error(ctx1);
-                }
+            if (err < 0) {
+                js_std_dump_error(ctx1);
+            }
+
+            if (tmrerr == 0 && err <= 0) {
                 break;
             }
         }
 
         // if (!os_poll_func || os_poll_func(ctx))
         //     break;
-    }
+    // }
 }
 
 /* Wait for a promise and execute pending jobs while waiting for

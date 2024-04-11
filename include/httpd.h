@@ -4,6 +4,7 @@
 
 #include "isere.h"
 #include "tcp.h"
+#include "js.h"
 
 #include <stdlib.h>
 #include <stdint.h>

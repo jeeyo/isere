@@ -126,12 +126,12 @@ int isere_tcp_accept(int sock, char *ip_addr)
   return fd;
 }
 
-int isere_tcp_recv(int sock, char *buf, size_t len)
+ssize_t isere_tcp_recv(int sock, char *buf, size_t len)
 {
   return lwip_read(sock, buf, len);
 }
 
-int isere_tcp_write(int sock, const char *buf, size_t len)
+ssize_t isere_tcp_write(int sock, const char *buf, size_t len)
 {
   return lwip_write(sock, buf, len);
 }

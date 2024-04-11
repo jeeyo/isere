@@ -35,7 +35,6 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
       continue;
     }
 
-    // print string using logger
     puts(str);
 
     JS_FreeCString(ctx, str);
@@ -117,7 +116,7 @@ int js_init(isere_t *isere, isere_js_t *js)
   JS_SetPropertyStr(js->context, process, "env", env);
   JS_SetPropertyStr(js->context, global_obj, "process", process);
 
-  // // add setTimeout / clearTimeout
+  // add setTimeout / clearTimeout
   polyfill_timer_init(js->context);
   // polyfill_fetch_init(js->context);
 
@@ -215,7 +214,6 @@ int js_eval(isere_js_t *js)
   // TODO: make these a single event loop (and optimize it)
   // TODO: callbackWaitsForEmptyEventLoop
   js_std_loop(js->context);
-  polyfill_timer_poll(js->context);
   // polyfill_fetch_poll(js->context);
 
   return 0;

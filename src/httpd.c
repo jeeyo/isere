@@ -6,7 +6,6 @@
 #include <sys/param.h>
 
 #include "tcp.h"
-#include "js.h"
 
 static uint8_t should_exit = 0;
 
@@ -196,8 +195,9 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
   }
 
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-    memset(&__conns[i], 0, sizeof(httpd_conn_t));
-    __httpd_cleanup_conn(&__conns[i]);
+    httpd_conn_t *conn = &__conns[i];
+    memset(conn, 0, sizeof(httpd_conn_t));
+    __httpd_cleanup_conn(conn);
   }
 
   // start web server task
@@ -273,12 +273,10 @@ static void __isere_httpd_process_task(void *param)
       if (__conns[i].fd == -1) {
         continue;
       }
-
       allfds[nfds++] = __conns[i].fd;
     }
 
     if (nfds == 0) {
-      vTaskDelay(10 / portTICK_PERIOD_MS);
       continue;
     }
 

@@ -147,20 +147,13 @@ void polyfill_timer_deinit(JSContext *ctx)
 
 int polyfill_timer_poll(JSContext *ctx)
 {
-  for (;;) {
-poll:
-    vTaskDelay(1 / portTICK_PERIOD_MS);
-
-    for (int i = 0; i < ISERE_POLYFILLS_MAX_TIMERS; i++) {
-      polyfill_timer_t *tmr = &timers[i];
-      TimerHandle_t timer = tmr->timer;
-      if (timer != NULL && xTimerIsTimerActive(timer)) {
-        goto poll;
-      }
+  for (int i = 0; i < ISERE_POLYFILLS_MAX_TIMERS; i++) {
+    polyfill_timer_t *tmr = &timers[i];
+    TimerHandle_t timer = tmr->timer;
+    if (timer != NULL && xTimerIsTimerActive(timer)) {
+      return 1;
     }
-
-    break;
   }
 
-  return 1;
+  return 0;
 }

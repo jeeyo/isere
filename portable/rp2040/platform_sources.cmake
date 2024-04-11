@@ -8,7 +8,6 @@ set(TINYUSB_LIBNETWORKING_SOURCES
 )
 
 list(APPEND SOURCES
-  portable/${TARGET_PLATFORM}/src/quickjs-libc.c
   portable/${TARGET_PLATFORM}/src/tusb_lwip_glue.c
   portable/${TARGET_PLATFORM}/src/usb_descriptor.c
   ${FREERTOS_DIR}/portable/MemMang/heap_4.c
