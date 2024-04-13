@@ -5,6 +5,8 @@
 #include <string.h>
 #include <sys/param.h>
 
+#include <poll.h>
+
 #include "tcp.h"
 
 static uint8_t should_exit = 0;
@@ -15,6 +17,7 @@ static httpd_handler_t *__httpd_handler = NULL;
 static TaskHandle_t __httpd_server_task_handle;
 static TaskHandle_t __httpd_process_task_handle;
 
+static tcp_socket_t __server_socket;
 static httpd_conn_t __conns[ISERE_HTTPD_MAX_CONNECTIONS];
 
 static void __isere_httpd_server_task(void *params);
@@ -201,13 +204,13 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
   }
 
   // start web server task
-  if (xTaskCreate(__isere_httpd_server_task, "httpd_server", 1024, (void *)httpd, tskIDLE_PRIORITY + 2, &__httpd_server_task_handle) != pdPASS) {
+  if (xTaskCreate(__isere_httpd_server_task, "httpd_server", 1024, NULL, tskIDLE_PRIORITY + 2, &__httpd_server_task_handle) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd server task");
     return -1;
   }
 
   // start connection processor task
-  if (xTaskCreate(__isere_httpd_process_task, "httpd_process", configMINIMAL_STACK_SIZE, (void *)httpd, tskIDLE_PRIORITY + 2, &__httpd_process_task_handle) != pdPASS) {
+  if (xTaskCreate(__isere_httpd_process_task, "httpd_process", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_process_task_handle) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd processor task");
     return -1;
   }
@@ -227,7 +230,7 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
     __httpd_cleanup_conn(conn);
   }
 
-  isere_tcp_socket_close(httpd->fd);
+  isere_tcp_socket_close(&__server_socket);
 
   // stop httpd tasks
   should_exit = 1;
@@ -238,7 +241,7 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
 static httpd_conn_t *__httpd_get_free_slot()
 {
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-    if (__conns[i].fd == -1) {
+    if (__conns[i].socket == NULL) {
       return &__conns[i];
     }
   }
@@ -248,16 +251,16 @@ static httpd_conn_t *__httpd_get_free_slot()
 
 static void __httpd_cleanup_conn(httpd_conn_t *conn)
 {
-  if (conn->fd == -1) {
+  if (conn->socket == NULL) {
     return;
   }
 
   llhttp_reset(&conn->llhttp);
 
   // cleanup client socket
-  isere_tcp_socket_close(conn->fd);
+  isere_tcp_socket_close(conn->socket);
   memset(conn, 0, sizeof(httpd_conn_t));
-  conn->fd = -1;
+  conn->socket = NULL;
   conn->recvd = 0;
 }
 
@@ -267,69 +270,67 @@ static void __isere_httpd_process_task(void *param)
 
   while (!should_exit)
   {
-    int allfds[ISERE_HTTPD_MAX_CONNECTIONS] = {-1};
-    int nfds = 0;
-    for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-      if (__conns[i].fd == -1) {
-        continue;
-      }
-      allfds[nfds++] = __conns[i].fd;
-    }
-
-    if (nfds == 0) {
-      continue;
-    }
-
-    // TODO: optimize this poll shit
-    uint8_t revents[ISERE_HTTPD_MAX_CONNECTIONS] = {0};
-    int ready = isere_tcp_poll(allfds, nfds, revents, TCP_POLL_READ, -1);
+    // poll indefinitely
+    int ready = isere_tcp_poll(-1);
     if (ready < 0) {
       continue;
     }
 
     httpd_conn_t *conn = NULL;
     for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-      if (revents[i] & TCP_POLL_READ_READY) {
-        conn = &__conns[i];
-        break;
+      conn = &__conns[i];
+
+      // ignore empty slots
+      if (conn->socket == NULL) {
+        continue;
       }
+
+      // ignore completed connections
+      if (conn->completed == DONE) {
+        continue;
+      }
+
+      // ignore connections with no incoming data
+      if (!(conn->socket->revents & POLLIN)) {
+        continue;
+      }
+
+      int len = isere_tcp_recv(conn->socket, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
+      if (len <= 0) {
+        if (len == -2) {  // EAGAIN
+          continue;
+        }
+        goto finally;
+      }
+
+      enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
+      if (err != HPE_OK) {
+        __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
+        goto finally;
+      }
+
+      if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
+        __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "request too long");
+        goto finally;
+      }
+
+      if (conn->completed != DONE) {
+        continue;
+      }
+
+      if (__httpd_handler == NULL) {
+        const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
+        isere_tcp_write(conn->socket, buf, strlen(buf));
+        goto finally;
+      }
+
+      // TODO: make this async
+      uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
+      __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
+
+  finally:
+      __httpd_cleanup_conn(conn);
     }
-
-    int len = isere_tcp_recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
-    if (len == -2) {
-      continue;
-    }
-
-    if (len <= 0) {
-      goto finally;
-    }
-
-    enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
-    if (err != HPE_OK) {
-      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
-      goto finally;
-    }
-
-    if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
-      __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "request too long");
-      goto finally;
-    }
-
-    if (conn->completed != DONE) {
-      continue;
-    }
-
-    if (__httpd_handler == NULL) {
-      const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
-      isere_tcp_write(conn->fd, buf, strlen(buf));
-      goto finally;
-    }
-
-    uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
-    __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
-
-finally:
-    __httpd_cleanup_conn(conn);
   }
 
   __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd process task was unexpectedly closed");
@@ -343,14 +344,11 @@ static void __isere_httpd_server_task(void *params)
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 
-  isere_httpd_t *httpd = (isere_httpd_t *)params;
-
-  httpd->fd = isere_tcp_socket_new();
-  if (httpd->fd == -1) {
+  if (isere_tcp_socket_init(&__server_socket) < 0) {
     goto exit;
   }
 
-  if (isere_tcp_listen(httpd->fd, ISERE_HTTPD_PORT) < 0) {
+  if (isere_tcp_listen(&__server_socket, ISERE_HTTPD_PORT) < 0) {
     goto exit;
   }
 
@@ -362,8 +360,8 @@ static void __isere_httpd_server_task(void *params)
 
     // accept connection
     char ipaddr[16];
-    int fd = isere_tcp_accept(httpd->fd, ipaddr);
-    if (fd == -1) {
+    tcp_socket_t *newsock = isere_tcp_accept(&__server_socket, ipaddr);
+    if (newsock == NULL) {
       continue;
     }
 
@@ -371,7 +369,7 @@ static void __isere_httpd_server_task(void *params)
 
     httpd_conn_t *conn = __httpd_get_free_slot();
     if (conn == NULL) {
-      isere_tcp_socket_close(fd);
+      isere_tcp_socket_close(newsock);
       continue;
     }
 
@@ -391,7 +389,7 @@ static void __isere_httpd_server_task(void *params)
     llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
     conn->llhttp.data = (void *)conn;
 
-    conn->fd = fd;
+    conn->socket = newsock;
   }
 
 exit:

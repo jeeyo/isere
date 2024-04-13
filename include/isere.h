@@ -55,9 +55,7 @@ typedef struct {
   JSContext *context;
 } isere_js_t;
 
-typedef struct {
-  int fd;
-} isere_httpd_t;
+typedef void * isere_httpd_t;
 
 typedef void * isere_tcp_t;
 

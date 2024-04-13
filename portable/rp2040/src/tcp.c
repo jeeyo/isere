@@ -141,49 +141,9 @@ int isere_tcp_is_initialized()
   return initialized;
 }
 
-
-// TODO: make this safer
-int isere_tcp_poll(int sock[], int num_of_socks, uint8_t revents[], uint8_t events, int timeout_ms)
+int isere_tcp_poll(struct pollfd fds[], int nfds, int timeout_ms)
 {
-  struct pollfd pfds[num_of_socks];
-
-  for (int i = 0; i < num_of_socks; i++) {
-    pfds[i].fd = sock[i];
-    pfds[i].revents = 0;
-    pfds[i].events = 0;
-
-    if (events & TCP_POLL_READ) {
-      pfds[i].events |= POLLIN;
-    }
-    if (events & TCP_POLL_WRITE) {
-      pfds[i].events |= POLLOUT;
-    }
-    if (events & TCP_POLL_ERROR) {
-      pfds[i].events |= POLLERR;
-    }
-  }
-
-  int ready = lwip_poll(pfds, num_of_socks, timeout_ms);
-  if (ready < 0) {
-    return -1;
-  }
-
-  for (int i = 0; i < num_of_socks; i++) {
-    revents[i] = 0;
-
-    /* convert poll flags to our flags */
-    if (pfds[i].revents & POLLIN) {
-      revents[i] |= TCP_POLL_READ_READY;
-    }
-    if (pfds[i].revents & POLLOUT) {
-      revents[i] |= TCP_POLL_WRITE_READY;
-    }
-    if (pfds[i].revents & POLLERR) {
-      revents[i] |= TCP_POLL_ERROR_READY;
-    }
-  }
-
-  return 0;
+  return lwip_poll(fds, nfds, timeout_ms);
 }
 
 static void __isere_tusb_task(void *param)

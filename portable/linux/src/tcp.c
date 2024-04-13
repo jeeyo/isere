@@ -16,6 +16,8 @@
 
 static isere_t *__isere = NULL;
 
+static tcp_socket_t __sockets[ISERE_TCP_MAX_CONNECTIONS];
+
 static void __tcp_task(void *params);
 
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
@@ -24,6 +26,15 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 
   if (isere->logger == NULL) {
     return -1;
+  }
+
+  for (int i = 0; i < ISERE_TCP_MAX_CONNECTIONS; i++) {
+    tcp_socket_t *socket = &__sockets[i];
+    memset(socket, 0, sizeof(tcp_socket_t));
+
+    socket->fd = -1;
+    socket->events = 0;
+    socket->revents = 0;
   }
 
   return 0;
@@ -38,22 +49,56 @@ int isere_tcp_deinit(isere_tcp_t *tcp)
   return 0;
 }
 
-int isere_tcp_socket_new()
+static tcp_socket_t *__tcp_get_free_slot()
 {
-  int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-  if (sock < 0) {
-    return -1;
+  for (int i = 0; i < ISERE_TCP_MAX_CONNECTIONS; i++) {
+    if (__sockets[i].fd == -1) {
+      return &__sockets[i];
+    }
+  }
+
+  return NULL;
+}
+
+tcp_socket_t *isere_tcp_socket_new()
+{
+  tcp_socket_t *sock = __tcp_get_free_slot();
+  if (sock == NULL) {
+    return NULL;
+  }
+
+  int ret = isere_tcp_socket_init(sock);
+  if (ret < 0) {
+    return NULL;
   }
 
   return sock;
 }
 
-void isere_tcp_socket_close(int sock)
+int isere_tcp_socket_init(tcp_socket_t *sock)
 {
-  close(sock);
+  sock->fd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  sock->events = 0;
+  sock->revents = 0;
+
+  if (sock->fd < 0) {
+    sock->fd = -1;
+    return -1;
+  }
+
+  return 0;
 }
 
-int isere_tcp_listen(int sock, uint16_t port)
+void isere_tcp_socket_close(tcp_socket_t *sock)
+{
+  close(sock->fd);
+
+  sock->fd = -1;
+  sock->events = 0;
+  sock->revents = 0;
+}
+
+int isere_tcp_listen(tcp_socket_t *sock, uint16_t port)
 {
   struct sockaddr_in dest_addr;
   bzero(&dest_addr, sizeof(dest_addr));
@@ -61,12 +106,12 @@ int isere_tcp_listen(int sock, uint16_t port)
   dest_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   dest_addr.sin_port = htons(port);
 
-  int err = bind(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+  int err = bind(sock->fd, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {
     return -1;
   }
 
-  err = listen(sock, ISERE_TCP_MAX_CONNECTIONS);
+  err = listen(sock->fd, ISERE_TCP_MAX_CONNECTIONS);
   if (err != 0) {
     return -1;
   }
@@ -74,33 +119,43 @@ int isere_tcp_listen(int sock, uint16_t port)
   return 0;
 }
 
-int isere_tcp_accept(int sock, char *ip_addr)
+tcp_socket_t *isere_tcp_accept(tcp_socket_t *sock, char *ip_addr)
 {
+  tcp_socket_t *newsock = __tcp_get_free_slot();
+  if (newsock == NULL) {
+    return NULL;
+  }
+
+  // reserve this new socket
+  newsock->fd = -2;
+
   struct sockaddr_in source_addr;
   socklen_t addr_len = sizeof(source_addr);
 
-  int fd = accept(sock, (struct sockaddr *)&source_addr, &addr_len);
-  if (fd < 0 && errno == EINTR) {
-    return -1;
+  newsock->fd = accept(sock->fd, (struct sockaddr *)&source_addr, &addr_len);
+  if (newsock->fd < 0 && errno == EINTR) {
+    newsock->fd = -1;
+    return NULL;
   }
 
-  if (fd < 0) {
-    return -1;
+  if (newsock->fd < 0) {
+    newsock->fd = -1;
+    return NULL;
   }
 
   // disable tcp keepalive
   int keep_alive = 0;
-  setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
+  setsockopt(newsock->fd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
 
   // copy ip address string
   strncpy(ip_addr, inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr), INET_ADDRSTRLEN);
 
-  return fd;
+  return newsock;
 }
 
-ssize_t isere_tcp_recv(int sock, char *buf, size_t len)
+ssize_t isere_tcp_recv(tcp_socket_t *sock, char *buf, size_t len)
 {
-  int recvd = recv(sock, buf, len, 0);
+  int recvd = recv(sock->fd, buf, len, 0);
   if (recvd < 0) {
     if (errno == EINTR) {
       return -2;
@@ -112,50 +167,37 @@ ssize_t isere_tcp_recv(int sock, char *buf, size_t len)
   return recvd;
 }
 
-ssize_t isere_tcp_write(int sock, const char *buf, size_t len)
+ssize_t isere_tcp_write(tcp_socket_t *sock, const char *buf, size_t len)
 {
-  return write(sock, buf, len);
+  return write(sock->fd, buf, len);
 }
 
-// TODO: make this safer
-int isere_tcp_poll(int sock[], int num_of_socks, uint8_t revents[], uint8_t events, int timeout_ms)
+int isere_tcp_poll(int timeout_ms)
 {
-  struct pollfd pfds[num_of_socks];
+  struct pollfd pfds[ISERE_TCP_MAX_CONNECTIONS];
+  int nfds = 0;
 
-  for (int i = 0; i < num_of_socks; i++) {
-    pfds[i].fd = sock[i];
-    pfds[i].revents = 0;
-    pfds[i].events = 0;
+  for (int i = 0; i < ISERE_TCP_MAX_CONNECTIONS; i++) {
+    if (__sockets[i].fd == -1) {
+      continue;
+    }
 
-    if (events & TCP_POLL_READ) {
-      pfds[i].events |= POLLIN;
-    }
-    if (events & TCP_POLL_WRITE) {
-      pfds[i].events |= POLLOUT;
-    }
-    if (events & TCP_POLL_ERROR) {
-      pfds[i].events |= POLLERR;
-    }
+    pfds[nfds++].fd = __sockets[i].fd;
+    pfds[nfds].revents = 0;
+    pfds[nfds].events = POLLIN;
   }
 
-  int ready = poll(pfds, num_of_socks, timeout_ms);
+  int ready = poll(pfds, nfds, timeout_ms);
   if (ready < 0) {
     return -1;
   }
 
-  for (int i = 0; i < num_of_socks; i++) {
-    revents[i] = 0;
+  for (int i = 0; i < ISERE_TCP_MAX_CONNECTIONS; i++) {
+    if (__sockets[i].fd == -1) {
+      continue;
+    }
 
-    /* convert poll flags to our flags */
-    if (pfds[i].revents & POLLIN) {
-      revents[i] |= TCP_POLL_READ_READY;
-    }
-    if (pfds[i].revents & POLLOUT) {
-      revents[i] |= TCP_POLL_WRITE_READY;
-    }
-    if (pfds[i].revents & POLLERR) {
-      revents[i] |= TCP_POLL_ERROR_READY;
-    }
+    __sockets[i].revents = pfds[i].revents;
   }
 
   return 0;

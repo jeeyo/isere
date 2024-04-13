@@ -55,7 +55,7 @@ typedef struct {
 
 typedef struct {
 
-  int fd;
+  tcp_socket_t *socket;
   int32_t recvd;  // number of bytes received
 
   llhttp_t llhttp;
