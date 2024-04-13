@@ -19,6 +19,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [x] loader
   - [x] js
   - [ ] httpd
+  - [ ] http handler
   - [ ] logger
 - [x] Unit tests on CI
 - [x] File System Abstraction
@@ -34,17 +35,18 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] base64
   - [x] setTimeout (FreeRTOS Timer)
 - [ ] QuickJS Memory Leak Check
-- [ ] Use less printf()
+- [ ] Optimize libc usage
+  - [ ] Use less printf()
 - [ ] QuickJS Project Template
 - [ ] Low-power mode
 - [ ] Benchmark
-- [x] Port to Raspberry Pi Pico (RP2040)
+- [ ] Port to Raspberry Pi Pico (RP2040)
   - [ ] Multi-core support
 - [ ] Monitoring
   - [ ] CPU Usage ([vTaskGetRunTimeStats](https://www.freertos.org/rtos-run-time-stats.html))
   - [ ] Memory Usage ([vPortGetHeapStats](https://www.freertos.org/a00111.html))
 - [ ] Port to ESP32?
-- [x] MicroPython ❌
+- [x] MicroPython (will not do ❌)
 
 ### Limitations
 
