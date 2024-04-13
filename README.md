@@ -10,9 +10,10 @@ The goal is to create a low-power serverless platform that can handle simple sta
 
 - [x] FreeRTOS as Kernel
 - [x] QuickJS as JavaScript runtime
-  - [x] setTimeout / clearTimeout (FreeRTOS Software Timer)
 - [x] HTTP server
   - [ ] Event Loop (no Keep-Alive support)
+    - [x] Socket
+    - [ ] QuickJS
   - [ ] Static Files (?)
 - [x] Unit tests
   - [x] loader
@@ -31,7 +32,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] path (?)
   - [ ] fetch
   - [ ] base64
-  - [x] setTimeout
+  - [x] setTimeout (FreeRTOS Timer)
 - [ ] QuickJS Memory Leak Check
 - [ ] Use less printf()
 - [ ] QuickJS Project Template
@@ -39,7 +40,9 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [ ] Benchmark
 - [x] Port to Raspberry Pi Pico (RP2040)
   - [ ] Multi-core support
-- [ ] Integrate with some Analytics and Monitoring Platforms
+- [ ] Monitoring
+  - [ ] CPU Usage ([vTaskGetRunTimeStats](https://www.freertos.org/rtos-run-time-stats.html))
+  - [ ] Memory Usage ([vPortGetHeapStats](https://www.freertos.org/a00111.html))
 - [ ] Port to ESP32?
 - [x] MicroPython ❌
 
