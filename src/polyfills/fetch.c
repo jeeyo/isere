@@ -16,7 +16,7 @@ static JSValue __polyfill_fetch_internal(JSContext *ctx, JSValueConst this_val, 
   return JS_TRUE;
 }
 
-void polyfill_fetch_init(JSContext *ctx)
+void isere_js_polyfill_fetch_init(JSContext *ctx)
 {
   /*
     Resource object
@@ -53,14 +53,14 @@ void polyfill_fetch_init(JSContext *ctx)
   JS_Eval(ctx, str, strlen(str), "<polyfills>", JS_EVAL_TYPE_MODULE);
 }
 
-void polyfill_fetch_deinit(JSContext *ctx)
+void isere_js_polyfill_fetch_deinit(JSContext *ctx)
 {
   JSValue global_obj = JS_GetGlobalObject(ctx);
   JS_DeleteProperty(ctx, global_obj, JS_NewAtom(ctx, "__fetch"), 0);
   JS_FreeValue(ctx, global_obj);
 }
 
-int polyfill_fetch_poll(JSContext *ctx)
+int isere_js_polyfill_fetch_poll(JSContext *ctx)
 {
   return 1;
 }

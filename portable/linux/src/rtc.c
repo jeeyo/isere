@@ -1,10 +1,10 @@
 #include "rtc.h"
 
-#include "time.h"
+#include <time.h>
 
 static isere_t *__isere = NULL;
 
-int rtc_init(isere_t *isere, isere_rtc_t *rtc)
+int isere_rtc_init(isere_t *isere, isere_rtc_t *rtc)
 {
   __isere = isere;
 
@@ -15,7 +15,7 @@ int rtc_init(isere_t *isere, isere_rtc_t *rtc)
   return 0;
 }
 
-void rtc_deinit(isere_rtc_t *rtc)
+void isere_rtc_deinit(isere_rtc_t *rtc)
 {
   if (__isere) {
     __isere = NULL;
@@ -24,7 +24,7 @@ void rtc_deinit(isere_rtc_t *rtc)
   return;
 }
 
-int rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
+int isere_rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
 {
   time_t rawtime;
   struct tm *timeinfo;
@@ -42,7 +42,7 @@ int rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
   return 0;
 }
 
-int rtc_set_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
+int isere_rtc_set_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
 {
   __isere->logger->warning(ISERE_RTC_LOG_TAG, "rtc_set_datetime() is not implemented");
   return 0;

@@ -100,7 +100,7 @@ JSValue polyfill_timer_clearTimeout(JSContext *ctx, JSValueConst this_val, int a
   return JS_UNDEFINED;
 }
 
-void polyfill_timer_init(JSContext *ctx)
+void isere_js_polyfill_timer_init(JSContext *ctx)
 {
   JSValue global_obj = JS_GetGlobalObject(ctx);
   JS_SetPropertyStr(ctx, global_obj, "setTimeout", JS_NewCFunction(ctx, polyfill_timer_setTimeout, "setTimeout", 2));
@@ -115,7 +115,7 @@ void polyfill_timer_init(JSContext *ctx)
   }
 }
 
-void polyfill_timer_deinit(JSContext *ctx)
+void isere_js_polyfill_timer_deinit(JSContext *ctx)
 {
   for (int i = 0; i < ISERE_POLYFILLS_MAX_TIMERS; i++) {
     polyfill_timer_t *tmr = &timers[i];
@@ -145,7 +145,7 @@ void polyfill_timer_deinit(JSContext *ctx)
   JS_FreeValue(ctx, global_obj);
 }
 
-int polyfill_timer_poll(JSContext *ctx)
+int isere_js_polyfill_timer_poll(JSContext *ctx)
 {
   for (int i = 0; i < ISERE_POLYFILLS_MAX_TIMERS; i++) {
     polyfill_timer_t *tmr = &timers[i];

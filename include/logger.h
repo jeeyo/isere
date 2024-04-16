@@ -10,8 +10,8 @@ extern "C" {
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-int logger_init(isere_t *isere, isere_logger_t *logger);
-void logger_deinit(isere_logger_t *logger);
+int isere_logger_init(isere_t *isere, isere_logger_t *logger);
+void isere_logger_deinit(isere_logger_t *logger);
 
 #ifdef __cplusplus
 }

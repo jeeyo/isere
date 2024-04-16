@@ -22,10 +22,10 @@ void sigint(int dummy) {
 
   isere_httpd_deinit(isere.httpd);
   isere_tcp_deinit(isere.tcp);
-  loader_deinit(isere.loader);
+  isere_loader_deinit(isere.loader);
   // fs_deinit(isere.fs);
-  // ini_deinit(isere.ini);
-  logger_deinit(isere.logger);
+  // isere_ini_deinit(isere.ini);
+  isere_logger_deinit(isere.logger);
 
   vTaskEndScheduler();
 }
@@ -41,7 +41,7 @@ int main(void)
   // initialize logger module
   isere_logger_t logger;
   memset(&logger, 0, sizeof(isere_logger_t));
-  if (logger_init(&isere, &logger) < 0) {
+  if (isere_logger_init(&isere, &logger) < 0) {
     fprintf(stderr, "Unable to initialize logger module");
     return EXIT_FAILURE;
   }
@@ -59,20 +59,20 @@ int main(void)
   // // initialize configuration file module
   // isere_ini_t ini;
   // memset(&ini, 0, sizeof(isere_ini_t));
-  // if (ini_init(&isere, &ini) < 0) {
+  // if (isere_ini_init(&isere, &ini) < 0) {
   //   logger.error(ISERE_LOG_TAG, "Unable to initialize configuration file module");
   //   return EXIT_FAILURE;
   // }
   // isere.ini = &ini;
 
   // logger.info(ISERE_LOG_TAG, "========== Configurations ==========");
-  // logger.info(ISERE_LOG_TAG, "  timeout: %d", ini_get_timeout(&ini));
+  // logger.info(ISERE_LOG_TAG, "  timeout: %d", isere_ini_get_timeout(&ini));
   // logger.info(ISERE_LOG_TAG, "====================================");
 
   // dynamically loading javascript serverless handler
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
-  if (loader_init(&isere, &loader) < 0) {
+  if (isere_loader_init(&isere, &loader) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize loader module");
     return EXIT_FAILURE;
   }

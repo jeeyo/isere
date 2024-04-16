@@ -24,9 +24,9 @@ TEST(JSTest, ShouldReturnErrorWhenLoggerIsNull)
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
 
-  int ret = js_init(&isere, &js);
+  int ret = isere_js_init(&isere, &js);
 
-  LONGS_EQUAL_TEXT(ret, -1, "js_init() did not return -1 when logger is NULL");
+  LONGS_EQUAL_TEXT(ret, -1, "isere_js_init() did not return -1 when logger is NULL");
 }
 
 TEST(JSTest, ShouldReturnErrorWhenLoaderIsAlreadyInitialized)
@@ -37,10 +37,10 @@ TEST(JSTest, ShouldReturnErrorWhenLoaderIsAlreadyInitialized)
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
 
-  js_init(&isere, &js);
-  int ret = js_init(&isere, &js);
+  isere_js_init(&isere, &js);
+  int ret = isere_js_init(&isere, &js);
 
-  LONGS_EQUAL_TEXT(ret, -1, "js_init() did not return -1 when logger is already initialized");
+  LONGS_EQUAL_TEXT(ret, -1, "isere_js_init() did not return -1 when logger is already initialized");
 }
 
 TEST(JSTest, ShouldInitializeLoaderSuccessfully)
@@ -52,9 +52,9 @@ TEST(JSTest, ShouldInitializeLoaderSuccessfully)
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
 
-  int ret = js_init(&isere, &js);
+  int ret = isere_js_init(&isere, &js);
 
-  LONGS_EQUAL_TEXT(ret, 0, "js_init() did not return 0");
+  LONGS_EQUAL_TEXT(ret, 0, "isere_js_init() did not return 0");
 }
 
 TEST(JSTest, ShouldEvaluateHelloWorldFunctionSuccessfully)
@@ -72,11 +72,11 @@ TEST(JSTest, ShouldEvaluateHelloWorldFunctionSuccessfully)
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
 
-  int ret = js_init(&isere, &js);
-  LONGS_EQUAL_TEXT(ret, 0, "js_init() did not return 0");
+  int ret = isere_js_init(&isere, &js);
+  LONGS_EQUAL_TEXT(ret, 0, "isere_js_init() did not return 0");
 
-  ret = js_eval(&js);
-  LONGS_EQUAL_TEXT(ret, 0, "js_eval() did not return 0");
+  ret = isere_js_eval(&js);
+  LONGS_EQUAL_TEXT(ret, 0, "isere_js_eval() did not return 0");
 
   // TODO: get the result of the function and check it
 }

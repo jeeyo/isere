@@ -53,7 +53,7 @@ void js_std_loop(JSContext *ctx)
 
     /* execute the pending jobs */
     for(;;) {
-        // tmrerr = polyfill_timer_poll(ctx);
+        // tmrerr = isere_js_polyfill_timer_poll(ctx);
         err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
         if (err < 0) {
             js_std_dump_error(ctx1);

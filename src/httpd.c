@@ -259,7 +259,7 @@ static httpd_conn_t *__httpd_get_free_slot()
 static void __httpd_cleanup_conn(httpd_conn_t *conn)
 {
   llhttp_reset(&conn->llhttp);
-  js_deinit(&conn->js);
+  isere_js_deinit(&conn->js);
 
   // cleanup client socket
   isere_tcp_socket_close(conn->socket);
@@ -285,7 +285,7 @@ static void __httpd_poller_task(void *params)
         continue;
       }
 
-      if (js_poll(&conn->js) == 0) {
+      if (isere_js_poll(&conn->js) == 0) {
         conn->completed |= PROCESSED;
         break;
       }
@@ -428,7 +428,7 @@ static void __httpd_server_task(void *params)
     llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
     conn->llhttp.data = (void *)conn;
 
-    js_init(&conn->js);
+    isere_js_init(&conn->js);
     conn->socket = newsock;
   }
 

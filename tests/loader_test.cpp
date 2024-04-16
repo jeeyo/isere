@@ -27,9 +27,9 @@ TEST(LoaderTest, ShouldReturnErrorWhenLoggerIsNull)
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
 
-  int ret = loader_init(&isere, &loader, DEFAULT_DLL_PATH);
+  int ret = isere_loader_init(&isere, &loader, DEFAULT_DLL_PATH);
 
-  LONGS_EQUAL_TEXT(ret, -1, "loader_init() did not return -1 when logger is NULL");
+  LONGS_EQUAL_TEXT(ret, -1, "isere_loader_init() did not return -1 when logger is NULL");
 }
 
 TEST(LoaderTest, ShouldReturnErrorWhenDllPathIsNull)
@@ -40,9 +40,9 @@ TEST(LoaderTest, ShouldReturnErrorWhenDllPathIsNull)
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
 
-  int ret = loader_init(&isere, &loader, NULL);
+  int ret = isere_loader_init(&isere, &loader, NULL);
 
-  LONGS_EQUAL_TEXT(ret, -1, "loader_init() did not return -1 when dll_path is NULL");
+  LONGS_EQUAL_TEXT(ret, -1, "isere_loader_init() did not return -1 when dll_path is NULL");
 }
 
 TEST(LoaderTest, ShouldReturnErrorWhenLoaderIsAlreadyInitialized)
@@ -54,10 +54,10 @@ TEST(LoaderTest, ShouldReturnErrorWhenLoaderIsAlreadyInitialized)
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
 
-  loader_init(&isere, &loader, DEFAULT_DLL_PATH);
-  int ret = loader_init(&isere, &loader, DEFAULT_DLL_PATH);
+  isere_loader_init(&isere, &loader, DEFAULT_DLL_PATH);
+  int ret = isere_loader_init(&isere, &loader, DEFAULT_DLL_PATH);
 
-  LONGS_EQUAL_TEXT(ret, -1, "loader_init() did not return -1 when logger is already initialized");
+  LONGS_EQUAL_TEXT(ret, -1, "isere_loader_init() did not return -1 when logger is already initialized");
 }
 
 TEST(LoaderTest, ShouldInitializeLoaderSuccessfully)
@@ -69,9 +69,9 @@ TEST(LoaderTest, ShouldInitializeLoaderSuccessfully)
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
 
-  int ret = loader_init(&isere, &loader, DEFAULT_DLL_PATH);
+  int ret = isere_loader_init(&isere, &loader, DEFAULT_DLL_PATH);
 
-  LONGS_EQUAL_TEXT(ret, 0, "loader_init() did not return 0");
+  LONGS_EQUAL_TEXT(ret, 0, "isere_loader_init() did not return 0");
 }
 
 TEST(LoaderTest, ShouldLoadHelloWorldDllSuccessfully)
@@ -83,9 +83,9 @@ TEST(LoaderTest, ShouldLoadHelloWorldDllSuccessfully)
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
 
-  int ret = loader_init(&isere, &loader, HELLOWORLD_DLL_PATH);
+  int ret = isere_loader_init(&isere, &loader, HELLOWORLD_DLL_PATH);
 
-  LONGS_EQUAL_TEXT(ret, 0, "loader_init() did not return 0");
+  LONGS_EQUAL_TEXT(ret, 0, "isere_loader_init() did not return 0");
   STRCMP_EQUAL_TEXT((const char *)loader.fn, "console.log('hello world');", "loader.fn is not correct");
   LONGS_EQUAL_TEXT(loader.fn_size, 27, "loader.fn_size is not correct");
 }

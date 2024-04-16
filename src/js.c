@@ -55,7 +55,7 @@ static JSValue __console_error(JSContext *ctx, JSValueConst this_val, int argc, 
   return __logger_internal(ctx, this_val, argc, argv, "\x1B[31m");
 }
 
-int js_init(isere_js_t *js)
+int isere_js_init(isere_js_t *js)
 {
   if (js->runtime != NULL || js->context != NULL) {
     // __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS runtime and context already initialized");
@@ -109,18 +109,18 @@ int js_init(isere_js_t *js)
   JS_SetPropertyStr(js->context, global_obj, "process", process);
 
   // add setTimeout / clearTimeout
-  polyfill_timer_init(js->context);
-  // polyfill_fetch_init(js->context);
+  isere_js_polyfill_timer_init(js->context);
+  // isere_js_polyfill_fetch_init(js->context);
 
   JS_FreeValue(js->context, global_obj);
 
   return 0;
 }
 
-int js_deinit(isere_js_t *js)
+int isere_js_deinit(isere_js_t *js)
 {
-  polyfill_timer_deinit(js->context);
-  // polyfill_fetch_deinit(js->context);
+  isere_js_polyfill_timer_deinit(js->context);
+  // isere_js_polyfill_fetch_deinit(js->context);
 
   if (js->context) {
     JS_FreeContext(js->context);
@@ -163,7 +163,7 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   return JS_UNDEFINED;
 }
 
-int js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_len)
+int isere_js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_len)
 {
   JSValue global_obj = JS_GetGlobalObject(js->context);
 
@@ -200,14 +200,14 @@ int js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_len)
   return 0;
 }
 
-int js_poll(isere_js_t *js)
+int isere_js_poll(isere_js_t *js)
 {
   JSContext *ctx1;
   int err;
   int tmrerr = 0;
 
   // execute the pending timers
-  tmrerr = polyfill_timer_poll(js->context);
+  tmrerr = isere_js_polyfill_timer_poll(js->context);
 
   // execute the pending jobs
   err = JS_ExecutePendingJob(JS_GetRuntime(js->context), &ctx1);

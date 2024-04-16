@@ -24,10 +24,10 @@ extern "C" {
 // TODO: make this configurable
 #define ISERE_JS_STACK_SIZE 32768
 
-int js_init(isere_js_t *js);
-int js_deinit(isere_js_t *js);
-int js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_len);
-int js_poll(isere_js_t *js);
+int isere_js_init(isere_js_t *js);
+int isere_js_deinit(isere_js_t *js);
+int isere_js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_len);
+int isere_js_poll(isere_js_t *js);
 
 #ifdef __cplusplus
 }

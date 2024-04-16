@@ -50,7 +50,7 @@ static void logger_debug(const char *tag, const char *fmt, ...)
   va_end(vargs);
 }
 
-int logger_init(isere_t *isere, isere_logger_t *logger)
+int isere_logger_init(isere_t *isere, isere_logger_t *logger)
 {
   (void)isere;
 
@@ -68,7 +68,7 @@ int logger_init(isere_t *isere, isere_logger_t *logger)
   return 0;
 }
 
-void logger_deinit(isere_logger_t *logger)
+void isere_logger_deinit(isere_logger_t *logger)
 {
   (void)logger;
 

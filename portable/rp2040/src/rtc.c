@@ -1,11 +1,11 @@
-#include "isere.h"
+#include "rtc.h"
 
 #include "hardware/rtc.h"
 #include "pico/util/datetime.h"
 
 static isere_t *__isere = NULL;
 
-int rtc_init(isere_t *isere, isere_rtc_t *rtc)
+int isere_rtc_init(isere_t *isere, isere_rtc_t *rtc)
 {
   __isere = isere;
 
@@ -18,7 +18,7 @@ int rtc_init(isere_t *isere, isere_rtc_t *rtc)
   return 0;
 }
 
-void rtc_deinit(isere_rtc_t *rtc)
+void isere_rtc_deinit(isere_rtc_t *rtc)
 {
   if (__isere) {
     __isere = NULL;
@@ -28,7 +28,7 @@ void rtc_deinit(isere_rtc_t *rtc)
 }
 
 
-int rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
+int isere_rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
 {
   datetime_t t;
   rtc_get_datetime(&t);
@@ -44,7 +44,7 @@ int rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
   return 0;
 }
 
-int rtc_set_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
+int isere_rtc_set_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
 {
   datetime_t t = {
     .year  = datetime->year,

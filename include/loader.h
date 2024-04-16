@@ -19,8 +19,8 @@ extern unsigned char handler[];
 extern unsigned int handler_len;
 #endif /* ISERE_USE_DYNLINK */
 
-int loader_init(isere_t *isere, isere_loader_t *loader);
-int loader_deinit(isere_loader_t *loader);
+int isere_loader_init(isere_t *isere, isere_loader_t *loader);
+int isere_loader_deinit(isere_loader_t *loader);
 
 #ifdef __cplusplus
 }

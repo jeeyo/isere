@@ -21,10 +21,10 @@ typedef struct {
   int8_t sec;      ///< 0..59
 } rtc_datetime_t;
 
-int rtc_init(isere_t *isere, isere_rtc_t *rtc);
-int rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime);
-int rtc_set_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime);
-void rtc_deinit(isere_rtc_t *rtc);
+int isere_rtc_init(isere_t *isere, isere_rtc_t *rtc);
+int isere_rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime);
+int isere_rtc_set_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime);
+void isere_rtc_deinit(isere_rtc_t *rtc);
 
 #ifdef __cplusplus
 }

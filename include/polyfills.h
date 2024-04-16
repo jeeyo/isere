@@ -22,13 +22,13 @@ typedef struct {
   JSValue func;
 } polyfill_timer_t;
 
-void polyfill_timer_init(JSContext *ctx);
-void polyfill_timer_deinit(JSContext *ctx);
-int polyfill_timer_poll(JSContext *ctx);
+void isere_js_polyfill_timer_init(JSContext *ctx);
+void isere_js_polyfill_timer_deinit(JSContext *ctx);
+int isere_js_polyfill_timer_poll(JSContext *ctx);
 
-void polyfill_fetch_init(JSContext *ctx);
-void polyfill_fetch_deinit(JSContext *ctx);
-int polyfill_fetch_poll(JSContext *ctx);
+void isere_js_polyfill_fetch_init(JSContext *ctx);
+void isere_js_polyfill_fetch_deinit(JSContext *ctx);
+int isere_js_polyfill_fetch_poll(JSContext *ctx);
 
 #ifdef __cplusplus
 }

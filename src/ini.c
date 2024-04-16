@@ -52,7 +52,7 @@ static int ini_write_default(isere_t *isere)
   return 0;
 }
 
-int ini_init(isere_t *isere, isere_ini_t *ini)
+int isere_ini_init(isere_t *isere, isere_ini_t *ini)
 {
   __isere = isere;
 
@@ -94,12 +94,12 @@ int ini_init(isere_t *isere, isere_ini_t *ini)
   return 0;
 }
 
-int ini_get_timeout(isere_ini_t *ini)
+int isere_ini_get_timeout(isere_ini_t *ini)
 {
   return config.timeout;
 }
 
-void ini_deinit(isere_ini_t *ini)
+void isere_ini_deinit(isere_ini_t *ini)
 {
   return;
 }

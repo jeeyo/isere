@@ -10,7 +10,7 @@ static uint8_t *loader_get_fn(isere_loader_t *loader, uint32_t *size)
   return handler;
 }
 
-int loader_init(isere_t *isere, isere_loader_t *loader)
+int isere_loader_init(isere_t *isere, isere_loader_t *loader)
 {
   __isere = isere;
 
@@ -29,7 +29,7 @@ int loader_init(isere_t *isere, isere_loader_t *loader)
   return 0;
 }
 
-int loader_deinit(isere_loader_t *loader)
+int isere_loader_deinit(isere_loader_t *loader)
 {
   if (__isere) {
     __isere = NULL;
