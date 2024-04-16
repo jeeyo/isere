@@ -44,8 +44,6 @@ int isere_tcp_deinit(isere_tcp_t *tcp)
     __isere = NULL;
   }
 
-  should_exit = 1;
-
   return 0;
 }
 
