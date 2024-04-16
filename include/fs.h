@@ -1,14 +1,14 @@
 #ifndef ISERE_FS_H_
-
-#include "isere.h"
-
 #define ISERE_FS_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include "isere.h"
+
 #define ISERE_FS_LOG_TAG "fs"
+
 #define ISERE_FS_MAX_PATH 64
 
 typedef int fs_file_t;

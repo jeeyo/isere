@@ -1,14 +1,13 @@
 #ifndef ISERE_TCP_H_
-
-#include "isere.h"
-
 #define ISERE_TCP_H_
-
-#define ISERE_TCP_LOG_TAG "tcp"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "isere.h"
+
+#define ISERE_TCP_LOG_TAG "tcp"
 
 #define TCP_POLL_READ_READY (1 << 0)
 #define TCP_POLL_WRITE_READY (1 << 1)

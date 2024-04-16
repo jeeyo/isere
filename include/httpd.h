@@ -1,6 +1,9 @@
 #ifndef ISERE_HTTPD_H_
-
 #define ISERE_HTTPD_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "isere.h"
 #include "tcp.h"
@@ -15,8 +18,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#define ISERE_HTTPD_PORT 8080
 #define ISERE_HTTPD_LOG_TAG "httpd"
+#define ISERE_HTTPD_PORT 8080
 
 #define ISERE_HTTPD_MAX_CONNECTIONS ISERE_TCP_MAX_CONNECTIONS
 #define ISERE_HTTPD_HANDLER_TIMEOUT_MS 30000
@@ -32,10 +35,6 @@
 
 #define ISERE_HTTPD_MAX_HTTP_REQUEST_LEN \
   (ISERE_HTTPD_MAX_HTTP_METHOD_LEN + ISERE_HTTPD_MAX_HTTP_PATH_LEN + ISERE_HTTPD_MAX_HTTP_HEADERS * (ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN + ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN) + ISERE_HTTPD_MAX_HTTP_BODY_LEN)
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #define METHODED (1 << 0)
 #define PATHED (1 << 1)

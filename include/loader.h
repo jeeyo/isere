@@ -1,6 +1,9 @@
 #ifndef ISERE_LOADER_H_
-
 #define ISERE_LOADER_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "isere.h"
 #include "quickjs.h"
@@ -15,10 +18,6 @@
 extern unsigned char handler[];
 extern unsigned int handler_len;
 #endif /* ISERE_USE_DYNLINK */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 int loader_init(isere_t *isere, isere_loader_t *loader);
 int loader_deinit(isere_loader_t *loader);

@@ -1,14 +1,13 @@
 #ifndef ISERE_INI_H
-
-#include "isere.h"
-
-#include "config.capnp.h"
-
 #define ISERE_INI_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "isere.h"
+
+#include "config.capnp.h"
 
 #define INI_FILENAME "config.bin"
 #define INI_MAX_CONFIG_FILE_SIZE 256

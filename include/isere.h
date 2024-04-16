@@ -1,16 +1,15 @@
 #ifndef ISERE_H_
-
 #define ISERE_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdint.h>
 
 #include "platform.h"
 
 #include "quickjs.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #define ISERE_APP_NAME "isere"
 

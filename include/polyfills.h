@@ -1,4 +1,9 @@
 #ifndef ISERE_POLYFILLS_H
+#define ISERE_POLYFILLS_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "isere.h"
 
@@ -7,15 +12,9 @@
 
 #include "quickjs.h"
 
-#define ISERE_POLYFILLS_H
-
 #define ISERE_POLYFILLS_MAX_TIMERS 10
 
 extern JSClassID polyfill_timer_class_id;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 typedef struct {
   TimerHandle_t timer;
