@@ -44,6 +44,8 @@ int isere_tcp_deinit(isere_tcp_t *tcp)
     __isere = NULL;
   }
 
+  should_exit = 1;
+
   return 0;
 }
 
@@ -187,7 +189,10 @@ int isere_tcp_poll(tcp_socket_t *sock, int timeout_ms)
     return -1;
   }
 
-  sock->revents = pfd.revents;
+  // TODO: POLLOUT & POLLERR
+  if (pfd.revents & POLLIN) {
+    sock->revents |= TCP_POLL_READ_READY;
+  }
 
   return 0;
 }

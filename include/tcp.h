@@ -2,8 +2,6 @@
 
 #include "isere.h"
 
-#include <poll.h>
-
 #define ISERE_TCP_H_
 
 #define ISERE_TCP_LOG_TAG "tcp"
@@ -11,10 +9,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define TCP_POLL_READ (1 << 0)
-#define TCP_POLL_WRITE (1 << 1)
-#define TCP_POLL_ERROR (1 << 2)
 
 #define TCP_POLL_READ_READY (1 << 0)
 #define TCP_POLL_WRITE_READY (1 << 1)

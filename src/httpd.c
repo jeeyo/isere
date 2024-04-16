@@ -5,8 +5,6 @@
 #include <string.h>
 #include <sys/param.h>
 
-#include <poll.h>
-
 #include "tcp.h"
 
 static uint8_t should_exit = 0;
@@ -328,7 +326,7 @@ static void __httpd_parser_task(void *param)
       }
 
       // ignore connections with no incoming data
-      if (!(conn->socket->revents & POLLIN)) {
+      if (!(conn->socket->revents & TCP_POLL_READ_READY)) {
         continue;
       }
 
@@ -365,7 +363,6 @@ static void __httpd_parser_task(void *param)
       __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
 
       // TODO: callbackWaitsForEmptyEventLoop
-      fflush(stdout);
 
       conn->completed |= POLLING;
       continue;
