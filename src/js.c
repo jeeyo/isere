@@ -6,8 +6,6 @@
 #include "quickjs.h"
 #include "quickjs-libc.h"
 
-static isere_t *__isere = NULL;
-
 static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, const char *color)
 {
   puts(color);
@@ -57,16 +55,10 @@ static JSValue __console_error(JSContext *ctx, JSValueConst this_val, int argc, 
   return __logger_internal(ctx, this_val, argc, argv, "\x1B[31m");
 }
 
-int js_init(isere_t *isere, isere_js_t *js)
+int js_init(isere_js_t *js)
 {
-  __isere = isere;
-
-  if (isere->logger == NULL) {
-    return -1;
-  }
-
   if (js->runtime != NULL || js->context != NULL) {
-    __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS runtime and context already initialized");
+    // __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS runtime and context already initialized");
     return -1;
   }
 
@@ -74,7 +66,7 @@ int js_init(isere_t *isere, isere_js_t *js)
   js->runtime = JS_NewRuntime();
   if (js->runtime == NULL)
   {
-    __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");
+    // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");
     return -1;
   }
   // TODO: custom memory allocation with JS_NewRuntime2()
@@ -85,7 +77,7 @@ int js_init(isere_t *isere, isere_js_t *js)
   js->context = JS_NewContextRaw(js->runtime);
   if (js->context == NULL)
   {
-    __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS context");
+    // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS context");
     return -1;
   }
   JS_AddIntrinsicBaseObjects(js->context);
@@ -130,10 +122,6 @@ int js_deinit(isere_js_t *js)
   polyfill_timer_deinit(js->context);
   // polyfill_fetch_deinit(js->context);
 
-  if (__isere) {
-    __isere = NULL;
-  }
-
   if (js->context) {
     JS_FreeContext(js->context);
   }
@@ -162,10 +150,6 @@ int js_deinit(isere_js_t *js)
 
 static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
-  if (__isere == NULL) {
-    return JS_EXCEPTION;
-  }
-
   if (argc < 1) {
     return JS_EXCEPTION;
   }
@@ -179,7 +163,7 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   return JS_UNDEFINED;
 }
 
-int js_eval(isere_js_t *js)
+int js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_len)
 {
   JSValue global_obj = JS_GetGlobalObject(js->context);
 
@@ -187,15 +171,15 @@ int js_eval(isere_js_t *js)
   JS_SetPropertyStr(js->context, global_obj, "cb", JS_NewCFunction(js->context, __handler_cb, "cb", 1));
   JS_FreeValue(js->context, global_obj);
 
-  JSValue handler = JS_Eval(js->context, (const char *)__isere->loader->fn, __isere->loader->fn_size, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-  if (JS_IsException(handler)) {
+  JSValue h = JS_Eval(js->context, (const char *)handler, handler_len, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+  if (JS_IsException(h)) {
     // TODO: error goes to logger
     js_std_dump_error(js->context);
-    JS_FreeValue(js->context, handler);
+    JS_FreeValue(js->context, h);
     return -1;
   }
 
-  js_module_set_import_meta(js->context, handler, 0, 0);
+  js_module_set_import_meta(js->context, h, 0, 0);
 
   const char *eval =
     "import { handler } from 'handler'\n"
@@ -209,12 +193,31 @@ int js_eval(isere_js_t *js)
     JS_FreeValue(js->context, val);
     return -1;
   }
+
+  // TODO: make this async
   val = js_std_await(js->context, val);
 
-  // TODO: make these a single event loop (and optimize it)
-  // TODO: callbackWaitsForEmptyEventLoop
-  js_std_loop(js->context);
-  // polyfill_fetch_poll(js->context);
-
   return 0;
+}
+
+int js_poll(isere_js_t *js)
+{
+  JSContext *ctx1;
+  int err;
+  int tmrerr = 0;
+
+  // execute the pending timers
+  tmrerr = polyfill_timer_poll(js->context);
+
+  // execute the pending jobs
+  err = JS_ExecutePendingJob(JS_GetRuntime(js->context), &ctx1);
+  if (err < 0) {
+    js_std_dump_error(ctx1);
+  }
+
+  if (tmrerr == 0 && err <= 0) {
+    return 0;
+  }
+
+  return 1;
 }

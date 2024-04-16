@@ -4,6 +4,9 @@
 
 #include "quickjs.h"
 
+#include "FreeRTOS.h"
+#include "croutine.h"
+
 #define ISERE_JS_H_
 
 #define ISERE_JS_LOG_TAG "js"
@@ -21,9 +24,10 @@
 extern "C" {
 #endif
 
-int js_init(isere_t *isere, isere_js_t *js);
+int js_init(isere_js_t *js);
 int js_deinit(isere_js_t *js);
-int js_eval(isere_js_t *js);
+int js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_len);
+int js_poll(isere_js_t *js);
 
 #ifdef __cplusplus
 }

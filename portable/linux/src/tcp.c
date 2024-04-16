@@ -18,8 +18,6 @@ static isere_t *__isere = NULL;
 
 static tcp_socket_t __sockets[ISERE_TCP_MAX_CONNECTIONS];
 
-static void __tcp_task(void *params);
-
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 {
   __isere = isere;
@@ -172,33 +170,24 @@ ssize_t isere_tcp_write(tcp_socket_t *sock, const char *buf, size_t len)
   return write(sock->fd, buf, len);
 }
 
-int isere_tcp_poll(int timeout_ms)
+int isere_tcp_poll(tcp_socket_t *sock, int timeout_ms)
 {
-  struct pollfd pfds[ISERE_TCP_MAX_CONNECTIONS];
-  int nfds = 0;
-
-  for (int i = 0; i < ISERE_TCP_MAX_CONNECTIONS; i++) {
-    if (__sockets[i].fd == -1) {
-      continue;
-    }
-
-    pfds[nfds++].fd = __sockets[i].fd;
-    pfds[nfds].revents = 0;
-    pfds[nfds].events = POLLIN;
-  }
-
-  int ready = poll(pfds, nfds, timeout_ms);
-  if (ready < 0) {
+  if (sock->fd < 0) {
     return -1;
   }
 
-  for (int i = 0; i < ISERE_TCP_MAX_CONNECTIONS; i++) {
-    if (__sockets[i].fd == -1) {
-      continue;
-    }
+  sock->revents = 0;
 
-    __sockets[i].revents = pfds[i].revents;
+  struct pollfd pfd;
+  pfd.fd = sock->fd;
+  pfd.events = POLLIN;
+
+  int ready = poll(&pfd, 1, timeout_ms);
+  if (ready < 0 && errno == EINTR) {
+    return -1;
   }
+
+  sock->revents = pfd.revents;
 
   return 0;
 }

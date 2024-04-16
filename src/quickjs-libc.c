@@ -51,23 +51,18 @@ void js_std_loop(JSContext *ctx)
     int err;
     int tmrerr = 0;
 
-    // for(;;) {
-        /* execute the pending jobs */
-        for(;;) {
-            // tmrerr = polyfill_timer_poll(ctx);
-            err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
-            if (err < 0) {
-                js_std_dump_error(ctx1);
-            }
-
-            if (tmrerr == 0 && err <= 0) {
-                break;
-            }
+    /* execute the pending jobs */
+    for(;;) {
+        // tmrerr = polyfill_timer_poll(ctx);
+        err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
+        if (err < 0) {
+            js_std_dump_error(ctx1);
         }
 
-        // if (!os_poll_func || os_poll_func(ctx))
-        //     break;
-    // }
+        if (tmrerr == 0 && err <= 0) {
+            break;
+        }
+    }
 }
 
 /* Wait for a promise and execute pending jobs while waiting for

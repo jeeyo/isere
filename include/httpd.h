@@ -41,7 +41,10 @@ extern "C" {
 #define PATHED (1 << 1)
 #define HEADERED (1 << 2)
 #define BODYED (1 << 3)
-#define DONE (METHODED | PATHED | HEADERED | BODYED)
+#define POLLING (1 << 4)
+#define PROCESSED (1 << 5)
+#define PARSED (METHODED | PATHED | HEADERED | BODYED)
+#define DONE (PARSED | POLLING | PROCESSED)
 
 // #define HTTP_STATUS_BAD_REQUEST -400
 // #define HTTP_STATUS_NOT_FOUND -404
@@ -57,6 +60,8 @@ typedef struct {
 
   tcp_socket_t *socket;
   int32_t recvd;  // number of bytes received
+
+  isere_js_t js;
 
   llhttp_t llhttp;
   llhttp_settings_t llhttp_settings;

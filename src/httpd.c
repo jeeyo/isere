@@ -16,12 +16,14 @@ static httpd_handler_t *__httpd_handler = NULL;
 
 static TaskHandle_t __httpd_server_task_handle;
 static TaskHandle_t __httpd_process_task_handle;
+static TaskHandle_t __httpd_poll_task_handle;
 
 static tcp_socket_t __server_socket;
 static httpd_conn_t __conns[ISERE_HTTPD_MAX_CONNECTIONS];
 
-static void __isere_httpd_server_task(void *params);
-static void __isere_httpd_process_task(void *params);
+static void __httpd_server_task(void *params);
+static void __httpd_parser_task(void *params);
+static void __httpd_poller_task(void *params);
 
 static void __httpd_cleanup_conn(httpd_conn_t *conn);
 
@@ -200,18 +202,25 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
     httpd_conn_t *conn = &__conns[i];
     memset(conn, 0, sizeof(httpd_conn_t));
-    __httpd_cleanup_conn(conn);
+    conn->socket = NULL;
+    conn->recvd = 0;
   }
 
   // start web server task
-  if (xTaskCreate(__isere_httpd_server_task, "httpd_server", 1024, NULL, tskIDLE_PRIORITY + 2, &__httpd_server_task_handle) != pdPASS) {
+  if (xTaskCreate(__httpd_server_task, "httpd_server", 1024, NULL, tskIDLE_PRIORITY + 2, &__httpd_server_task_handle) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd server task");
     return -1;
   }
 
-  // start connection processor task
-  if (xTaskCreate(__isere_httpd_process_task, "httpd_process", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_process_task_handle) != pdPASS) {
-    isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd processor task");
+  // start processor task
+  if (xTaskCreate(__httpd_parser_task, "httpd_parser", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_process_task_handle) != pdPASS) {
+    isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd parser task");
+    return -1;
+  }
+
+  // start poller task
+  if (xTaskCreate(__httpd_poller_task, "httpd_poller", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_poll_task_handle) != pdPASS) {
+    isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd poller task");
     return -1;
   }
 
@@ -251,11 +260,8 @@ static httpd_conn_t *__httpd_get_free_slot()
 
 static void __httpd_cleanup_conn(httpd_conn_t *conn)
 {
-  if (conn->socket == NULL) {
-    return;
-  }
-
   llhttp_reset(&conn->llhttp);
+  js_deinit(&conn->js);
 
   // cleanup client socket
   isere_tcp_socket_close(conn->socket);
@@ -264,29 +270,60 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   conn->recvd = 0;
 }
 
-static void __isere_httpd_process_task(void *param)
+static void __httpd_poller_task(void *params)
+{
+  while (!should_exit)
+  {
+    taskYIELD();
+
+    for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++)
+    {
+      httpd_conn_t *conn = &__conns[i];
+      if (conn->completed == DONE) {
+        continue;
+      }
+
+      if (!(conn->completed & POLLING)) {
+        continue;
+      }
+
+      if (js_poll(&conn->js) == 0) {
+        conn->completed |= PROCESSED;
+        break;
+      }
+    }
+  }
+
+  should_exit = 1;
+  vTaskDelete(NULL);
+}
+
+static void __httpd_parser_task(void *param)
 {
   char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
 
   while (!should_exit)
   {
-    // poll indefinitely
-    int ready = isere_tcp_poll(-1);
-    if (ready < 0) {
-      continue;
-    }
-
-    httpd_conn_t *conn = NULL;
-    for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-      conn = &__conns[i];
+    for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++)
+    {
+      httpd_conn_t *conn = &__conns[i];
 
       // ignore empty slots
       if (conn->socket == NULL) {
         continue;
       }
 
-      // ignore completed connections
+      // disconnect processed connections
       if (conn->completed == DONE) {
+        goto finally;
+      }
+
+      // ignore parsed connections
+      if (conn->completed >= PARSED) {
+        continue;
+      }
+
+      if (isere_tcp_poll(conn->socket, 0)) {
         continue;
       }
 
@@ -314,7 +351,7 @@ static void __isere_httpd_process_task(void *param)
         goto finally;
       }
 
-      if (conn->completed != DONE) {
+      if (conn->completed < PARSED) {
         continue;
       }
 
@@ -324,9 +361,14 @@ static void __isere_httpd_process_task(void *param)
         goto finally;
       }
 
-      // TODO: make this async
       uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
       __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
+
+      // TODO: callbackWaitsForEmptyEventLoop
+      fflush(stdout);
+
+      conn->completed |= POLLING;
+      continue;
 
   finally:
       __httpd_cleanup_conn(conn);
@@ -338,7 +380,7 @@ static void __isere_httpd_process_task(void *param)
   vTaskDelete(NULL);
 }
 
-static void __isere_httpd_server_task(void *params)
+static void __httpd_server_task(void *params)
 {
   while (!isere_tcp_is_initialized()) {
     vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -389,6 +431,7 @@ static void __isere_httpd_server_task(void *params)
     llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
     conn->llhttp.data = (void *)conn;
 
+    js_init(&conn->js);
     conn->socket = newsock;
   }
 

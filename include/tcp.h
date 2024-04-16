@@ -40,7 +40,7 @@ int isere_tcp_listen(tcp_socket_t *sock, uint16_t port);
 tcp_socket_t *isere_tcp_accept(tcp_socket_t *sock, char *ip_addr);
 ssize_t isere_tcp_recv(tcp_socket_t *sock, char *buf, size_t len);
 ssize_t isere_tcp_write(tcp_socket_t *sock, const char *buf, size_t len);
-int isere_tcp_poll(int timeout_ms);
+int isere_tcp_poll(tcp_socket_t *sock, int timeout_ms);
 int isere_tcp_is_initialized();
 
 #ifdef __cplusplus
