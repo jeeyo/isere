@@ -1,13 +1,5 @@
 #include "tcp.h"
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
-
-#include "pico/stdlib.h"
-#include "pico/bootrom.h"
 #include "pico/multicore.h"
 #include "hardware/watchdog.h"
 #include "hardware/structs/watchdog.h"

@@ -116,11 +116,12 @@
 #define DEFAULT_TCP_RECVMBOX_SIZE       12
 #define DEFAULT_ACCEPTMBOX_SIZE         12
 
-// #define TCPIP_THREAD_PRIO               (tskIDLE_PRIORITY + 3)
-// #define DEFAULT_THREAD_PRIO             (tskIDLE_PRIORITY + 3)
+#include "FreeRTOS.h"
+#include "task.h"
 
-// not necessary, can be done either way
-// #define LWIP_TCPIP_CORE_LOCKING         1
-#define LWIP_TCPIP_CORE_LOCKING_INPUT   1
+#define TCPIP_THREAD_PRIO               (tskIDLE_PRIORITY + 3)
+#define DEFAULT_THREAD_PRIO             (tskIDLE_PRIORITY + 3)
+
+#define LWIP_TCPIP_CORE_LOCKING         1
 
 #endif /* __LWIPOPTS_H__ */
