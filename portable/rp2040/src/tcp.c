@@ -215,7 +215,7 @@ int isere_tcp_poll(tcp_socket_t *sock, int timeout_ms)
     sock->revents |= TCP_POLL_READ_READY;
   }
 
-  return 0;
+  return sock->revents > 0 ? 1 : 0;
 }
 
 int isere_tcp_is_initialized()

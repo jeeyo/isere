@@ -277,10 +277,13 @@ static void __httpd_poller_task(void *params)
     for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++)
     {
       httpd_conn_t *conn = &__conns[i];
+
+      // skip if the connection processing is DONE
       if (conn->completed == DONE) {
         continue;
       }
 
+      // or it is not waiting for JavaScript jobs
       if (!(conn->completed & POLLING)) {
         continue;
       }
@@ -321,7 +324,9 @@ static void __httpd_parser_task(void *param)
         continue;
       }
 
-      if (isere_tcp_poll(conn->socket, 0)) {
+      // skip if there's no new events
+      // or an error occurred
+      if (isere_tcp_poll(conn->socket, 0) <= 0) {
         continue;
       }
 
