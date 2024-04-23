@@ -26,6 +26,8 @@
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
+#include "rp2040_config.h"
+
 /*-----------------------------------------------------------
 * Application specific definitions.
 *
@@ -45,7 +47,6 @@
 #define configTICK_RATE_HZ                         ( 1000 )                  /* In this non-real time simulated environment the tick frequency has to be at least a multiple of the Win32 tick frequency, and therefore very slow. */
 #define configMINIMAL_STACK_SIZE                   ( ( unsigned short ) 70 ) /* In this simulated case, the stack only has to hold one small structure as the real stack is part of the win32 thread. */
 #define configTOTAL_HEAP_SIZE                      ( ( size_t ) ( 65 * 1024 ) )
-// #define configTOTAL_HEAP_SIZE                      ( ( size_t ) ( 128 * 1024 ) )
 #define configMAX_TASK_NAME_LEN                    ( 12 )
 #define configUSE_TRACE_FACILITY                   1
 #define configUSE_16_BIT_TICKS                     0
@@ -59,7 +60,7 @@
 #define configUSE_ALTERNATIVE_API                  0
 #define configUSE_QUEUE_SETS                       1
 #define configUSE_TASK_NOTIFICATIONS               1
-#define configSUPPORT_STATIC_ALLOCATION            1
+#define configSUPPORT_STATIC_ALLOCATION            0
 #define configSUPPORT_DYNAMIC_ALLOCATION           1
 
 /* Software timer related configuration options.  The maximum possible task
@@ -90,7 +91,7 @@
 /* SMP port only */
 #define configNUMBER_OF_CORES                     2
 #define configTICK_CORE                           0
-#define configRUN_MULTIPLE_PRIORITIES             0
+#define configRUN_MULTIPLE_PRIORITIES             1
 
 /* RP2040 specific */
 #define configSUPPORT_PICO_SYNC_INTEROP           1
@@ -99,6 +100,7 @@
 /* SMP Related config. */
 #define configUSE_PASSIVE_IDLE_HOOK               0
 #define portSUPPORT_SMP                           1
+#define configUSE_CORE_AFFINITY                   1
 
 /* Set the following definitions to 1 to include the API function, or zero
  * to exclude the API function.  In most cases the linker will remove unused
@@ -124,5 +126,9 @@
 
 extern void vAssertCalled( const char * const pcFileName,
                            unsigned long ulLine );
+
+#include <assert.h>
+/* Define to trap errors during development. */
+#define configASSERT(x)                         assert(x)
 
 #endif /* FREERTOS_CONFIG_H */

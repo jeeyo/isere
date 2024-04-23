@@ -6,6 +6,7 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
@@ -23,11 +24,14 @@ static TaskHandle_t __tusb_task_handle;
 
 static void __isere_tusb_task(void *param);
 
-static void __isere_start_tusb_task()
-{
-  if (xTaskCreate(__isere_tusb_task, "tusb", 512, NULL, tskIDLE_PRIORITY + 2, &__tusb_task_handle)) {
-    __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
-  }
+static SemaphoreHandle_t tcpip_task_blocker;
+
+void pico_lwip_custom_lock_tcpip_core(void) {
+  xSemaphoreTake(tcpip_task_blocker, portMAX_DELAY);
+}
+
+void pico_lwip_custom_unlock_tcpip_core(void) {
+  xSemaphoreGive(tcpip_task_blocker);
 }
 
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
@@ -38,14 +42,6 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
     return -1;
   }
 
-  rndis_tusb_init();
-
-#if configNUMBER_OF_CORES > 1
-  multicore_launch_core1(__isere_start_tusb_task);
-#else
-  __isere_start_tusb_task();
-#endif
-
   for (int i = 0; i < ISERE_TCP_MAX_CONNECTIONS; i++) {
     tcp_socket_t *socket = &__sockets[i];
     memset(socket, 0, sizeof(tcp_socket_t));
@@ -54,6 +50,15 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
     socket->events = 0;
     socket->revents = 0;
   }
+
+  tcpip_task_blocker = xSemaphoreCreateMutex();
+
+  if (xTaskCreate(__isere_tusb_task, "tusb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle)) {
+    __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
+  }
+#if configNUMBER_OF_CORES > 1
+  vTaskCoreAffinitySet(__tusb_task_handle, (1 << 1));
+#endif
 
   return 0;
 }
@@ -225,6 +230,8 @@ int isere_tcp_is_initialized()
 
 static void __isere_tusb_task(void *param)
 {
+  rndis_tusb_init();
+
   lwip_freertos_init();
   wait_for_netif_is_up();
   dhcpd_init();

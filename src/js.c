@@ -119,10 +119,10 @@ int isere_js_init(isere_js_t *js)
 
 int isere_js_deinit(isere_js_t *js)
 {
-  isere_js_polyfill_timer_deinit(js->context);
-  // isere_js_polyfill_fetch_deinit(js->context);
-
   if (js->context) {
+    isere_js_polyfill_timer_deinit(js->context);
+    // isere_js_polyfill_fetch_deinit(js->context);
+
     JS_FreeContext(js->context);
   }
 

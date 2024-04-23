@@ -1,21 +1,20 @@
 #include "logger.h"
 
 #include <stdarg.h>
-#include <stdio.h>
 
 // static SemaphoreHandle_t _stdio_mut = NULL;
 // static StaticSemaphore_t _stdio_mutbuf;
 
 static void __logger_print(const char *tag, isere_log_level_t level, const char *fmt, va_list vargs)
 {
-  // xSemaphoreTake(_stdio_mut, portMAX_DELAY);
+  // // xSemaphoreTake(_stdio_mut, portMAX_DELAY);
 
-  // TO-DO: log level
-  printf("[%s] ", tag);
-  vprintf(fmt, vargs);
-  printf("\n");
+  // // TO-DO: log level
+  // printf("[%s] ", tag);
+  // vprintf(fmt, vargs);
+  // printf("\n");
 
-  // xSemaphoreGive(_stdio_mut);
+  // // xSemaphoreGive(_stdio_mut);
 }
 
 static void logger_error(const char *tag, const char *fmt, ...)

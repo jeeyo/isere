@@ -66,10 +66,6 @@
 
 #endif
 
-// #ifndef LWIP_PLATFORM_ASSERT
-// #define LWIP_PLATFORM_ASSERT(x) do { if(!(x)) while(1); } while(0)
-// #endif
-
 #ifndef LWIP_PLATFORM_ASSERT
 #include "pico.h"
 #define LWIP_PLATFORM_ASSERT(x) panic(x)
@@ -80,5 +76,10 @@
 // Use the pico_rand library which goes to reasonable lengths to try to provide good entropy
 #define LWIP_RAND() get_rand_32()
 #endif
+
+void pico_lwip_custom_lock_tcpip_core(void);
+void pico_lwip_custom_unlock_tcpip_core(void);
+#define LOCK_TCPIP_CORE() pico_lwip_custom_lock_tcpip_core()
+#define UNLOCK_TCPIP_CORE() pico_lwip_custom_unlock_tcpip_core()
 
 #endif /* __CC_H__ */

@@ -1,9 +1,10 @@
 #include "httpd.h"
 
-#include "queue.h"
-
 #include <string.h>
 #include <sys/param.h>
+
+#include "FreeRTOS.h"
+#include "task.h"
 
 #include "tcp.h"
 
@@ -209,18 +210,27 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd server task");
     return -1;
   }
+#if configNUMBER_OF_CORES > 1
+  vTaskCoreAffinitySet(__httpd_server_task_handle, (1 << 0));
+#endif
 
   // start processor task
   if (xTaskCreate(__httpd_parser_task, "httpd_parser", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_process_task_handle) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd parser task");
     return -1;
   }
+#if configNUMBER_OF_CORES > 1
+  vTaskCoreAffinitySet(__httpd_process_task_handle, (1 << 0));
+#endif
 
   // start poller task
   if (xTaskCreate(__httpd_poller_task, "httpd_poller", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_poll_task_handle) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd poller task");
     return -1;
   }
+#if configNUMBER_OF_CORES > 1
+  vTaskCoreAffinitySet(__httpd_poll_task_handle, (1 << 0));
+#endif
 
   return 0;
 }
@@ -305,6 +315,8 @@ static void __httpd_parser_task(void *param)
 
   while (!should_exit)
   {
+    taskYIELD();
+
     for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++)
     {
       httpd_conn_t *conn = &__conns[i];
@@ -351,6 +363,9 @@ static void __httpd_parser_task(void *param)
 
       if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
         __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "request too long");
+
+        const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
+        isere_tcp_write(conn->socket, buf, strlen(buf));
         goto finally;
       }
 
@@ -400,8 +415,6 @@ static void __httpd_server_task(void *params)
 
   while (!should_exit)
   {
-    taskYIELD();
-
     // accept connection
     char ipaddr[16];
     tcp_socket_t *newsock = isere_tcp_accept(&__server_socket, ipaddr);
@@ -433,7 +446,10 @@ static void __httpd_server_task(void *params)
     llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
     conn->llhttp.data = (void *)conn;
 
-    isere_js_init(&conn->js);
+    if (__httpd_handler != NULL) {
+      isere_js_init(&conn->js);
+    }
+
     conn->socket = newsock;
   }
 

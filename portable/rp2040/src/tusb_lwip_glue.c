@@ -30,6 +30,7 @@
 #include "pico/unique_id.h"
 
 #include "lwip/tcpip.h"
+#include "tusb.h"
 
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -38,7 +39,7 @@
 static struct netif netif_data;
 
 /* shared between tud_network_recv_cb() and service_traffic() */
-static struct pbuf *received_frame;
+static struct pbuf *received_frame = NULL;
 
 /* this is used by this code, ./class/net/net_driver.c, and usb_descriptors.c */
 /* ideally speaking, this should be generated from the hardware's unique ID (if available) */
@@ -109,8 +110,6 @@ static err_t netif_init_cb(struct netif *netif)
   return ERR_OK;
 }
 
-static int done_lwip_init = 0;
-
 static void tcpip_init_done(void *param) {
   lwip_add_netif();
   xSemaphoreGive((SemaphoreHandle_t)param);
@@ -132,8 +131,8 @@ void rndis_tusb_init(void)
   // memcpy( (tud_network_mac_address)+1, id.id, 5);
   //  Fixing up does not work because tud_network_mac_address is const
 
-  /* Initialize tinyUSB */
-  tusb_init();
+  /* Initialize TinyUSB */
+  tud_init(BOARD_TUD_RHPORT);
 }
 
 void lwip_add_netif()
@@ -145,7 +144,7 @@ void lwip_add_netif()
   memcpy(netif->hwaddr, tud_network_mac_address, sizeof(tud_network_mac_address));
   netif->hwaddr[5] ^= 0x01;
 
-  netif = netif_add(netif, &ipaddr, &netmask, &gateway, NULL, netif_init_cb, ip_input);
+  netif = netif_add(netif, &ipaddr, &netmask, &gateway, NULL, netif_init_cb, tcpip_input);
   netif_set_default(netif);
 }
 
@@ -163,8 +162,7 @@ bool tud_network_recv_cb(const uint8_t *src, uint16_t size)
 {
   /* this shouldn't happen, but if we get another packet before
   parsing the previous, we must signal our inability to accept it */
-  if (received_frame)
-    return false;
+  if (received_frame) return false;
 
   if (size)
   {
@@ -186,22 +184,10 @@ bool tud_network_recv_cb(const uint8_t *src, uint16_t size)
 uint16_t tud_network_xmit_cb(uint8_t *dst, void *ref, uint16_t arg)
 {
   struct pbuf *p = (struct pbuf *)ref;
-  struct pbuf *q;
-  uint16_t len = 0;
 
   (void)arg; /* unused for this example */
 
-  /* traverse the "pbuf chain"; see ./lwip/src/core/pbuf.c for more info */
-  for (q = p; q != NULL; q = q->next)
-  {
-    memcpy(dst, (char *)q->payload, q->len);
-    dst += q->len;
-    len += q->len;
-    if (q->len == q->tot_len)
-      break;
-  }
-
-  return len;
+  return pbuf_copy_partial(p, dst, p->tot_len, 0);
 }
 
 void service_traffic(void)
@@ -209,9 +195,13 @@ void service_traffic(void)
   /* handle any packet received by tud_network_recv_cb() */
   if (received_frame)
   {
-    ethernet_input(received_frame, &netif_data);
-    pbuf_free(received_frame);
+    struct netif *netif = &netif_data;
+    if (netif->input(received_frame, netif) != ERR_OK) {
+      pbuf_free(received_frame);
+    }
+
     received_frame = NULL;
+
     tud_network_recv_renew();
   }
 
