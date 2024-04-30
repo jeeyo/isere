@@ -44,9 +44,6 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
   if (xTaskCreate(__isere_tusb_task, "usb", 384, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle)) {
     __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
   }
-#if configNUMBER_OF_CORES > 1
-  vTaskCoreAffinitySet(__tusb_task_handle, (1 << 1));
-#endif
 
   return 0;
 }
