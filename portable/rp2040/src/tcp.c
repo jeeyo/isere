@@ -24,16 +24,6 @@ static TaskHandle_t __tusb_task_handle;
 
 static void __isere_tusb_task(void *param);
 
-static SemaphoreHandle_t tcpip_task_blocker;
-
-void pico_lwip_custom_lock_tcpip_core(void) {
-  xSemaphoreTake(tcpip_task_blocker, portMAX_DELAY);
-}
-
-void pico_lwip_custom_unlock_tcpip_core(void) {
-  xSemaphoreGive(tcpip_task_blocker);
-}
-
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 {
   __isere = isere;
@@ -51,9 +41,7 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
     socket->revents = 0;
   }
 
-  tcpip_task_blocker = xSemaphoreCreateMutex();
-
-  if (xTaskCreate(__isere_tusb_task, "tusb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle)) {
+  if (xTaskCreate(__isere_tusb_task, "usb", 384, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle)) {
     __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
   }
 #if configNUMBER_OF_CORES > 1
@@ -240,7 +228,6 @@ static void __isere_tusb_task(void *param)
   while (!should_exit)
   {
     tud_task();
-    service_traffic();
   }
 
   should_exit = 1;

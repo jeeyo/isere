@@ -17,7 +17,6 @@ void lwip_freertos_init(void);
 void lwip_add_netif();
 void wait_for_netif_is_up();
 void dhcpd_init();
-void service_traffic();
 
 #ifdef __cplusplus
  }

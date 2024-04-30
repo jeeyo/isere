@@ -39,7 +39,7 @@
 static struct netif netif_data;
 
 /* shared between tud_network_recv_cb() and service_traffic() */
-static struct pbuf *received_frame = NULL;
+static QueueHandle_t rxed_queue;
 
 /* this is used by this code, ./class/net/net_driver.c, and usb_descriptors.c */
 /* ideally speaking, this should be generated from the hardware's unique ID (if available) */
@@ -133,6 +133,8 @@ void rndis_tusb_init(void)
 
   /* Initialize TinyUSB */
   tud_init(BOARD_TUD_RHPORT);
+
+  rxed_queue = xQueueCreate(10, sizeof(struct pbuf *));
 }
 
 void lwip_add_netif()
@@ -150,33 +152,25 @@ void lwip_add_netif()
 
 void tud_network_init_cb(void)
 {
-  /* if the network is re-initializing and we have a leftover packet, we must do a cleanup */
-  if (received_frame)
-  {
-    pbuf_free(received_frame);
-    received_frame = NULL;
-  }
 }
 
 bool tud_network_recv_cb(const uint8_t *src, uint16_t size)
 {
-  /* this shouldn't happen, but if we get another packet before
-  parsing the previous, we must signal our inability to accept it */
-  if (received_frame) return false;
+  if (!size) return true;
 
-  if (size)
-  {
-    struct pbuf *p = pbuf_alloc(PBUF_RAW, size, PBUF_POOL);
+  struct pbuf *p = pbuf_alloc(PBUF_RAW, size, PBUF_POOL);
+  if (p == NULL) return false;
 
-    if (p)
-    {
-      /* pbuf_alloc() has already initialized struct; all we need to do is copy the data */
-      memcpy(p->payload, src, size);
+  /* pbuf_alloc() has already initialized struct; all we need to do is copy the data */
+  pbuf_take(p, src, size);
 
-      /* store away the pointer for service_traffic() to later handle */
-      received_frame = p;
-    }
+  /* store away the pointer for service_traffic() to later handle */
+  struct netif *netif = &netif_data;
+  if (netif->input(p, netif) != ERR_OK) {
+    pbuf_free(p);
   }
+
+  tud_network_recv_renew();
 
   return true;
 }
@@ -188,24 +182,6 @@ uint16_t tud_network_xmit_cb(uint8_t *dst, void *ref, uint16_t arg)
   (void)arg; /* unused for this example */
 
   return pbuf_copy_partial(p, dst, p->tot_len, 0);
-}
-
-void service_traffic(void)
-{
-  /* handle any packet received by tud_network_recv_cb() */
-  if (received_frame)
-  {
-    struct netif *netif = &netif_data;
-    if (netif->input(received_frame, netif) != ERR_OK) {
-      pbuf_free(received_frame);
-    }
-
-    received_frame = NULL;
-
-    tud_network_recv_renew();
-  }
-
-  sys_check_timeouts();
 }
 
 void dhcpd_init()

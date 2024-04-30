@@ -77,9 +77,4 @@
 #define LWIP_RAND() get_rand_32()
 #endif
 
-void pico_lwip_custom_lock_tcpip_core(void);
-void pico_lwip_custom_unlock_tcpip_core(void);
-#define LOCK_TCPIP_CORE() pico_lwip_custom_lock_tcpip_core()
-#define UNLOCK_TCPIP_CORE() pico_lwip_custom_unlock_tcpip_core()
-
 #endif /* __CC_H__ */
