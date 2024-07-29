@@ -4,7 +4,6 @@
 #include <stdio.h>
 
 static SemaphoreHandle_t _stdio_mut = NULL;
-static StaticSemaphore_t _stdio_mutbuf;
 
 static void __logger_print(FILE *fp, const char *tag, isere_log_level_t level, const char *fmt, va_list vargs)
 {
@@ -56,7 +55,7 @@ int isere_logger_init(isere_t *isere, isere_logger_t *logger)
   (void)isere;
 
   if (_stdio_mut == NULL) {
-    _stdio_mut = xSemaphoreCreateMutexStatic(&_stdio_mutbuf);
+    _stdio_mut = xSemaphoreCreateMutex();
   }
 
   *logger = (isere_logger_t){

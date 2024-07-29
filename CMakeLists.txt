@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.5)
 set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 option(DEBUG "Debug mode" OFF)
-option(NEED_FREERTOS_POSIX "Include FreeRTOS-Plus-POSIX" OFF)
 option(NEED_LWIP "Include LwIP" OFF)
 option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
 
@@ -30,6 +29,7 @@ list(APPEND SOURCES
   ./src/ini.c
   ./src/js.c
   ./src/quickjs-libc.c
+  # ./src/rb.c
   ./src/polyfills/fetch.c
   ./src/polyfills/timer.c
   ./portable/${TARGET_PLATFORM}/src/fs.c
@@ -59,22 +59,6 @@ list(APPEND SOURCES
   ${CAPNPROTO_DIR}/lib/capn-stream.c
   ${CAPNPROTO_DIR}/lib/capn.c
 )
-
-if(NEED_FREERTOS_POSIX)
-  list(APPEND SOURCES
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_clock.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_mqueue.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_barrier.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_cond.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread_mutex.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_pthread.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_sched.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_semaphore.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_timer.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_unistd.c
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/source/FreeRTOS_POSIX_utils.c
-  )
-endif()
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
 
@@ -134,16 +118,6 @@ target_include_directories(isere PRIVATE
   ${LIBYUAREL_DIR}
   ${CAPNPROTO_DIR}/lib
 )
-
-if(NEED_FREERTOS_POSIX)
-  target_include_directories(isere PRIVATE
-    ${FREERTOS_POSIX_DIR}/include
-    ${FREERTOS_POSIX_DIR}/include/FreeRTOS_POSIX
-    ${FREERTOS_POSIX_DIR}/include/private
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include
-    ${FREERTOS_POSIX_DIR}/FreeRTOS-Plus-POSIX/include/portable
-  )
-endif()
 
 if(NEED_LWIP)
   target_include_directories(isere PRIVATE
