@@ -1,12 +1,11 @@
-FROM gcc:12.2 as builder
+FROM alpine AS builder
+
+RUN apk add build-base git make cmake xxd
 
 WORKDIR /app
 COPY . .
 
-RUN apt-get update && \
-    apt-get install -y build-essential automake libtool cmake
-
-RUN mkdir build && cd build && cmake .. && make -j
+RUN mkdir build && cd build && cmake -DDEBUG=on .. && make -j
 
 # FROM gcr.io/distroless/cc
 FROM alpine

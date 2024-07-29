@@ -1,3 +1,5 @@
-FROM node:20-bookworm
-RUN apt update && \
-    && DEBIAN_FRONTEND=noninteractive apt install -y autoconf libtool build-essential cmake
+FROM alpine
+
+RUN apk add build-base gdb git make cmake xxd
+
+WORKDIR /app
