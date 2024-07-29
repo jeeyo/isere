@@ -4,9 +4,6 @@
 [submodule "3rdparty/quickjs"]
 	path = 3rdparty/quickjs
 	url = https://github.com/jeeyo/quickjs.git
-[submodule "3rdparty/FreeRTOS-Plus-POSIX"]
-	path = 3rdparty/FreeRTOS-Plus-POSIX
-	url = https://github.com/FreeRTOS/Lab-Project-FreeRTOS-POSIX.git
 [submodule "3rdparty/lwip"]
 	path = 3rdparty/lwip
 	url = https://github.com/lwip-tcpip/lwip.git
@@ -21,9 +18,6 @@
 	path = 3rdparty/c-capnproto
 	url = https://gitlab.com/dkml/ext/c-capnproto.git
 	ignore = dirty
-[submodule "3rdparty/mbedtls"]
-	path = 3rdparty/mbedtls
-	url = https://github.com/Mbed-TLS/mbedtls.git
 [submodule "3rdparty/pico-sdk"]
 	path = 3rdparty/pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git
