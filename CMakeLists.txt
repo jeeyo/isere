@@ -87,6 +87,7 @@ add_custom_command(
   COMMAND sed -i.bak -E "s/[a-z_]+\\[\\]/handler\\[\\]/" handler.c # change code array variable name to "handler"
   COMMAND sed -i.bak -E "s/[a-z_]+_len/handler_len/" handler.c # change code length variable name to "handler_len"
   COMMENT "Compiling JavaScript files"
+  MAIN_DEPENDENCY ../${EXAMPLES_DIR}/handler.js
   VERBATIM
 )
 

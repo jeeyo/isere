@@ -12,7 +12,7 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val,
     JSValue meta_obj;
     JSAtom module_name_atom;
     const char *module_name;
-    
+
     assert(JS_VALUE_GET_TAG(func_val) == JS_TAG_MODULE);
     m = JS_VALUE_GET_PTR(func_val);
 
@@ -21,22 +21,14 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val,
     JS_FreeAtom(ctx, module_name_atom);
     if (!module_name)
         return -1;
-    // if (!strchr(module_name, ':')) {
-    //     strcpy(buf, "file://");
-    //     {
-    //         strlcat(buf, module_name, sizeof(buf));
-    //     }
-    // } else {
-    //     strlcpy(buf, module_name, sizeof(buf));
-    // }
     JS_FreeCString(ctx, module_name);
-    
+
     meta_obj = JS_GetImportMeta(ctx, m);
     if (JS_IsException(meta_obj))
         return -1;
-    // JS_DefinePropertyValueStr(ctx, meta_obj, "url",
-    //                           JS_NewString(ctx, buf),
-    //                           JS_PROP_C_W_E);
+    JS_DefinePropertyValueStr(ctx, meta_obj, "url",
+                              JS_NewString(ctx, module_name),
+                              JS_PROP_C_W_E);
     JS_DefinePropertyValueStr(ctx, meta_obj, "main",
                               JS_NewBool(ctx, is_main),
                               JS_PROP_C_W_E);

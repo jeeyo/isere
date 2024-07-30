@@ -8,7 +8,7 @@
 
 #include "tcp.h"
 
-static uint8_t should_exit = 0;
+extern uint8_t should_exit;
 
 static isere_t *__isere = NULL;
 static httpd_handler_t *__httpd_handler = NULL;
@@ -296,6 +296,7 @@ static void __httpd_poller_task(void *params)
     }
   }
 
+  __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd poller task was unexpectedly closed");
   should_exit = 1;
   vTaskDelete(NULL);
 }

@@ -13,7 +13,7 @@
 
 #include "tusb_lwip_glue.h"
 
-static uint8_t should_exit = 0;
+extern uint8_t should_exit;
 static uint8_t initialized = 0;
 
 static isere_t *__isere = NULL;
@@ -227,6 +227,7 @@ static void __isere_tusb_task(void *param)
     tud_task();
   }
 
+  __isere->logger->error(ISERE_HTTPD_LOG_TAG, "tusb task was unexpectedly closed");
   should_exit = 1;
   vTaskDelete(NULL);
 }
