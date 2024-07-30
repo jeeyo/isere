@@ -17,17 +17,32 @@ Transfer/sec:     14.08MB
 
 ### isère
 
-##### single-threaded with event loop
+##### without QuickJS
 
 ```
 $ wrk -t12 -c400 -d10s http://127.0.0.1:8080
 Running 10s test @ http://127.0.0.1:8080
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    21.74ms   17.71ms 195.67ms   91.96%
-    Req/Sec    82.59     55.21   310.00     69.04%
-  5731 requests in 10.10s, 195.88KB read
-  Socket errors: connect 155, read 14002, write 202, timeout 0
-Requests/sec:    567.33
-Transfer/sec:     19.39KB
+    Latency     1.73ms  558.36us   8.59ms   69.06%
+    Req/Sec   558.37    494.71     1.90k    63.71%
+  6987 requests in 10.09s, 129.64KB read
+  Socket errors: connect 155, read 13065, write 12, timeout 0
+Requests/sec:    692.35
+Transfer/sec:     12.85KB
+```
+
+##### with QuickJS
+
+```
+$ wrk -t12 -c400 -d10s http://127.0.0.1:8080
+Running 10s test @ http://127.0.0.1:8080
+  12 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    20.83ms   39.12ms 486.87ms   96.55%
+    Req/Sec    38.17     52.56   230.00     85.32%
+  551 requests in 10.09s, 18.83KB read
+  Socket errors: connect 155, read 2111, write 12, timeout 0
+Requests/sec:     54.59
+Transfer/sec:      1.87KB
 ```

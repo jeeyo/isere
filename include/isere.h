@@ -52,6 +52,7 @@ typedef struct {
 typedef struct {
   JSRuntime *runtime;
   JSContext *context;
+  JSValue future;
 } isere_js_t;
 
 typedef void * isere_httpd_t;

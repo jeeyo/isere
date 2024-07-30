@@ -180,22 +180,20 @@ int isere_js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_l
   }
 
   js_module_set_import_meta(js->context, h, 0, 0);
+  JS_FreeValue(js->context, h);
 
   const char *eval =
-    "import { handler } from 'handler'\n"
-    "const handler1 = new Promise(async resolve => resolve(await handler(__event, __context, resolve)))\n"
+    "import { handler } from 'handler';"
+    "const handler1 = new Promise(resolve => handler(__event, __context, resolve).then(resolve));"
     "Promise.resolve(handler1).then(cb)";
 
-  JSValue val = JS_Eval(js->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_BACKTRACE_BARRIER);
-  if (JS_IsException(val)) {
+  js->future = JS_Eval(js->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_BACKTRACE_BARRIER);
+  if (JS_IsException(js->future)) {
     // TODO: error goes to logger
     js_std_dump_error(js->context);
-    JS_FreeValue(js->context, val);
+    JS_FreeValue(js->context, js->future);
     return -1;
   }
-
-  // TODO: make this async
-  val = js_std_await(js->context, val);
 
   return 0;
 }

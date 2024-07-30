@@ -25,6 +25,7 @@ static void __httpd_parser_task(void *params);
 static void __httpd_poller_task(void *params);
 
 static void __httpd_cleanup_conn(httpd_conn_t *conn);
+static void __httpd_writeback(httpd_conn_t *conn);
 
 static int __on_method(llhttp_t *parser, const char *at, size_t length)
 {
@@ -267,6 +268,7 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   memset(conn, 0, sizeof(httpd_conn_t));
   conn->socket = NULL;
   conn->recvd = 0;
+  conn->completed = 0;
 }
 
 static void __httpd_poller_task(void *params)
@@ -280,7 +282,7 @@ static void __httpd_poller_task(void *params)
       httpd_conn_t *conn = &__conns[i];
 
       // skip if the connection processing is DONE
-      if (conn->completed == DONE) {
+      if ((conn->completed & DONE) == DONE) {
         continue;
       }
 
@@ -289,8 +291,26 @@ static void __httpd_poller_task(void *params)
         continue;
       }
 
-      if (isere_js_poll(&conn->js) == 0) {
-        conn->completed |= PROCESSED;
+      if (!(conn->completed & PROCESSED)) {
+
+        if (isere_js_poll(&conn->js) == 0) {
+          conn->completed |= PROCESSED;
+          break;
+        }
+
+        JSValue global_obj = JS_GetGlobalObject(conn->js.context);
+        JSValue response_obj = JS_GetPropertyStr(conn->js.context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
+        if (!JS_IsUndefined(response_obj)) {
+          // TODO: callbackWaitsForEmptyEventLoop
+          conn->completed |= PROCESSED;
+        }
+        JS_FreeValue(conn->js.context, response_obj);
+        JS_FreeValue(conn->js.context, global_obj);
+      }
+
+      if ((conn->completed & PROCESSED) && !(conn->completed & WRITING)) {
+        conn->completed |= WRITING;
+        __httpd_writeback(conn);  // TODO: non-blocking write?
         break;
       }
     }
@@ -319,7 +339,7 @@ static void __httpd_parser_task(void *param)
       }
 
       // disconnect processed connections
-      if (conn->completed == DONE) {
+      if ((conn->completed & DONE) == DONE) {
         goto finally;
       }
 
@@ -373,8 +393,6 @@ static void __httpd_parser_task(void *param)
 
       uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
       __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
-
-      // TODO: callbackWaitsForEmptyEventLoop
 
       conn->completed |= POLLING;
       continue;
@@ -449,4 +467,96 @@ exit:
   __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd server task was unexpectedly closed");
   should_exit = 1;
   vTaskDelete(NULL);
+}
+
+static void __httpd_writeback(httpd_conn_t *conn)
+{
+  isere_js_t *js = &conn->js;
+
+  JS_FreeValue(js->context, js->future);
+
+  JSValue global_obj = JS_GetGlobalObject(js->context);
+  JSValue response_obj = JS_GetPropertyStr(js->context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
+
+  // send HTTP response code
+  isere_tcp_write(conn->socket, "HTTP/1.1 ", 9);
+  JSValue statusCode = JS_GetPropertyStr(js->context, response_obj, ISERE_JS_RESPONSE_STATUS_CODE_PROP_NAME);
+  if (!JS_IsNumber(statusCode)) {
+    isere_tcp_write(conn->socket, "200 OK", 3);
+  } else {
+    size_t len = 0;
+    const char *statusCode1 = JS_ToCStringLen(js->context, &len, statusCode);
+    isere_tcp_write(conn->socket, statusCode1, len);
+
+    // TODO: status code to status text
+
+    JS_FreeCString(js->context, statusCode1);
+  }
+  isere_tcp_write(conn->socket, "\r\n", 2);
+  JS_FreeValue(js->context, statusCode);
+
+  // send HTTP response headers
+  JSValue headers = JS_GetPropertyStr(js->context, response_obj, ISERE_JS_RESPONSE_HEADERS_PROP_NAME);
+  if (JS_IsObject(headers)) {
+
+    JSPropertyEnum *props = NULL;
+    uint32_t props_len = 0;
+
+    if (JS_GetOwnPropertyNames(js->context, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
+
+      for (int i = 0; i < props_len; i++) {
+
+        const char *header_field_str = JS_AtomToCString(js->context, props[i].atom);
+
+        JSValue header_value = JS_GetProperty(js->context, headers, props[i].atom);
+        size_t header_value_len = 0;
+        const char *header_value_str = JS_ToCStringLen(js->context, &header_value_len, header_value);
+
+        isere_tcp_write(conn->socket, header_field_str, strlen(header_field_str));
+        isere_tcp_write(conn->socket, ": ", 2);
+        isere_tcp_write(conn->socket, header_value_str, header_value_len);
+        isere_tcp_write(conn->socket, "\r\n", 2);
+
+        JS_FreeCString(js->context, header_field_str);
+        JS_FreeCString(js->context, header_value_str);
+        JS_FreeValue(js->context, header_value);
+
+        JS_FreeAtom(js->context, props[i].atom);
+      }
+
+      js_free(js->context, props);
+    }
+  }
+  JS_FreeValue(js->context, headers);
+
+  // TODO: `Date`
+  const char *server_header = "Server: isere\r\n";
+  isere_tcp_write(conn->socket, server_header, strlen(server_header));
+  isere_tcp_write(conn->socket, "\r\n", 2);
+
+  // send HTTP response body
+  JSValue body = JS_GetPropertyStr(js->context, response_obj, ISERE_JS_RESPONSE_BODY_PROP_NAME);
+  size_t body_len = 0;
+  const char *body_str = NULL;
+
+  if (JS_IsObject(body)) {
+    JSValue stringifiedBody = JS_JSONStringify(js->context, body, JS_UNDEFINED, JS_UNDEFINED);
+    body_str = JS_ToCStringLen(js->context, &body_len, stringifiedBody);
+    JS_FreeValue(js->context, stringifiedBody);
+  } else if (JS_IsString(body)) {
+    body_str = JS_ToCStringLen(js->context, &body_len, body);
+  }
+
+  if (body_str != NULL) {
+    isere_tcp_write(conn->socket, body_str, body_len);
+    JS_FreeCString(js->context, body_str);
+  }
+  JS_FreeValue(js->context, body);
+
+  JS_FreeValue(js->context, response_obj);
+  JS_FreeValue(js->context, global_obj);
+
+  isere_tcp_write(conn->socket, "\r\n\r\n", 4);
+
+  conn->completed |= WROTE;
 }

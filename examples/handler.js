@@ -6,7 +6,7 @@ export const handler = async function(event, context, done) {
 
   setTimeout(() => {
     console.log('ESM Inside')
-  }, 5000)
+  }, 1000)
 
   // done({
   //   statusCode: 200,

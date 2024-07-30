@@ -42,8 +42,10 @@ extern "C" {
 #define BODYED (1 << 3)
 #define POLLING (1 << 4)
 #define PROCESSED (1 << 5)
+#define WRITING (1 << 6)
+#define WROTE (1 << 7)
 #define PARSED (METHODED | PATHED | HEADERED | BODYED)
-#define DONE (PARSED | POLLING | PROCESSED)
+#define DONE (PARSED | PROCESSED | WROTE)
 
 // #define HTTP_STATUS_BAD_REQUEST -400
 // #define HTTP_STATUS_NOT_FOUND -404

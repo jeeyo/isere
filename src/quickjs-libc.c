@@ -36,63 +36,6 @@ int js_module_set_import_meta(JSContext *ctx, JSValueConst func_val,
     return 0;
 }
 
-/* main loop which calls the user JS callbacks */
-void js_std_loop(JSContext *ctx)
-{
-    JSContext *ctx1;
-    int err;
-    int tmrerr = 0;
-
-    /* execute the pending jobs */
-    for(;;) {
-        // tmrerr = isere_js_polyfill_timer_poll(ctx);
-        err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
-        if (err < 0) {
-            js_std_dump_error(ctx1);
-        }
-
-        if (tmrerr == 0 && err <= 0) {
-            break;
-        }
-    }
-}
-
-/* Wait for a promise and execute pending jobs while waiting for
-   it. Return the promise result or JS_EXCEPTION in case of promise
-   rejection. */
-JSValue js_std_await(JSContext *ctx, JSValue obj)
-{
-    JSValue ret;
-    int state;
-
-    for(;;) {
-        state = JS_PromiseState(ctx, obj);
-        if (state == JS_PROMISE_FULFILLED) {
-            ret = JS_PromiseResult(ctx, obj);
-            JS_FreeValue(ctx, obj);
-            break;
-        } else if (state == JS_PROMISE_REJECTED) {
-            ret = JS_Throw(ctx, JS_PromiseResult(ctx, obj));
-            JS_FreeValue(ctx, obj);
-            break;
-        } else if (state == JS_PROMISE_PENDING) {
-            JSContext *ctx1;
-            int err;
-            err = JS_ExecutePendingJob(JS_GetRuntime(ctx), &ctx1);
-            if (err < 0) {
-                js_std_dump_error(ctx1);
-            }
-            // if (os_poll_func)
-            //     os_poll_func(ctx);
-        } else {
-            /* not a promise */
-            ret = obj;
-            break;
-        }
-    }
-    return ret;
-}
-
 static void js_dump_obj(JSContext *ctx, FILE *f, JSValueConst val)
 {
     const char *str;
