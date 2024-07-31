@@ -24,18 +24,25 @@ jobs:
         with:
           repository: cpputest/cpputest
           path: ./cpputest
-      
-      - name: Cache CppUTest
-        id: cache-cpputest
-        uses: actions/cache@v4
+
+      - name: Restore cached CppUTest
+        id: cache-cpputest-restore
+        uses: actions/cache/restore@v4
         with:
           path: cpputest
           key: ${{ runner.os }}-cpputest
-      
+
       - name: Install CppUTest from source
-        if: steps.cache-cpputest.outputs.cache-hit != 'true'
+        if: steps.cache-cpputest-restore.outputs.cache-hit != 'true'
         run: autoreconf -i . && ./configure && make tdd
         working-directory: cpputest
+
+      - name: Save Primes
+        id: cache-cpputest-save
+        uses: actions/cache/save@v4
+        with:
+          path: cpputest
+          key: ${{ steps.cache-cpputest-restore.outputs.cache-primary-key }}
 
       - name: Build
         run: mkdir build && cd build && cmake .. && make VERBOSE=1 -j4
