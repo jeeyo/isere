@@ -16,7 +16,7 @@ static JSValue __polyfill_fetch_internal(JSContext *ctx, JSValueConst this_val, 
   return JS_TRUE;
 }
 
-void isere_js_polyfill_fetch_init(JSContext *ctx)
+void isere_js_polyfill_fetch_init(isere_js_t *js)
 {
   /*
     Resource object
@@ -34,9 +34,9 @@ void isere_js_polyfill_fetch_init(JSContext *ctx)
     ```
   */
 
-  JSValue global_obj = JS_GetGlobalObject(ctx);
-  JS_SetPropertyStr(ctx, global_obj, "__fetch", JS_NewCFunction(ctx, __polyfill_fetch_internal, "__fetch", 1));
-  JS_FreeValue(ctx, global_obj);
+  JSValue global_obj = JS_GetGlobalObject(js->context);
+  JS_SetPropertyStr(js->context, global_obj, "__fetch", JS_NewCFunction(js->context, __polyfill_fetch_internal, "__fetch", 1));
+  JS_FreeValue(js->context, global_obj);
 
   // TODO: support standard Fetch Request object (https://developer.mozilla.org/en-US/docs/Web/API/Request)
   const char *str = "globalThis.fetch = async function(resource) {\n"
@@ -50,17 +50,17 @@ void isere_js_polyfill_fetch_init(JSContext *ctx)
 
                     "  return globalThis.__fetch(url, method);\n"
                     "};";
-  JS_Eval(ctx, str, strlen(str), "<polyfills>", JS_EVAL_TYPE_MODULE);
+  JS_Eval(js->context, str, strlen(str), "<polyfills>", JS_EVAL_TYPE_MODULE);
 }
 
-void isere_js_polyfill_fetch_deinit(JSContext *ctx)
+void isere_js_polyfill_fetch_deinit(isere_js_t *js)
 {
-  JSValue global_obj = JS_GetGlobalObject(ctx);
-  JS_DeleteProperty(ctx, global_obj, JS_NewAtom(ctx, "__fetch"), 0);
-  JS_FreeValue(ctx, global_obj);
+  JSValue global_obj = JS_GetGlobalObject(js->context);
+  JS_DeleteProperty(js->context, global_obj, JS_NewAtom(js->context, "__fetch"), 0);
+  JS_FreeValue(js->context, global_obj);
 }
 
-int isere_js_polyfill_fetch_poll(JSContext *ctx)
+int isere_js_polyfill_fetch_poll(isere_js_t *js)
 {
   return 1;
 }

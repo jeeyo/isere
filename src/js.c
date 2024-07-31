@@ -80,6 +80,10 @@ int isere_js_init(isere_js_t *js)
     // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS context");
     return -1;
   }
+
+  // attach isere_js_t object to QuickJS context
+  JS_SetContextOpaque(js->context, js);
+
   JS_AddIntrinsicBaseObjects(js->context);
   JS_AddIntrinsicDate(js->context);
   JS_AddIntrinsicEval(js->context);
@@ -109,7 +113,7 @@ int isere_js_init(isere_js_t *js)
   JS_SetPropertyStr(js->context, global_obj, "process", process);
 
   // add setTimeout / clearTimeout
-  isere_js_polyfill_timer_init(js->context);
+  isere_js_polyfill_timer_init(js);
   // isere_js_polyfill_fetch_init(js->context);
 
   JS_FreeValue(js->context, global_obj);
@@ -120,7 +124,7 @@ int isere_js_init(isere_js_t *js)
 int isere_js_deinit(isere_js_t *js)
 {
   if (js->context) {
-    isere_js_polyfill_timer_deinit(js->context);
+    isere_js_polyfill_timer_deinit(js);
     // isere_js_polyfill_fetch_deinit(js->context);
 
     JS_FreeContext(js->context);
@@ -151,7 +155,7 @@ int isere_js_deinit(isere_js_t *js)
 static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
   if (argc < 1) {
-    return JS_EXCEPTION;
+    return JS_ThrowTypeError(ctx, "not a function");
   }
 
   JSValueConst resp = argv[0];
@@ -191,7 +195,6 @@ int isere_js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_l
   if (JS_IsException(js->future)) {
     // TODO: error goes to logger
     js_std_dump_error(js->context);
-    JS_FreeValue(js->context, js->future);
     return -1;
   }
 
@@ -205,7 +208,7 @@ int isere_js_poll(isere_js_t *js)
   int tmrerr = 0;
 
   // execute the pending timers
-  tmrerr = isere_js_polyfill_timer_poll(js->context);
+  tmrerr = isere_js_polyfill_timer_poll(js);
 
   // execute the pending jobs
   err = JS_ExecutePendingJob(JS_GetRuntime(js->context), &ctx1);

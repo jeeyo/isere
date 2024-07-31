@@ -9,6 +9,9 @@ extern "C" {
 
 #include "platform.h"
 
+#include "FreeRTOS.h"
+#include "timers.h"
+
 #include "quickjs.h"
 
 #define ISERE_APP_NAME "isere"
@@ -49,10 +52,19 @@ typedef struct {
   uint32_t fn_size;
 } isere_loader_t;
 
+#define ISERE_JS_POLYFILLS_MAX_TIMERS 5
+
+typedef struct {
+  TimerHandle_t timer;
+  JSContext *ctx;
+  JSValue func;
+} polyfill_timer_t;
+
 typedef struct {
   JSRuntime *runtime;
   JSContext *context;
   JSValue future;
+  polyfill_timer_t timers[ISERE_JS_POLYFILLS_MAX_TIMERS];
 } isere_js_t;
 
 typedef void * isere_httpd_t;

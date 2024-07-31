@@ -102,8 +102,9 @@ execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE
 target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
 
 if(DEBUG)
-  target_compile_options(isere PRIVATE -O0 -g)
+  target_compile_options(isere PRIVATE -O0 -g -pg)
   target_compile_definitions(isere PRIVATE DUMP_LEAKS)
+  # target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
 endif()
 
 include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)
@@ -133,6 +134,7 @@ add_custom_command(
   DEPENDS schemas/config.capnp
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Compiling Cap'n Proto schema"
+  MAIN_DEPENDENCY ./schemas/config.capnp
   VERBATIM
 )
 

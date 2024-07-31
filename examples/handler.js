@@ -18,7 +18,7 @@ export const handler = async function(event, context, done) {
   console.log('a', a)
 
   return {
-    statusCode: 404,
+    statusCode: 200,
     headers: { 'Content-Type': 'text/plain' },
     body: { k: 'v' }
   }

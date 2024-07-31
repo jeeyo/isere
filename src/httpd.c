@@ -293,11 +293,13 @@ static void __httpd_poller_task(void *params)
 
       if (!(conn->completed & PROCESSED)) {
 
+        // respond as there's no pending jobs left
         if (isere_js_poll(&conn->js) == 0) {
           conn->completed |= PROCESSED;
           break;
         }
 
+        // respond as the response object is constructed from `cb()`
         JSValue global_obj = JS_GetGlobalObject(conn->js.context);
         JSValue response_obj = JS_GetPropertyStr(conn->js.context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
         if (!JS_IsUndefined(response_obj)) {
@@ -383,6 +385,15 @@ static void __httpd_parser_task(void *param)
 
       if (conn->completed < PARSED) {
         continue;
+      }
+
+      // TODO: HTTP path
+      if ((conn->path[0] != '\0') ||
+        (conn->path[0] != '/' && conn->path[1] != '\0'))
+      {
+        const char *buf = "HTTP/1.1 404 Not Found\r\n\r\n";
+        isere_tcp_write(conn->socket, buf, strlen(buf));
+        goto finally;
       }
 
       if (__httpd_handler == NULL) {
