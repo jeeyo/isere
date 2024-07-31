@@ -3,4 +3,6 @@ target_include_directories(isere PRIVATE
   ${FREERTOS_DIR}/portable/ThirdParty/GCC/Posix/utils
 )
 
-target_link_options(isere PRIVATE -lm -ldl -pthread)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(isere PRIVATE Threads::Threads m ${CMAKE_DL_LIBS})
