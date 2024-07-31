@@ -33,7 +33,7 @@ if (DEFINED ENV{CPPUTEST_HOME} AND NOT "$ENV{CPPUTEST_HOME}" STREQUAL "")
   execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
   target_compile_definitions(unittests PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
 
-  target_link_options(unittests PRIVATE -L$ENV{CPPUTEST_HOME}/lib -lCppUTest -lCppUTestExt)
+  target_link_options(unittests PRIVATE -L$ENV{CPPUTEST_HOME}/lib -lCppUTest -lCppUTestExt -lm -ldl -pthread)
 else()
   message("CPPUTEST_HOME is not defined, skipping unittests")
 endif()
