@@ -18,21 +18,29 @@ jobs:
           submodules: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc make cmake xxd autoconf
+        run: sudo apt-get update && sudo apt-get install -y gcc g++ make cmake xxd autoconf
 
       - uses: actions/checkout@v4
         with:
           repository: cpputest/cpputest
           path: ./cpputest
       
+      - name: Cache CppUTest
+        id: cache-cpputest
+        uses: actions/cache@v4
+        with:
+          path: cpputest
+          key: ${{ runner.os }}-cpputest
+      
       - name: Install CppUTest from source
+        if: steps.cache-cpputest.outputs.cache-hit != 'true'
         run: autoreconf -i . && ./configure && make tdd
-        working-directory: ./cpputest
+        working-directory: cpputest
 
       - name: Build
         run: mkdir build && cd build && cmake .. && make VERBOSE=1 -j4
         env:
-          CPPUTEST_HOME: ${GITHUB_WORKSPACE}/cpputest
+          CPPUTEST_HOME: cpputest
 
       - name: Run unit tests
         run: ./unittests
