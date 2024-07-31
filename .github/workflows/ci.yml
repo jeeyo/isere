@@ -26,7 +26,7 @@ jobs:
           path: ./cpputest
       
       - name: Install CppUTest from source
-        run: mkdir cpputest_build && autoreconf -i .. && ../configure && make
+        run: ls && mkdir cpputest_build && autoreconf -i .. && ../configure && make
         working-directory: ./cpputest
 
       - name: Build
