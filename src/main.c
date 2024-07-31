@@ -1,5 +1,8 @@
 #include <string.h>
 #include <stdio.h>
+#ifdef __linux__
+#include <signal.h>
+#endif
 
 #include "FreeRTOS.h"
 #include "task.h"

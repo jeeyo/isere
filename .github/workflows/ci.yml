@@ -18,7 +18,7 @@ jobs:
           submodules: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential make cmake xxd cpputest autoconf
+        run: sudo apt-get update && sudo apt-get install -y build-essential make cmake xxd autoconf
 
       - uses: actions/checkout@v4
         with:
@@ -26,13 +26,13 @@ jobs:
           path: ./cpputest
       
       - name: Install CppUTest from source
-        run: mkdir cpputest_build && cd cpputest_build && autoreconf -i .. && ../configure && make
+        run: autoreconf -i . && ./configure && make tdd
         working-directory: ./cpputest
 
       - name: Build
         run: mkdir build && cd build && cmake .. && make -j4
         env:
-          CPPUTEST_HOME: ${GITHUB_WORKSPACE}/cpputest/cpputest_build
+          CPPUTEST_HOME: ${GITHUB_WORKSPACE}/cpputest
 
       - name: Run unit tests
         run: ./unittests
