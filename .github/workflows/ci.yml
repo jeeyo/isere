@@ -53,4 +53,11 @@ jobs:
         working-directory: build
 
       - name: Run unit tests
-        run: ./unittests
+        run: ./unittests -ojunit
+        working-directory: build
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: './build/cpputest_*.xml'
