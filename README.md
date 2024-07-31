@@ -37,6 +37,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [x] setTimeout (FreeRTOS Timer)
 - [ ] Memory Leak Check
 - [ ] Valgrind
+- [ ] gprof profiling
 - [ ] Optimize libc usage
   - [ ] Use less printf()
 - [ ] QuickJS Project Template

@@ -45,6 +45,7 @@ list(APPEND SOURCES
   ${FREERTOS_DIR}/stream_buffer.c
   ${FREERTOS_DIR}/tasks.c
   ${FREERTOS_DIR}/timers.c
+  ${FREERTOS_DIR}/portable/MemMang/heap_3.c
   ${QUICKJS_DIR}/quickjs.c
   ${QUICKJS_DIR}/libbf.c
   ${QUICKJS_DIR}/libregexp.c
