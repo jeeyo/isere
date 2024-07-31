@@ -7,15 +7,6 @@
 
 TEST_GROUP(JSTest) {};
 
-static void fake_logger_fn(const char *tag, const char *fmt, ...) {}
-
-static isere_logger_t fake_logger = {
-  .error = fake_logger_fn,
-  .warning = fake_logger_fn,
-  .info = fake_logger_fn,
-  .debug = fake_logger_fn,
-};
-
 TEST(JSTest, ShouldReturnErrorWhenQuickJSRuntimeIsAlreadyInitialized)
 {
   isere_js_t js;
