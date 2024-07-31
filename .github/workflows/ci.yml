@@ -13,7 +13,7 @@ jobs:
     name: Build and Test (Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -26,7 +26,7 @@ jobs:
           path: ./cpputest
       
       - name: Install CppUTest from source
-        run: autoreconf -i . && ./configure && make tdd && ls
+        run: autoreconf -i . && ./configure && make tdd && ls && ls ./include
         working-directory: ./cpputest
 
       - name: Build
