@@ -18,10 +18,18 @@ jobs:
           submodules: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential make libtool cmake xxd cpputest
+        run: sudo apt-get update && sudo apt-get install -y build-essential make cmake xxd cpputest
+
+      - name: ls
+        run: ls /usr/local/include
+
+      - name: ls2
+        run: ls /usr/local/lib
 
       - name: Build binary
         run: mkdir build && cd build && cmake .. && make -j4
+        # env:
+        #   CPPUTEST_HOME: 
 
       - name: Run unit tests
         run: ./unittests
