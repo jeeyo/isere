@@ -37,7 +37,7 @@ if (DEFINED ENV{CPPUTEST_HOME} AND NOT "$ENV{CPPUTEST_HOME}" STREQUAL "")
   find_package(Threads REQUIRED)
   target_link_libraries(unittests PRIVATE Threads::Threads m)
 
-  target_link_options(unittests PRIVATE -L$ENV{CPPUTEST_HOME}/lib -lCppUTest -lCppUTestExt)
+  target_link_libraries(unittests PRIVATE $ENV{CPPUTEST_HOME}/lib/libCppUTest.a $ENV{CPPUTEST_HOME}/lib/libCppUTestExt.a)
 else()
   message("CPPUTEST_HOME is not defined, skipping unittests")
 endif()
