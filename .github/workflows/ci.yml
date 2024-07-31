@@ -30,7 +30,7 @@ jobs:
         working-directory: ./cpputest
 
       - name: Build
-        run: mkdir build && cd build && cmake .. && make -j4
+        run: mkdir build && cd build && cmake .. && make VERBOSE=1 -j4
         env:
           CPPUTEST_HOME: ${GITHUB_WORKSPACE}/cpputest
 
