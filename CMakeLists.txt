@@ -137,4 +137,6 @@ add_custom_command(
   VERBATIM
 )
 
-include(unittests.cmake)
+if(TARGET_PLATFORM STREQUAL "linux")
+  include(unittests.cmake)
+endif()
