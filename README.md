@@ -24,6 +24,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
 - [x] Unit tests on CI
 - [x] File System Abstraction
 - [x] Configuration File
+- [ ] Watchdog
 - [ ] Integration tests (Native / QEMU)
 - [ ] Integration tests on CI
 - [ ] APIs (ref. [Minimum Common Web Platform API](https://common-min-api.proposal.wintercg.org/))
@@ -40,7 +41,7 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] Use less printf()
 - [ ] QuickJS Project Template
 - [ ] Low-power mode
-- [ ] Benchmark
+- [x] Benchmark
 - [x] Port to Raspberry Pi Pico (RP2040)
   - [x] Multi-core support
 - [ ] Monitoring
@@ -58,18 +59,18 @@ The goal is to create a low-power serverless platform that can handle simple sta
 ### Building and Running
 
 Prerequisites:
-- automake
 - cmake
 - make
 - gcc
-- libtool
+- cpputest
+- xxd (libtool)
 - ninja (optional for building c-capnproto)
 
 ```sh
 # install dependencies
-brew install automake libtool ninja
+brew install gcc cmake make libtool cpputest ninja
 # or
-sudo apt install -y build-essential libtool ninja-build
+sudo apt install -y build-essential make cmake xxd cpputest ninja-build
 
 git clone https://github.com/jeeyo/isere.git
 git submodule update --init
@@ -86,11 +87,10 @@ make -j
 
 try to access `http://localhost:8080/` and see the process logs  
   
-feel free to try modify `examples/handler.js` (don't forget to recompile it)
+feel free to try modify `examples/handler.js`
 
 ### Running Tests
 
 ```sh
-make -j unittest
-./unittest
+./unittests
 ```
