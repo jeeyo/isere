@@ -37,7 +37,7 @@ jobs:
         run: autoreconf -i . && ./configure && make tdd
         working-directory: cpputest
 
-      - name: Save Primes
+      - name: Save CppUTest
         id: cache-cpputest-save
         uses: actions/cache/save@v4
         with:
@@ -45,9 +45,10 @@ jobs:
           key: ${{ steps.cache-cpputest-restore.outputs.cache-primary-key }}
 
       - name: Build
-        run: mkdir build && cd build && cmake .. && make VERBOSE=1 -j4
+        run: cmake .. && make VERBOSE=1 -j4
         env:
           CPPUTEST_HOME: ${{ github.workspace }}/cpputest
+        working-directory: build
 
       - name: Run unit tests
         run: ./unittests
