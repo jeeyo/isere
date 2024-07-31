@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: https://github.com/cpputest/cpputest.git
+          repository: cpputest/cpputest
           path: ./cpputest
       
       - name: Install CppUTest from source
