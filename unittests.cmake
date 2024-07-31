@@ -17,7 +17,7 @@
     ./tests/main.cpp
   )
   target_include_directories(unittests PRIVATE
-    $ENV{CPPUTEST_HOME}/include
+    # $ENV{CPPUTEST_HOME}/include
     ./include
     ./portable/include
     ./portable/linux/include
