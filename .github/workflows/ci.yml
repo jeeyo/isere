@@ -26,13 +26,13 @@ jobs:
           path: ./cpputest
       
       - name: Install CppUTest from source
-        run: ls && mkdir cpputest_build && autoreconf -i .. && ../configure && make
+        run: mkdir cpputest_build && cd cpputest_build && autoreconf -i .. && ../configure && make
         working-directory: ./cpputest
 
       - name: Build
         run: mkdir build && cd build && cmake .. && make -j4
-        # env:
-        #   CPPUTEST_HOME:
+        env:
+          CPPUTEST_HOME: ${GITHUB_WORKSPACE}/cpputest/cpputest_build
 
       - name: Run unit tests
         run: ./unittests
