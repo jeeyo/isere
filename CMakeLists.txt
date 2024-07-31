@@ -22,7 +22,6 @@ set(EXAMPLES_DIR ./examples)
 set(SOURCES )
 
 list(APPEND SOURCES
-  ./src/main.c
   ./src/hooks.c
   ./src/http_handler.c
   ./src/httpd.c
@@ -91,7 +90,7 @@ add_custom_command(
   VERBATIM
 )
 
-add_executable(isere ${SOURCES})
+add_executable(isere ${SOURCES} ./src/main.c)
 
 if(SUPPORT_DYNLINK)
   target_compile_definitions(isere PRIVATE ISERE_USE_DYNLINK)
@@ -138,9 +137,4 @@ add_custom_command(
   VERBATIM
 )
 
-# add_executable(unittests
-#   ./tests/js_test.cpp
-#   ./tests/loader_test.cpp
-#   ./tests/main.cpp
-# )
-# target_link_options(unittests PRIVATE -LCppUTest -lCppUTest -lCppUTestExt)
+include(unittests.cmake)

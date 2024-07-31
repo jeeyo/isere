@@ -13,7 +13,7 @@
 
 #include "tusb_lwip_glue.h"
 
-extern uint8_t should_exit;
+static uint8_t should_exit = 0;
 static uint8_t initialized = 0;
 
 static isere_t *__isere = NULL;

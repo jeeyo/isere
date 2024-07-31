@@ -8,7 +8,7 @@
 
 #include "tcp.h"
 
-extern uint8_t should_exit;
+static uint8_t should_exit = 0;
 
 static isere_t *__isere = NULL;
 static httpd_handler_t *__httpd_handler = NULL;

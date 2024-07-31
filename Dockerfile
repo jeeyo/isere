@@ -5,7 +5,7 @@ RUN apk add build-base git make cmake xxd
 WORKDIR /app
 COPY . .
 
-RUN mkdir build && cd build && cmake -DDEBUG=on .. && make -j
+RUN mkdir build && cd build && cmake .. && make -j
 
 # FROM gcr.io/distroless/cc
 FROM alpine

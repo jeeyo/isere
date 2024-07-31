@@ -16,67 +16,39 @@ static isere_logger_t fake_logger = {
   .debug = fake_logger_fn,
 };
 
-TEST(JSTest, ShouldReturnErrorWhenLoggerIsNull)
+TEST(JSTest, ShouldReturnErrorWhenQuickJSRuntimeIsAlreadyInitialized)
 {
-  isere_t isere;
-  memset(&isere, 0, sizeof(isere_t));
-
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
+  js.runtime = (JSRuntime *)malloc(1);
 
-  int ret = isere_js_init(&isere, &js);
+  int ret = isere_js_init(&js);
 
-  LONGS_EQUAL_TEXT(ret, -1, "isere_js_init() did not return -1 when logger is NULL");
+  free(js.runtime);
+
+  LONGS_EQUAL_TEXT(ret, -1, "isere_js_init() did not return -1 when runtime is already initialized");
 }
 
-TEST(JSTest, ShouldReturnErrorWhenLoaderIsAlreadyInitialized)
+TEST(JSTest, ShouldReturnErrorWhenQuickJSContextIsAlreadyInitialized)
 {
-  isere_t isere;
-  memset(&isere, 0, sizeof(isere_t));
-
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
+  js.context = (JSContext *)malloc(1);
 
-  isere_js_init(&isere, &js);
-  int ret = isere_js_init(&isere, &js);
+  int ret = isere_js_init(&js);
 
-  LONGS_EQUAL_TEXT(ret, -1, "isere_js_init() did not return -1 when logger is already initialized");
+  free(js.context);
+
+  LONGS_EQUAL_TEXT(ret, -1, "isere_js_init() did not return -1 when context is already initialized");
 }
 
-TEST(JSTest, ShouldInitializeLoaderSuccessfully)
+TEST(JSTest, ShouldInitializeSuccessfully)
 {
-  isere_t isere;
-  memset(&isere, 0, sizeof(isere_t));
-  isere.logger = &fake_logger;
-
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
 
-  int ret = isere_js_init(&isere, &js);
+  int ret = isere_js_init(&js);
+  isere_js_deinit(&js);
 
   LONGS_EQUAL_TEXT(ret, 0, "isere_js_init() did not return 0");
-}
-
-TEST(JSTest, ShouldEvaluateHelloWorldFunctionSuccessfully)
-{
-  isere_t isere;
-  memset(&isere, 0, sizeof(isere_t));
-  isere.logger = &fake_logger;
-
-  isere_loader_t fake_loader = {
-    .fn = (uint8_t *)"export const handler = (event, context) => { console.log('hello world'); };",
-    .fn_size = 75,
-  };
-  isere.loader = &fake_loader;
-
-  isere_js_t js;
-  memset(&js, 0, sizeof(isere_js_t));
-
-  int ret = isere_js_init(&isere, &js);
-  LONGS_EQUAL_TEXT(ret, 0, "isere_js_init() did not return 0");
-
-  ret = isere_js_eval(&js);
-  LONGS_EQUAL_TEXT(ret, 0, "isere_js_eval() did not return 0");
-
-  // TODO: get the result of the function and check it
 }

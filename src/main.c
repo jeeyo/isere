@@ -13,8 +13,6 @@
 #include "httpd.h"
 #include "tcp.h"
 
-uint8_t should_exit = 0;
-
 httpd_handler_t __http_handler;
 static isere_t isere;
 
