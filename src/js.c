@@ -1,5 +1,6 @@
 #include "js.h"
 #include "polyfills.h"
+#include "pvPortRealloc.h"
 
 #include <string.h>
 
@@ -38,22 +39,100 @@ static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc
     JS_FreeCString(ctx, str);
   }
 
-  puts("\n");
+  puts("\033[0m\n");
 
   return JS_UNDEFINED;
 }
 
 static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  return __logger_internal(ctx, this_val, argc, argv, "\x1B[0m");
+  return __logger_internal(ctx, this_val, argc, argv, "\033[0m");
 }
 
 static JSValue __console_warn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  return __logger_internal(ctx, this_val, argc, argv, "\x1B[33m");
+  return __logger_internal(ctx, this_val, argc, argv, "\033[0;33m");
 }
 
 static JSValue __console_error(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-  return __logger_internal(ctx, this_val, argc, argv, "\x1B[31m");
+  return __logger_internal(ctx, this_val, argc, argv, "\033[0;31m");
 }
+
+#define MALLOC_OVERHEAD 0
+
+static size_t js_def_malloc_usable_size(const void *ptr)
+{
+  return 0;
+}
+
+static void *js_def_malloc(JSMallocState *s, size_t size)
+{
+  void *ptr;
+
+  // /* Do not allocate zero bytes: behavior is platform dependent */
+  // assert(size != 0);
+  if (size == 0) {
+    return NULL;
+  }
+
+  // TODO: unlikely
+  if (s->malloc_size + size > s->malloc_limit) {
+    return NULL;
+  }
+
+  ptr = pvPortMalloc(size);
+  if (!ptr) {
+    return NULL;
+  }
+
+  s->malloc_count++;
+  s->malloc_size += js_def_malloc_usable_size(ptr) + MALLOC_OVERHEAD;
+  return ptr;
+}
+
+static void js_def_free(JSMallocState *s, void *ptr)
+{
+  if (!ptr)
+    return;
+
+  s->malloc_count--;
+  s->malloc_size -= js_def_malloc_usable_size(ptr) + MALLOC_OVERHEAD;
+  vPortFree(ptr);
+}
+
+static void *js_def_realloc(JSMallocState *s, void *ptr, size_t size)
+{
+    size_t old_size;
+
+    if (!ptr) {
+      if (size == 0)
+        return NULL;
+      return js_def_malloc(s, size);
+    }
+    old_size = js_def_malloc_usable_size(ptr);
+    if (size == 0) {
+      s->malloc_count--;
+      s->malloc_size -= old_size + MALLOC_OVERHEAD;
+      vPortFree(ptr);
+      return NULL;
+    }
+    if (s->malloc_size + size - old_size > s->malloc_limit) {
+      return NULL;
+    }
+
+    ptr = pvPortRealloc(ptr, size);
+    if (!ptr) {
+      return NULL;
+    }
+
+    s->malloc_size += js_def_malloc_usable_size(ptr) - old_size;
+    return ptr;
+}
+
+static const JSMallocFunctions __mf = {
+  js_def_malloc,
+  js_def_free,
+  js_def_realloc,
+  NULL,
+};
 
 int isere_js_init(isere_js_t *js)
 {
@@ -63,7 +142,8 @@ int isere_js_init(isere_js_t *js)
   }
 
   // initialize quickjs runtime
-  js->runtime = JS_NewRuntime();
+  // js->runtime = JS_NewRuntime();
+  js->runtime = JS_NewRuntime2(&__mf, NULL);
   if (js->runtime == NULL)
   {
     // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");

@@ -27,7 +27,7 @@
 #define _TUSB_CONFIG_H_
 
 #ifdef __cplusplus
- extern "C" {
+extern "C" {
 #endif
 
 //--------------------------------------------------------------------+
@@ -37,12 +37,12 @@
 // RHPort number used for device can be defined by board.mk, default to port 0
 #ifndef BOARD_TUD_RHPORT
 #define BOARD_TUD_RHPORT     0
-#endif
+#endif /* BOARD_TUD_RHPORT */
 
 // RHPort max operational speed can defined by board.mk
 #ifndef BOARD_TUD_MAX_SPEED
 #define BOARD_TUD_MAX_SPEED   OPT_MODE_DEFAULT_SPEED
-#endif
+#endif /* BOARD_TUD_MAX_SPEED */
 
 //--------------------------------------------------------------------
 // COMMON CONFIGURATION
@@ -51,11 +51,11 @@
 // defined by board.mk
 #ifndef CFG_TUSB_MCU
 #error CFG_TUSB_MCU must be defined
-#endif
+#endif /* CFG_TUSB_MCU */
 
 #ifndef CFG_TUSB_OS
 #define CFG_TUSB_OS           OPT_OS_FREERTOS
-#endif
+#endif /* CFG_TUSB_OS */
 
 // CFG_TUSB_DEBUG is defined by compiler in DEBUG build
 // #define CFG_TUSB_DEBUG           0
@@ -69,16 +69,16 @@
  */
 #ifndef CFG_TUSB_MEM_SECTION
 #define CFG_TUSB_MEM_SECTION
-#endif
+#endif /* CFG_TUSB_MEM_SECTION */
 
 #ifndef CFG_TUSB_MEM_ALIGN
 #define CFG_TUSB_MEM_ALIGN          __attribute__ ((aligned(4)))
-#endif
+#endif /* CFG_TUSB_MEM_ALIGN */
 
 // can be defined by compiler in DEBUG build
 #ifndef CFG_TUSB_DEBUG
 #define CFG_TUSB_DEBUG        0
-#endif
+#endif /* CFG_TUSB_DEBUG */
 
 // Enable Device stack
 #define CFG_TUD_ENABLED       1
@@ -95,11 +95,11 @@
  */
 #ifndef CFG_TUSB_MEM_SECTION
 #define CFG_TUSB_MEM_SECTION
-#endif
+#endif /* CFG_TUSB_MEM_SECTION */
 
 #ifndef CFG_TUSB_MEM_ALIGN
 #define CFG_TUSB_MEM_ALIGN    __attribute__ ((aligned(4)))
-#endif
+#endif /* CFG_TUSB_MEM_ALIGN */
 
 //--------------------------------------------------------------------
 // DEVICE CONFIGURATION
@@ -107,7 +107,7 @@
 
 #ifndef CFG_TUD_ENDPOINT0_SIZE
 #define CFG_TUD_ENDPOINT0_SIZE   64
-#endif
+#endif /* CFG_TUD_ENDPOINT0_SIZE */
 
 //------------- CLASS -------------//
 #define CFG_TUD_CDC               0
@@ -118,7 +118,7 @@
 #define CFG_TUD_ECM_RNDIS         1
 
 #ifdef __cplusplus
- }
+}
 #endif
 
 #endif /* _TUSB_CONFIG_H_ */

@@ -75,7 +75,7 @@
 #define LWIP_DEBUG                      1
 #define LWIP_STATS                      1
 #define LWIP_STATS_DISPLAY              1
-#endif
+#endif /* NDEBUG */
 
 #define ETHARP_DEBUG                    LWIP_DBG_OFF
 #define NETIF_DEBUG                     LWIP_DBG_OFF

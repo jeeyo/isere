@@ -2,7 +2,7 @@
 #define _TUSB_LWIP_GLUE_H_
 
 #ifdef __cplusplus
- extern "C" {
+extern "C" {
 #endif
 
 #include "tusb.h"
@@ -19,7 +19,7 @@ void wait_for_netif_is_up();
 void dhcpd_init();
 
 #ifdef __cplusplus
- }
+}
 #endif
 
-#endif
+#endif /* _TUSB_LWIP_GLUE_H_ */

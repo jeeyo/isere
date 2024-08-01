@@ -31,6 +31,7 @@ list(APPEND SOURCES
   # ./src/rb.c
   ./src/polyfills/fetch.c
   ./src/polyfills/timer.c
+  ./src/polyfills/pvPortRealloc.c
   ./portable/${TARGET_PLATFORM}/src/fs.c
   ./portable/${TARGET_PLATFORM}/src/loader.c
   ./portable/${TARGET_PLATFORM}/src/logger.c

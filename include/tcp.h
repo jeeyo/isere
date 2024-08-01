@@ -18,7 +18,7 @@ int isere_tcp_deinit(isere_tcp_t *tcp);
 
 #ifndef ISERE_TCP_MAX_CONNECTIONS
 #define ISERE_TCP_MAX_CONNECTIONS 12
-#endif
+#endif /* ISERE_TCP_MAX_CONNECTIONS */
 
 typedef struct {
   int fd;

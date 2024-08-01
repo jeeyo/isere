@@ -5,9 +5,6 @@
 #include "isere.h"
 #include "loader.h"
 
-#define HELLOWORLD_DLL_PATH "./tests/js/helloworld.so"
-#define DEFAULT_DLL_PATH HELLOWORLD_DLL_PATH
-
 TEST_GROUP(LoaderTest) {};
 
 static void fake_logger_fn(const char *tag, const char *fmt, ...) {}
@@ -30,19 +27,6 @@ TEST(LoaderTest, ShouldReturnErrorWhenLoggerIsNull)
   int ret = isere_loader_init(&isere, &loader);
 
   LONGS_EQUAL_TEXT(ret, -1, "isere_loader_init() did not return -1 when logger is NULL");
-}
-
-TEST(LoaderTest, ShouldReturnErrorWhenDllPathIsNull)
-{
-  isere_t isere;
-  memset(&isere, 0, sizeof(isere_t));
-
-  isere_loader_t loader;
-  memset(&loader, 0, sizeof(isere_loader_t));
-
-  int ret = isere_loader_init(&isere, &loader);
-
-  LONGS_EQUAL_TEXT(ret, -1, "isere_loader_init() did not return -1 when dll_path is NULL");
 }
 
 TEST(LoaderTest, ShouldReturnErrorWhenLoaderIsAlreadyInitialized)
@@ -74,7 +58,7 @@ TEST(LoaderTest, ShouldInitializeLoaderSuccessfully)
   LONGS_EQUAL_TEXT(ret, 0, "isere_loader_init() did not return 0");
 }
 
-TEST(LoaderTest, ShouldLoadHelloWorldDllSuccessfully)
+TEST(LoaderTest, ShouldLoadHandlerDllSuccessfully)
 {
   isere_t isere;
   memset(&isere, 0, sizeof(isere_t));

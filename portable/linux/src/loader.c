@@ -4,7 +4,7 @@
 
 #ifdef ISERE_USE_DYNLINK
 #include <dlfcn.h>
-#endif
+#endif /* ISERE_USE_DYNLINK */
 
 static isere_t *__isere = NULL;
 
@@ -13,10 +13,10 @@ static uint8_t *loader_get_fn(isere_loader_t *loader, uint32_t *size)
 #ifdef ISERE_USE_DYNLINK
   *size = *(uint32_t *)(dlsym(loader->dll, ISERE_LOADER_HANDLER_SIZE_FUNCTION));
   return (uint8_t *)(dlsym(loader->dll, ISERE_LOADER_HANDLER_FUNCTION));
-#else
+#else /* ISERE_USE_DYNLINK */
   *size = handler_len;
   return handler;
-#endif
+#endif /* ISERE_USE_DYNLINK */
 }
 
 int isere_loader_init(isere_t *isere, isere_loader_t *loader)
@@ -31,7 +31,7 @@ int isere_loader_init(isere_t *isere, isere_loader_t *loader)
   if (loader->dll != NULL || loader->fn != NULL) {
 #else
   if (loader->fn != NULL) {
-#endif
+#endif /* ISERE_USE_DYNLINK */
     __isere->logger->error(ISERE_LOADER_LOG_TAG, "loader already initialized");
     return -1;
   }
@@ -43,7 +43,7 @@ int isere_loader_init(isere_t *isere, isere_loader_t *loader)
     __isere->logger->error(ISERE_LOADER_LOG_TAG, "dlopen() error: %s", dlerror());
     return -1;
   }
-#endif
+#endif /* ISERE_USE_DYNLINK */
 
   // load javascript source code from the shared library
   loader->fn = loader_get_fn(loader, &loader->fn_size);
@@ -61,7 +61,7 @@ int isere_loader_deinit(isere_loader_t *loader)
   if (loader->dll) {
     dlclose(loader->dll);
   }
-#endif
+#endif /* ISERE_USE_DYNLINK */
 
   return 0;
 }
