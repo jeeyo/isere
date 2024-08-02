@@ -1,18 +1,17 @@
-FROM gcc:12.2 as builder
+FROM alpine AS builder
+
+RUN apk add build-base git make cmake xxd
 
 WORKDIR /app
 COPY . .
 
-RUN make -j
-
-WORKDIR /app/examples
-RUN make -j
+RUN mkdir build && cd build && cmake .. && make -j
 
 # FROM gcr.io/distroless/cc
 FROM alpine
 
 WORKDIR /app
-COPY --from=builder /app/isere /app/isere
-COPY --from=builder /app/examples/*.so /app/examples/
+COPY --from=builder /app/build/isere /app/isere
+COPY --from=builder /app/build/handler.so /app/handler.so
 
 ENTRYPOINT [ "/app/isere" ]

@@ -1,8 +1,13 @@
 #ifndef ISERE_HTTPD_H_
-
 #define ISERE_HTTPD_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "isere.h"
+#include "tcp.h"
+#include "js.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -13,38 +18,39 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#define ISERE_HTTPD_PORT 8080
 #define ISERE_HTTPD_LOG_TAG "httpd"
+#define ISERE_HTTPD_PORT 8080
 
-#define ISERE_HTTPD_MAX_CONNECTIONS 6
+#define ISERE_HTTPD_MAX_CONNECTIONS ISERE_TCP_MAX_CONNECTIONS
 #define ISERE_HTTPD_HANDLER_TIMEOUT_MS 30000
 
 #define ISERE_HTTPD_LINE_BUFFER_LEN 64
 
 #define ISERE_HTTPD_MAX_HTTP_METHOD_LEN 16
 #define ISERE_HTTPD_MAX_HTTP_PATH_LEN 256
-#define ISERE_HTTPD_MAX_HTTP_HEADERS 20
+#define ISERE_HTTPD_MAX_HTTP_HEADERS 16
 #define ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN 64
-#define ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN 1024
-#define ISERE_HTTPD_MAX_HTTP_BODY_LEN 2048
+#define ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN 512
+#define ISERE_HTTPD_MAX_HTTP_BODY_LEN 512
 
 #define ISERE_HTTPD_MAX_HTTP_REQUEST_LEN \
   (ISERE_HTTPD_MAX_HTTP_METHOD_LEN + ISERE_HTTPD_MAX_HTTP_PATH_LEN + ISERE_HTTPD_MAX_HTTP_HEADERS * (ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN + ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN) + ISERE_HTTPD_MAX_HTTP_BODY_LEN)
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define METHODED (1 << 0)
+#define PATHED (1 << 1)
+#define HEADERED (1 << 2)
+#define BODYED (1 << 3)
+#define POLLING (1 << 4)
+#define PROCESSED (1 << 5)
+#define WRITING (1 << 6)
+#define WROTE (1 << 7)
+#define PARSED (METHODED | PATHED | HEADERED | BODYED)
+#define DONE (PARSED | PROCESSED | WROTE)
 
-#define METHOD_COMPLETED (1 << 0)
-#define PATH_COMPLETED (1 << 1)
-#define HEADERS_COMPLETED (1 << 2)
-#define BODY_COMPLETED (1 << 3)
-#define ALL_COMPLETED (METHOD_COMPLETED | PATH_COMPLETED | HEADERS_COMPLETED | BODY_COMPLETED)
-
-#define HTTP_STATUS_BAD_REQUEST -400
-#define HTTP_STATUS_NOT_FOUND -404
-#define HTTP_STATUS_PAYLOAD_TOO_LARGE -413
-#define HTTP_STATUS_INTERNAL_SERVER_ERROR -500
+// #define HTTP_STATUS_BAD_REQUEST -400
+// #define HTTP_STATUS_NOT_FOUND -404
+// #define HTTP_STATUS_PAYLOAD_TOO_LARGE -413
+// #define HTTP_STATUS_INTERNAL_SERVER_ERROR -500
 
 typedef struct {
   char name[ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN];
@@ -53,8 +59,10 @@ typedef struct {
 
 typedef struct {
 
-  int fd;
-  int recvd;  // number of bytes received
+  tcp_socket_t *socket;
+  int32_t recvd;  // number of bytes received
+
+  isere_js_t js;
 
   llhttp_t llhttp;
   llhttp_settings_t llhttp_settings;
@@ -71,8 +79,6 @@ typedef struct {
   uint32_t num_header_fields;
   uint32_t num_header_values;
 
-  TaskHandle_t tsk; // task handle for the client task
-
 } httpd_conn_t;
 
 typedef int (httpd_handler_t)(
@@ -85,19 +91,8 @@ typedef int (httpd_handler_t)(
   uint32_t request_headers_len,
   const char *body);
 
-typedef struct {
-  isere_httpd_t *httpd;
-  httpd_handler_t *handler;
-} httpd_task_params_t;
-
-typedef struct {
-  httpd_conn_t *conn;
-  httpd_handler_t *handler;
-} httpd_client_task_params_t;
-
-int httpd_init(isere_t *isere, isere_httpd_t *httpd);
-int httpd_deinit(isere_httpd_t *httpd);
-void httpd_task(void *params);
+int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *handler);
+int isere_httpd_deinit(isere_httpd_t *httpd);
 
 #ifdef __cplusplus
 }

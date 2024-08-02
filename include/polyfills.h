@@ -1,35 +1,19 @@
 #ifndef ISERE_POLYFILLS_H
-
-#include "isere.h"
-
-#include "FreeRTOS.h"
-#include "timers.h"
-
-#include "quickjs.h"
-
 #define ISERE_POLYFILLS_H
-
-#define ISERE_POLYFILLS_MAX_TIMERS 10
-
-extern JSClassID polyfill_timer_class_id;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct {
-  TimerHandle_t timer;
-  JSContext *ctx;
-  JSValue func;
-} polyfill_timer_t;
+#include "isere.h"
 
-void polyfill_timer_init(JSContext *ctx);
-void polyfill_timer_deinit(JSContext *ctx);
-int polyfill_timer_poll(JSContext *ctx);
+void isere_js_polyfill_timer_init(isere_js_t *js);
+void isere_js_polyfill_timer_deinit(isere_js_t *js);
+int isere_js_polyfill_timer_poll(isere_js_t *js);
 
-void polyfill_fetch_init(JSContext *ctx);
-void polyfill_fetch_deinit(JSContext *ctx);
-int polyfill_fetch_poll(JSContext *ctx);
+void isere_js_polyfill_fetch_init(isere_js_t *js);
+void isere_js_polyfill_fetch_deinit(isere_js_t *js);
+int isere_js_polyfill_fetch_poll(isere_js_t *js);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,6 @@
-# Isère
+# isère
 
-Isère [(/iːˈzɛər/)](https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=fr&q=Isère)
+isère [(/iːˈzɛər/)](https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=fr&q=Isère)
 
 A serverless platform aimed to be running on Microcontrollers
 
@@ -10,43 +10,46 @@ The goal is to create a low-power serverless platform that can handle simple sta
 
 - [x] FreeRTOS as Kernel
 - [x] QuickJS as JavaScript runtime
-  - [x] setTimeout / clearTimeout (FreeRTOS Software Timer)
 - [x] HTTP server
-  - [ ] Event Loop
+  - [x] Event Loop (no Keep-Alive support)
+    - [x] Socket
+    - [x] QuickJS
   - [ ] Static Files (?)
 - [x] Unit tests
   - [x] loader
   - [x] js
   - [ ] httpd
+  - [ ] http handler
   - [ ] logger
-  - [ ] polyfills
-    - [ ] setTimeout
 - [x] Unit tests on CI
 - [x] File System Abstraction
 - [x] Configuration File
-- [ ] Integration tests
+- [ ] Watchdog
+- [ ] Integration tests (Native / QEMU)
 - [ ] Integration tests on CI
-- [ ] Node-like APIs (ref. [workerd](https://github.com/cloudflare/workerd/tree/main/src/node))
-  - [ ] assert
+- [ ] APIs (ref. [Minimum Common Web Platform API](https://common-min-api.proposal.wintercg.org/))
   - [ ] buffer
   - [ ] crypto
-  - [x] diagnostics_channel ❌
   - [ ] events
-  - [ ] path
-  - [x] process.env
-  - [ ] stream (?)
-  - [ ] string_decoder
-  - [ ] util
-- [ ] Fetch API
-- [ ] QuickJS Memory Leak Check
-- [ ] Use less printf()
+  - [ ] path (?)
+  - [ ] fetch
+  - [ ] base64
+  - [x] setTimeout (FreeRTOS Timer)
+- [ ] Memory Leak Check
+- [ ] Valgrind
+- [ ] gprof profiling
+- [ ] Optimize libc usage
+  - [ ] Use less printf()
 - [ ] QuickJS Project Template
 - [ ] Low-power mode
-- [ ] Benchmark
-- [ ] Port to Raspberry Pi Pico (RP2040) (LittleFs + FreeRTOS+POSIX + FreeRTOS+TCP)
-- [ ] Integrate with some Analytics and Monitoring Platforms
+- [x] Benchmark
+- [x] Port to Raspberry Pi Pico (RP2040)
+  - [x] Multi-core support
+- [ ] Monitoring
+  - [ ] CPU Usage ([vTaskGetRunTimeStats](https://www.freertos.org/rtos-run-time-stats.html))
+  - [ ] Memory Usage ([vPortGetHeapStats](https://www.freertos.org/a00111.html))
 - [ ] Port to ESP32?
-- [ ] MicroPython?
+- [x] MicroPython (will not do ❌)
 
 ### Limitations
 
@@ -57,28 +60,26 @@ The goal is to create a low-power serverless platform that can handle simple sta
 ### Building and Running
 
 Prerequisites:
-- automake
+- cmake
 - make
 - gcc
-- libtool
+- cpputest
+- xxd (libtool)
 - ninja (optional for building c-capnproto)
 
 ```sh
 # install dependencies
-brew install automake libtool ninja
+brew install gcc cmake make libtool cpputest ninja
 # or
-sudo apt install -y build-essential libtool ninja-build
+sudo apt install -y build-essential make cmake xxd cpputest ninja-build
 
-git clone <this f***ing repo>
+git clone https://github.com/jeeyo/isere.git
 git submodule update --init
 
-# compile dependencies
-make -j deps
-
-# compile examples javascript
-make -j .examples
-
-# compile isere
+# build
+mkdir build
+cd build
+cmake ..
 make -j
 
 # run isere
@@ -87,11 +88,10 @@ make -j
 
 try to access `http://localhost:8080/` and see the process logs  
   
-feel free to try modify `examples/echo.esm.js` (don't forget to recompile it using `make -j .examples`)
+feel free to try modify `examples/handler.js`
 
 ### Running Tests
 
 ```sh
-make -j unittest
-./unittest
+./unittests
 ```

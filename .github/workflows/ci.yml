@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build_and_test:
+    name: Build and Test (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc g++ make cmake xxd autoconf
+
+      - uses: actions/checkout@v4
+        with:
+          repository: cpputest/cpputest
+          path: ./cpputest
+
+      - name: Restore cached CppUTest
+        id: cache-cpputest-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: cpputest
+          key: ${{ runner.os }}-cpputest
+
+      - name: Install CppUTest from source
+        if: steps.cache-cpputest-restore.outputs.cache-hit != 'true'
+        run: autoreconf -i . && ./configure && make tdd
+        working-directory: cpputest
+
+      - name: Save CppUTest
+        id: cache-cpputest-save
+        uses: actions/cache/save@v4
+        with:
+          path: cpputest
+          key: ${{ steps.cache-cpputest-restore.outputs.cache-primary-key }}
+
+      - run: mkdir build
+
+      - name: Build
+        run: cmake .. && make VERBOSE=1 -j4
+        env:
+          CPPUTEST_HOME: ${{ github.workspace }}/cpputest
+        working-directory: build
+
+      - name: Run unit tests
+        run: ./unittests -ojunit
+        working-directory: build
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: './build/cpputest_*.xml'

@@ -1,17 +1,24 @@
 #ifndef ISERE_H_
-
 #define ISERE_H_
-
-#include <stdint.h>
-
-#include "quickjs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include <stdint.h>
+
+#include "platform.h"
+
+#include "FreeRTOS.h"
+#include "timers.h"
+
+#include "quickjs.h"
+
 #define ISERE_APP_NAME "isere"
+
+#ifndef ISERE_APP_VERSION
 #define ISERE_APP_VERSION "0.0.1"
+#endif /* ISERE_APP_VERSION */
 
 #define ISERE_LOG_TAG "isere"
 
@@ -38,19 +45,29 @@ typedef struct {
 } isere_logger_t;
 
 typedef struct {
+#ifdef ISERE_USE_DYNLINK
   void *dll;
+#endif /* ISERE_USE_DYNLINK */
   uint8_t *fn;
   uint32_t fn_size;
 } isere_loader_t;
 
+#define ISERE_JS_POLYFILLS_MAX_TIMERS 5
+
+typedef struct {
+  TimerHandle_t timer;
+  JSContext *ctx;
+  JSValue func;
+} polyfill_timer_t;
+
 typedef struct {
   JSRuntime *runtime;
   JSContext *context;
+  JSValue future;
+  polyfill_timer_t timers[ISERE_JS_POLYFILLS_MAX_TIMERS];
 } isere_js_t;
 
-typedef struct {
-  int fd;
-} isere_httpd_t;
+typedef void * isere_httpd_t;
 
 typedef void * isere_tcp_t;
 

@@ -1,8 +1,7 @@
 #ifndef ISERE_RTC_H_
+#define ISERE_RTC_H_
 
 #include "isere.h"
-
-#define ISERE_RTC_H_
 
 #include <time.h>
 
@@ -12,24 +11,20 @@ extern "C" {
 
 #define ISERE_RTC_LOG_TAG "rtc"
 
-int rtc_init(isere_t *isere, isere_rtc_t *rtc);
-void rtc_deinit(isere_rtc_t *rtc);
+typedef struct {
+  int16_t year;    ///< 0..4095
+  int8_t month;    ///< 1..12, 1 is January
+  int8_t day;      ///< 1..28,29,30,31 depending on month
+  int8_t dotw;     ///< 0..6, 0 is Sunday
+  int8_t hour;     ///< 0..23
+  int8_t min;      ///< 0..59
+  int8_t sec;      ///< 0..59
+} rtc_datetime_t;
 
-struct tm {
-	int	tm_sec;		/* seconds after the minute [0-60] */
-	int	tm_min;		/* minutes after the hour [0-59] */
-	int	tm_hour;	/* hours since midnight [0-23] */
-	int	tm_mday;	/* day of the month [1-31] */
-	int	tm_mon;		/* months since January [0-11] */
-	int	tm_year;	/* years since 1900 */
-	int	tm_wday;	/* days since Sunday [0-6] */
-	int	tm_yday;	/* days since January 1 [0-365] */
-	int	tm_isdst;	/* Daylight Savings Time flag */
-	long	tm_gmtoff;	/* offset from UTC in seconds */
-	char	*tm_zone;	/* timezone abbreviation */
-};
-
-struct tm *localtime_r(const time_t *timep, struct tm *result);
+int isere_rtc_init(isere_t *isere, isere_rtc_t *rtc);
+int isere_rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime);
+int isere_rtc_set_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime);
+void isere_rtc_deinit(isere_rtc_t *rtc);
 
 #ifdef __cplusplus
 }
