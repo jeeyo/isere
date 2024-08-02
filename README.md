@@ -2,9 +2,7 @@
 
 isère [(/iːˈzɛər/)](https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=fr&q=Isère)
 
-A serverless platform aimed to be running on Microcontrollers
-
-The goal is to create a low-power serverless platform that can handle simple stateless request like logging in which will require accessing to database and creating JWT token
+A serverless platform aimed to be running on Microcontrollers, powered by FreeRTOS, LwIP, and QuickJS
 
 ### Current progress
 
@@ -22,19 +20,20 @@ The goal is to create a low-power serverless platform that can handle simple sta
   - [ ] http handler
   - [ ] logger
 - [x] Unit tests on CI
-- [x] File System Abstraction
+- [ ] File System
 - [x] Configuration File
-- [ ] Watchdog
-- [ ] Integration tests (Native / QEMU)
+- [ ] Watchdog timer
+- [ ] Integration tests
 - [ ] Integration tests on CI
 - [ ] APIs (ref. [Minimum Common Web Platform API](https://common-min-api.proposal.wintercg.org/))
   - [ ] buffer
   - [ ] crypto
   - [ ] events
   - [ ] path (?)
+  - [ ] fs
   - [ ] fetch
   - [ ] base64
-  - [x] setTimeout (FreeRTOS Timer)
+  - [x] setTimeout / clearTimeout (FreeRTOS Timer)
 - [ ] Memory Leak Check
 - [ ] Valgrind
 - [ ] gprof profiling
@@ -64,34 +63,65 @@ Prerequisites:
 - make
 - gcc
 - cpputest
-- xxd (libtool)
+- xxd
 - ninja (optional for building c-capnproto)
 
-```sh
-# install dependencies
-brew install gcc cmake make libtool cpputest ninja
-# or
-sudo apt install -y build-essential make cmake xxd cpputest ninja-build
+### Install dependencies
 
+#### macOS
+
+```zsh
+brew install gcc cmake make libtool ninja
+```
+
+If you want to build unit tests, you also need to install CppUTest
+
+```zsh
+brew install cpputest
+export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
+```
+
+#### Debian-based Linux
+
+```bash
+sudo apt-get install -y build-essential make cmake xxd ninja-build
+```
+
+For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk and gcc](https://cpputest.github.io/) section on CppUTest website.
+
+### Building
+
+```sh
 git clone https://github.com/jeeyo/isere.git
 git submodule update --init
 
-# build
 mkdir build
 cd build
-cmake ..
+cmake -DTARGET_PLATFORM=linux -DDEBUG=on .. # see CMake variables for more options
 make -j
+```
 
-# run isere
+#### CMake variables
+
+|Name|Description|Supported values|
+|-|-|-|
+|TARGET_PLATFORM|Target platform to build isère executable for|linux (default), rp2040|
+|DEBUG|Whether to build isère executable with debug symbol|off (default), on|
+
+### Running
+
+```sh
 ./isere
 ```
 
-try to access `http://localhost:8080/` and see the process logs  
-  
-feel free to try modify `examples/handler.js`
+A web server will start on port 8080 with the function defined in [examples/handler.js](examples/handler.js)
 
 ### Running Tests
 
 ```sh
 ./unittests
 ```
+
+### Benchmark
+
+See [BENCHMARK.md](BENCHMARK.md)
