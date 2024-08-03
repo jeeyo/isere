@@ -114,7 +114,7 @@ make -j
 ./isere
 ```
 
-A web server will start on port 8080 with the function defined in [examples/handler.js](examples/handler.js)
+A web server will start on port 8080 with the function defined in [js/handler.js](js/handler.js)
 
 ### Running Tests
 

@@ -17,7 +17,7 @@ set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
 set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
-set(EXAMPLES_DIR ./examples)
+set(JS_DIR ./js)
 
 set(SOURCES )
 
@@ -84,11 +84,11 @@ endif()
 
 add_custom_command(
   OUTPUT handler.c
-  COMMAND xxd -i ../${EXAMPLES_DIR}/handler.js handler.c
+  COMMAND xxd -i ../${JS_DIR}/handler.js handler.c
   COMMAND sed -i.bak -E "s/[a-z_]+\\[\\]/handler\\[\\]/" handler.c # change code array variable name to "handler"
   COMMAND sed -i.bak -E "s/[a-z_]+_len/handler_len/" handler.c # change code length variable name to "handler_len"
   COMMENT "Compiling JavaScript files"
-  MAIN_DEPENDENCY ../${EXAMPLES_DIR}/handler.js
+  MAIN_DEPENDENCY ../${JS_DIR}/handler.js
   VERBATIM
 )
 
@@ -106,6 +106,7 @@ if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g -pg)
   target_compile_definitions(isere PRIVATE DUMP_LEAKS)
   # target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
+  target_link_options(isere PRIVATE -pg)
 endif()
 
 include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)

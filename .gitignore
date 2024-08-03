@@ -2,8 +2,8 @@
 .DS_Store
 *.so
 build/
-examples/*.c
-examples/*.c.bak
+js/*.c
+js/*.c.bak
 tests/js/*.c
 tests/js/*.c.bak
 isere
