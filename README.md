@@ -101,12 +101,13 @@ cmake -DTARGET_PLATFORM=linux -DDEBUG=on .. # see CMake variables for more optio
 make -j
 ```
 
-#### CMake variables
+#### Build configurations
 
 |Name|Description|Supported values|
 |-|-|-|
 |TARGET_PLATFORM|Target platform to build isère executable for|linux (default), rp2040|
 |DEBUG|Whether to build isère executable with debug symbol|off (default), on|
+|WITH_QUICKJS|Whether to include QuickJS runtime in isère executable|off, on (default)|
 
 ### Running
 

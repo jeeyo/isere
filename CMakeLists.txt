@@ -2,9 +2,14 @@ cmake_minimum_required(VERSION 3.5)
 
 set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
+# build configuration
 option(DEBUG "Debug mode" OFF)
-option(NEED_LWIP "Include LwIP" OFF)
+option(WITH_QUICKJS "Include QuickJS" ON)
+
+# platform-specific configuration
+option(WITH_LWIP "Include LwIP" OFF)
 option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
+option(LOW_MEMORY "Platform is memory-constrained" OFF)
 
 include(portable/${TARGET_PLATFORM}/platform_features.cmake)
 
@@ -63,7 +68,7 @@ list(APPEND SOURCES
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
 
-if(NEED_LWIP)
+if(WITH_LWIP)
   set(LWIP_INCLUDE_DIRS
     ${LWIP_DIR}/src/include
     ./portable/${TARGET_PLATFORM}/include
@@ -94,8 +99,16 @@ add_custom_command(
 
 add_executable(isere ${SOURCES} ./src/main.c)
 
+if(WITH_QUICKJS)
+  target_compile_definitions(isere PRIVATE ISERE_WITH_QUICKJS)
+endif()
+
 if(SUPPORT_DYNLINK)
   target_compile_definitions(isere PRIVATE ISERE_USE_DYNLINK)
+endif()
+
+if(LOW_MEMORY)
+  target_compile_definitions(isere PRIVATE ISERE_LOW_MEMORY)
 endif()
 
 find_package(Git REQUIRED)
@@ -103,10 +116,15 @@ execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE
 target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
 
 if(DEBUG)
-  target_compile_options(isere PRIVATE -O0 -g -pg)
-  target_compile_definitions(isere PRIVATE DUMP_LEAKS)
-  # target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
-  target_link_options(isere PRIVATE -pg)
+  target_compile_options(isere PRIVATE -O0 -g)
+  # target_compile_definitions(isere PRIVATE DUMP_LEAKS)
+  target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
+
+  # enable profiling on Linux
+  if(TARGET_PLATFORM STREQUAL "linux")
+    target_compile_options(isere PRIVATE -pg)
+    target_link_options(isere PRIVATE -pg)
+  endif()
 endif()
 
 include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)
@@ -123,7 +141,7 @@ target_include_directories(isere PRIVATE
   ${CAPNPROTO_DIR}/lib
 )
 
-if(NEED_LWIP)
+if(WITH_LWIP)
   target_include_directories(isere PRIVATE
     ${LWIP_DIR}/src/include
   )

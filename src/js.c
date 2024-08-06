@@ -167,14 +167,17 @@ int isere_js_init(isere_js_t *js)
   JS_AddIntrinsicBaseObjects(js->context);
   JS_AddIntrinsicDate(js->context);
   JS_AddIntrinsicEval(js->context);
+  JS_AddIntrinsicJSON(js->context);
+  JS_AddIntrinsicPromise(js->context);
+
+#ifdef ISERE_LOW_MEMORY
   JS_AddIntrinsicStringNormalize(js->context);
   JS_AddIntrinsicRegExp(js->context);
-  JS_AddIntrinsicJSON(js->context);
   JS_AddIntrinsicProxy(js->context);
   JS_AddIntrinsicMapSet(js->context);
   JS_AddIntrinsicTypedArrays(js->context);
-  JS_AddIntrinsicPromise(js->context);
   JS_AddIntrinsicBigInt(js->context);
+#endif /* ISERE_LOW_MEMORY */
 
   JSValue global_obj = JS_GetGlobalObject(js->context);
   // add console.log(), console.warn(), and console.error() function
