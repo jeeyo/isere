@@ -49,7 +49,7 @@ int main(void)
     return EXIT_FAILURE;
   }
   isere.logger = &logger;
-  
+
   // // initialize file system module
   // isere_fs_t fs;
   // memset(&fs, 0, sizeof(isere_fs_t));

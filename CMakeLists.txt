@@ -116,12 +116,11 @@ execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE
 target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
 
 if(DEBUG)
-  target_compile_options(isere PRIVATE -O0 -g)
-  # target_compile_definitions(isere PRIVATE DUMP_LEAKS)
-  target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
+  target_compile_options(isere PRIVATE -Og -g)
 
   # enable profiling on Linux
   if(TARGET_PLATFORM STREQUAL "linux")
+    target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
     target_compile_options(isere PRIVATE -pg)
     target_link_options(isere PRIVATE -pg)
   endif()
