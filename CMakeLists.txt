@@ -4,7 +4,7 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 # build configuration
 option(DEBUG "Debug mode" OFF)
-option(WITH_QUICKJS "Include QuickJS" ON)
+set(JS_RUNTIME "quickjs" CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
 
 # platform-specific configuration
 option(WITH_LWIP "Include LwIP" OFF)
@@ -17,6 +17,7 @@ project(isere C CXX ASM)
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
 set(FREERTOS_POSIX_DIR ./3rdparty/FreeRTOS-Plus-POSIX)
 set(QUICKJS_DIR ./3rdparty/quickjs)
+set(JERRYSCRIPT_DIR ./3rdparty/jerryscript)
 set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
@@ -50,11 +51,6 @@ list(APPEND SOURCES
   ${FREERTOS_DIR}/tasks.c
   ${FREERTOS_DIR}/timers.c
   ${FREERTOS_DIR}/portable/MemMang/heap_3.c
-  ${QUICKJS_DIR}/quickjs.c
-  ${QUICKJS_DIR}/libbf.c
-  ${QUICKJS_DIR}/libregexp.c
-  ${QUICKJS_DIR}/libunicode.c
-  ${QUICKJS_DIR}/cutils.c
   ${LLHTTP_DIR}/src/api.c
   ${LLHTTP_DIR}/src/http.c
   ${LLHTTP_DIR}/src/llhttp.c
@@ -63,6 +59,22 @@ list(APPEND SOURCES
   ${CAPNPROTO_DIR}/lib/capn-stream.c
   ${CAPNPROTO_DIR}/lib/capn.c
 )
+
+if(JS_RUNTIME STREQUAL "quickjs")
+  list(APPEND SOURCES
+    ${QUICKJS_DIR}/quickjs.c
+    ${QUICKJS_DIR}/libbf.c
+    ${QUICKJS_DIR}/libregexp.c
+    ${QUICKJS_DIR}/libunicode.c
+    ${QUICKJS_DIR}/cutils.c
+    ./src/runtimes/quickjs.c
+  )
+elseif()
+  add_custom_target(amalgam)
+  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-math)
+  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
+  target_link_libraries(isere PRIVATE jerry-math jerry-core)
+endif()
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
 

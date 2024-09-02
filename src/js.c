@@ -213,6 +213,8 @@ int isere_js_new_context(isere_js_t *js, isere_js_context_t *ctx)
 int isere_js_free_context(isere_js_context_t *ctx)
 {
   if (ctx->context) {
+    JS_FreeValue(ctx->context, ctx->future);
+
     isere_js_polyfill_timer_deinit(ctx);
     // isere_js_polyfill_fetch_deinit(ctx->context);
 
