@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include "isere_config.h"
+
 #include <stdint.h>
 
 #include "platform.h"
@@ -65,7 +67,9 @@ typedef struct {
   JSContext *context;
   JSValue future;
   polyfill_timer_t timers[ISERE_JS_POLYFILLS_MAX_TIMERS];
-} isere_js_t;
+} isere_js_context_t;
+
+typedef void * isere_js_t;
 
 typedef void * isere_httpd_t;
 
@@ -80,6 +84,7 @@ typedef void * isere_rtc_t;
 typedef struct {
   isere_logger_t *logger;
   isere_loader_t *loader;
+  isere_js_t *js;
   isere_tcp_t *tcp;
   isere_httpd_t *httpd;
   isere_fs_t *fs;

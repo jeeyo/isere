@@ -61,7 +61,7 @@ JSValue polyfill_timer_setTimeout(JSContext *ctx, JSValueConst this_val, int arg
     return obj;
   }
 
-  isere_js_t *js = (isere_js_t *)JS_GetContextOpaque(ctx);
+  isere_js_context_t *js = (isere_js_context_t *)JS_GetContextOpaque(ctx);
   polyfill_timer_t *tmr = __polyfill_timer_get_free_slot(js->timers);
   if (!tmr) {
     JS_FreeValue(ctx, obj);
@@ -99,26 +99,26 @@ JSValue polyfill_timer_clearTimeout(JSContext *ctx, JSValueConst this_val, int a
   return JS_UNDEFINED;
 }
 
-void isere_js_polyfill_timer_init(isere_js_t *js)
+void isere_js_polyfill_timer_init(isere_js_context_t *ctx)
 {
-  JSValue global_obj = JS_GetGlobalObject(js->context);
-  JS_SetPropertyStr(js->context, global_obj, "setTimeout", JS_NewCFunction(js->context, polyfill_timer_setTimeout, "setTimeout", 2));
-  JS_SetPropertyStr(js->context, global_obj, "clearTimeout", JS_NewCFunction(js->context, polyfill_timer_clearTimeout, "clearTimeout", 1));
-  JS_FreeValue(js->context, global_obj);
+  JSValue global_obj = JS_GetGlobalObject(ctx->context);
+  JS_SetPropertyStr(ctx->context, global_obj, "setTimeout", JS_NewCFunction(ctx->context, polyfill_timer_setTimeout, "setTimeout", 2));
+  JS_SetPropertyStr(ctx->context, global_obj, "clearTimeout", JS_NewCFunction(ctx->context, polyfill_timer_clearTimeout, "clearTimeout", 1));
+  JS_FreeValue(ctx->context, global_obj);
 
   for (int i = 0; i < ISERE_JS_POLYFILLS_MAX_TIMERS; i++) {
-    polyfill_timer_t *tmr = &js->timers[i];
+    polyfill_timer_t *tmr = &ctx->timers[i];
     memset(tmr, 0, sizeof(polyfill_timer_t));
     tmr->timer = NULL;
-    tmr->ctx = js->context;
+    tmr->ctx = ctx->context;
     tmr->func = JS_UNDEFINED;
   }
 }
 
-void isere_js_polyfill_timer_deinit(isere_js_t *js)
+void isere_js_polyfill_timer_deinit(isere_js_context_t *ctx)
 {
   for (int i = 0; i < ISERE_JS_POLYFILLS_MAX_TIMERS; i++) {
-    polyfill_timer_t *tmr = &js->timers[i];
+    polyfill_timer_t *tmr = &ctx->timers[i];
 
     if (tmr->timer != NULL) {
       TimerHandle_t timer = tmr->timer;
@@ -132,23 +132,23 @@ void isere_js_polyfill_timer_deinit(isere_js_t *js)
     JS_FreeValue(ctx, func);
   }
 
-  JSValue global_obj = JS_GetGlobalObject(js->context);
+  JSValue global_obj = JS_GetGlobalObject(ctx->context);
 
-  JSAtom setTimeout = JS_NewAtom(js->context, "setTimeout");
-  JS_DeleteProperty(js->context, global_obj, setTimeout, 0);
-  JS_FreeAtom(js->context, setTimeout);
+  JSAtom setTimeout = JS_NewAtom(ctx->context, "setTimeout");
+  JS_DeleteProperty(ctx->context, global_obj, setTimeout, 0);
+  JS_FreeAtom(ctx->context, setTimeout);
 
-  JSAtom clearTimeout = JS_NewAtom(js->context, "clearTimeout");
-  JS_DeleteProperty(js->context, global_obj, clearTimeout, 0);
-  JS_FreeAtom(js->context, clearTimeout);
+  JSAtom clearTimeout = JS_NewAtom(ctx->context, "clearTimeout");
+  JS_DeleteProperty(ctx->context, global_obj, clearTimeout, 0);
+  JS_FreeAtom(ctx->context, clearTimeout);
 
-  JS_FreeValue(js->context, global_obj);
+  JS_FreeValue(ctx->context, global_obj);
 }
 
-int isere_js_polyfill_timer_poll(isere_js_t *js)
+int isere_js_polyfill_timer_poll(isere_js_context_t *ctx)
 {
   for (int i = 0; i < ISERE_JS_POLYFILLS_MAX_TIMERS; i++) {
-    polyfill_timer_t *tmr = &js->timers[i];
+    polyfill_timer_t *tmr = &ctx->timers[i];
     TimerHandle_t timer = tmr->timer;
     if (timer != NULL && xTimerIsTimerActive(timer)) {
       return 1;

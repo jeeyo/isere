@@ -41,7 +41,7 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
     socket->revents = 0;
   }
 
-  if (xTaskCreate(__isere_tusb_task, "usb", 384, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle)) {
+  if (xTaskCreate(__isere_tusb_task, "usb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle)) {
     __isere->logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
   }
 
@@ -99,7 +99,7 @@ int isere_tcp_socket_init(tcp_socket_t *sock)
   return 0;
 }
 
-void isere_tcp_socket_close(tcp_socket_t *sock)
+void isere_tcp_close(tcp_socket_t *sock)
 {
   lwip_close(sock->fd);
 
@@ -227,7 +227,7 @@ static void __isere_tusb_task(void *param)
     tud_task();
   }
 
-  __isere->logger->error(ISERE_HTTPD_LOG_TAG, "tusb task was unexpectedly closed");
+  __isere->logger->error(ISERE_TCP_LOG_TAG, "tusb task was unexpectedly closed");
   should_exit = 1;
   vTaskDelete(NULL);
 }

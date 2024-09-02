@@ -28,7 +28,7 @@ typedef struct {
 
 tcp_socket_t *isere_tcp_socket_new();
 int isere_tcp_socket_init(tcp_socket_t *sock);
-void isere_tcp_socket_close(tcp_socket_t *sock);
+void isere_tcp_close(tcp_socket_t *sock);
 int isere_tcp_listen(tcp_socket_t *sock, uint16_t port);
 tcp_socket_t *isere_tcp_accept(tcp_socket_t *sock, char *ip_addr);
 ssize_t isere_tcp_recv(tcp_socket_t *sock, char *buf, size_t len);

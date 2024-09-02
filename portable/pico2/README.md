@@ -7,7 +7,7 @@ flowchart LR
     httpd --> http_handler(HTTP Request Handler)
     http_handler -->|execute JavaScript code| js(QuickJS wrapper)
     js --> timer_polyfill(Timer polyfill)
-    js --> fetch_polyfill(Fetch polyfill)
+    js --> fetch_polyfill(Fetch polyfill*)
     isere --> ini(Configuration*)
     end
 
@@ -32,8 +32,8 @@ flowchart LR
     ota --> rom
 ```
 
-Note that the component with asterisk (*) is not implemented yet.
-For RP2040 port, isere doesn't support over-the-air JavaScript code or configuration update.
+Note that the components with asterisk (*) are not implemented yet.
+For RP2350 port, isere doesn't support over-the-air JavaScript code or configuration update.
 
 In this alpha version, we statically link JavaScript code with the main binary.
 Since the main goal is to make it able to run the server for the benchmark.

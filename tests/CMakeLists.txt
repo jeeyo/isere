@@ -1,11 +1,11 @@
 if (DEFINED ENV{CPPUTEST_HOME} AND NOT "$ENV{CPPUTEST_HOME}" STREQUAL "")
   add_custom_command(
     OUTPUT handler_for_test.c
-    COMMAND xxd -i ../tests/handler.js handler_for_test.c
+    COMMAND xxd -i ../tests/handler_for_test.js handler_for_test.c
     COMMAND sed -i.bak -E "s/[a-z_]+\\[\\]/handler\\[\\]/" handler_for_test.c # change code array variable name to "handler"
     COMMAND sed -i.bak -E "s/[a-z_]+_len/handler_len/" handler_for_test.c # change code length variable name to "handler_len"
     COMMENT "Compiling JavaScript files for unit tests"
-    MAIN_DEPENDENCY ./tests/handler.js
+    MAIN_DEPENDENCY ./tests/handler_for_test.js
     VERBATIM
   )
 

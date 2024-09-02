@@ -25,12 +25,14 @@ void sigint(int dummy) {
 
   isere_httpd_deinit(isere.httpd);
   isere_tcp_deinit(isere.tcp);
+  isere_js_deinit(isere.js);
   isere_loader_deinit(isere.loader);
   // fs_deinit(isere.fs);
   // isere_ini_deinit(isere.ini);
   isere_logger_deinit(isere.logger);
 
   vTaskEndScheduler();
+  exit(EXIT_SUCCESS);
 }
 #endif
 
@@ -49,7 +51,7 @@ int main(void)
     return EXIT_FAILURE;
   }
   isere.logger = &logger;
-  
+
   // // initialize file system module
   // isere_fs_t fs;
   // memset(&fs, 0, sizeof(isere_fs_t));
@@ -72,7 +74,7 @@ int main(void)
   // logger.info(ISERE_LOG_TAG, "  timeout: %d", isere_ini_get_timeout(&ini));
   // logger.info(ISERE_LOG_TAG, "====================================");
 
-  // dynamically loading javascript serverless handler
+  // load handler.js
   isere_loader_t loader;
   memset(&loader, 0, sizeof(isere_loader_t));
   if (isere_loader_init(&isere, &loader) < 0) {
@@ -80,6 +82,15 @@ int main(void)
     return EXIT_FAILURE;
   }
   isere.loader = &loader;
+
+  // initialize js module
+  isere_js_t js;
+  memset(&js, 0, sizeof(isere_js_t));
+  if (isere_js_init(&isere, &js) < 0) {
+    logger.error(ISERE_LOG_TAG, "Unable to initialize js module");
+    return EXIT_FAILURE;
+  }
+  isere.js = &js;
 
   // initialize tcp module
   isere_tcp_t tcp;
@@ -93,8 +104,11 @@ int main(void)
   // initialize web server module
   isere_httpd_t httpd;
   memset(&httpd, 0, sizeof(isere_httpd_t));
+#ifdef ISERE_WITH_QUICKJS
   if (isere_httpd_init(&isere, &httpd, &__http_handler) < 0) {
-  // if (isere_httpd_init(&isere, &httpd, NULL) < 0) {
+#else
+  if (isere_httpd_init(&isere, &httpd, NULL) < 0) {
+#endif /* ISERE_WITH_QUICKJS */
     logger.error(ISERE_LOG_TAG, "Unable to initialize httpd module");
     return EXIT_FAILURE;
   }

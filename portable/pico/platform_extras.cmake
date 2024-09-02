@@ -6,6 +6,7 @@ target_include_directories(isere PRIVATE
 
 target_link_libraries(isere
   pico_stdlib
+  pico_stdio_semihosting
   pico_multicore
   pico_lwip
   pico_lwip_contrib_freertos
@@ -21,6 +22,7 @@ target_compile_definitions(isere PRIVATE PICO_STDOUT_MUTEX=0)
 
 pico_enable_stdio_usb(isere 0)
 pico_enable_stdio_uart(isere 0)
+pico_enable_stdio_semihosting(isere 1)
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(isere)

@@ -175,6 +175,7 @@ static char const* string_desc_arr [] =
 };
 
 static uint16_t _desc_str[32 + 1];
+static pico_unique_board_id_t id;
 
 // Invoked when received GET STRING DESCRIPTOR request
 // Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
@@ -188,8 +189,7 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
       chr_count = 1;
       break;
 
-    case STRID_SERIAL:
-      pico_unique_board_id_t id;
+    case STRID_SERIAL: {
       pico_get_unique_board_id(&id);
       
       for (unsigned i=0; i<sizeof(id.id); i++)
@@ -198,7 +198,7 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
         _desc_str[1+chr_count++] = "0123456789ABCDEF"[(id.id[i] >> 0) & 0xf];
       }
       break;
-
+    }
     case STRID_MAC:
       // Convert MAC address into UTF-16
       for (unsigned i=0; i<sizeof(tud_network_mac_address); i++) {

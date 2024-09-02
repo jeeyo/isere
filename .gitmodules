@@ -1,6 +1,6 @@
 [submodule "3rdparty/FreeRTOS"]
 	path = 3rdparty/FreeRTOS
-	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+	url = https://github.com/raspberrypi/FreeRTOS-Kernel.git
 [submodule "3rdparty/quickjs"]
 	path = 3rdparty/quickjs
 	url = https://github.com/jeeyo/quickjs.git

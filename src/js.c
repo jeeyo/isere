@@ -7,6 +7,8 @@
 #include "quickjs.h"
 #include "quickjs-libc.h"
 
+static isere_t *__isere = NULL;
+
 static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, const char *color)
 {
   puts(color);
@@ -134,84 +136,91 @@ static const JSMallocFunctions __mf = {
   NULL,
 };
 
-int isere_js_init(isere_js_t *js)
+int isere_js_init(isere_t *isere, isere_js_t *js)
 {
-  if (js->runtime != NULL || js->context != NULL) {
-    // __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS runtime and context already initialized");
-    return -1;
-  }
-
-  // initialize quickjs runtime
-  // js->runtime = JS_NewRuntime();
-  js->runtime = JS_NewRuntime2(&__mf, NULL);
-  if (js->runtime == NULL)
-  {
-    // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");
-    return -1;
-  }
-  // TODO: custom memory allocation with JS_NewRuntime2()
-  // TODO: set global memory limit with JS_SetMemoryLimit()
-  JS_SetMaxStackSize(js->runtime, ISERE_JS_STACK_SIZE);
-
-  // initialize quickjs context
-  js->context = JS_NewContextRaw(js->runtime);
-  if (js->context == NULL)
-  {
-    // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS context");
-    return -1;
-  }
-
-  // attach isere_js_t object to QuickJS context
-  JS_SetContextOpaque(js->context, js);
-
-  JS_AddIntrinsicBaseObjects(js->context);
-  JS_AddIntrinsicDate(js->context);
-  JS_AddIntrinsicEval(js->context);
-  JS_AddIntrinsicStringNormalize(js->context);
-  JS_AddIntrinsicRegExp(js->context);
-  JS_AddIntrinsicJSON(js->context);
-  JS_AddIntrinsicProxy(js->context);
-  JS_AddIntrinsicMapSet(js->context);
-  JS_AddIntrinsicTypedArrays(js->context);
-  JS_AddIntrinsicPromise(js->context);
-  JS_AddIntrinsicBigInt(js->context);
-
-  JSValue global_obj = JS_GetGlobalObject(js->context);
-  // add console.log(), console.warn(), and console.error() function
-  JSValue console = JS_NewObject(js->context);
-  JS_SetPropertyStr(js->context, console, "log", JS_NewCFunction(js->context, __console_log, "log", 1));
-  JS_SetPropertyStr(js->context, console, "warn", JS_NewCFunction(js->context, __console_warn, "warn", 1));
-  JS_SetPropertyStr(js->context, console, "error", JS_NewCFunction(js->context, __console_error, "error", 1));
-  JS_SetPropertyStr(js->context, global_obj, "console", console);
-
-  // TODO: environment variables
-  // add process.env
-  JSValue process = JS_NewObject(js->context);
-  JSValue env = JS_NewObject(js->context);
-  JS_SetPropertyStr(js->context, env, "NODE_ENV", JS_NewString(js->context, "production"));
-  JS_SetPropertyStr(js->context, process, "env", env);
-  JS_SetPropertyStr(js->context, global_obj, "process", process);
-
-  // add setTimeout / clearTimeout
-  isere_js_polyfill_timer_init(js);
-  // isere_js_polyfill_fetch_init(js->context);
-
-  JS_FreeValue(js->context, global_obj);
+  __isere = isere;
 
   return 0;
 }
 
 int isere_js_deinit(isere_js_t *js)
 {
-  if (js->context) {
-    isere_js_polyfill_timer_deinit(js);
-    // isere_js_polyfill_fetch_deinit(js->context);
+  return 0;
+}
 
-    JS_FreeContext(js->context);
+int isere_js_new_context(isere_js_t *js, isere_js_context_t *ctx)
+{
+  if (ctx->runtime != NULL || ctx->context != NULL) {
+    __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS runtime or context already initialized");
+    return -1;
   }
 
-  if (js->runtime) {
-    JS_FreeRuntime(js->runtime);
+  // initialize quickjs runtime
+  // ctx->runtime = JS_NewRuntime();
+  ctx->runtime = JS_NewRuntime2(&__mf, NULL);
+  if (ctx->runtime == NULL)
+  {
+    __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");
+    return -1;
+  }
+
+  // TODO: custom memory allocation with JS_NewRuntime2()
+  // TODO: set global memory limit with JS_SetMemoryLimit()
+  // JS_SetMaxStackSize(js->runtime, ISERE_JS_STACK_SIZE);
+
+  // initialize quickjs context
+  ctx->context = JS_NewContextRaw(ctx->runtime);
+  if (ctx->context == NULL)
+  {
+    __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS context");
+    return -1;
+  }
+
+  // attach isere_js_context_t object to QuickJS context
+  JS_SetContextOpaque(ctx->context, ctx);
+
+  JS_AddIntrinsicBaseObjects(ctx->context);
+  JS_AddIntrinsicDate(ctx->context);
+  JS_AddIntrinsicEval(ctx->context);
+  JS_AddIntrinsicJSON(ctx->context);
+  JS_AddIntrinsicPromise(ctx->context);
+
+  JSValue global_obj = JS_GetGlobalObject(ctx->context);
+  // add console.log(), console.warn(), and console.error() function
+  JSValue console = JS_NewObject(ctx->context);
+  JS_SetPropertyStr(ctx->context, console, "log", JS_NewCFunction(ctx->context, __console_log, "log", 1));
+  JS_SetPropertyStr(ctx->context, console, "warn", JS_NewCFunction(ctx->context, __console_warn, "warn", 1));
+  JS_SetPropertyStr(ctx->context, console, "error", JS_NewCFunction(ctx->context, __console_error, "error", 1));
+  JS_SetPropertyStr(ctx->context, global_obj, "console", console);
+
+  // TODO: environment variables
+  // add process.env
+  JSValue process = JS_NewObject(ctx->context);
+  JSValue env = JS_NewObject(ctx->context);
+  JS_SetPropertyStr(ctx->context, env, "NODE_ENV", JS_NewString(ctx->context, "production"));
+  JS_SetPropertyStr(ctx->context, process, "env", env);
+  JS_SetPropertyStr(ctx->context, global_obj, "process", process);
+
+  // add setTimeout / clearTimeout
+  isere_js_polyfill_timer_init(ctx);
+  // isere_js_polyfill_fetch_init(ctx->context);
+
+  JS_FreeValue(ctx->context, global_obj);
+
+  return 0;
+}
+
+int isere_js_free_context(isere_js_context_t *ctx)
+{
+  if (ctx->context) {
+    isere_js_polyfill_timer_deinit(ctx);
+    // isere_js_polyfill_fetch_deinit(ctx->context);
+
+    JS_FreeContext(ctx->context);
+  }
+
+  if (ctx->runtime) {
+    JS_FreeRuntime(ctx->runtime);
   }
 
   return 0;
@@ -247,51 +256,51 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
   return JS_UNDEFINED;
 }
 
-int isere_js_eval(isere_js_t *js, unsigned char *handler, unsigned int handler_len)
+int isere_js_eval(isere_js_context_t *ctx, unsigned char *handler, unsigned int handler_len)
 {
-  JSValue global_obj = JS_GetGlobalObject(js->context);
+  JSValue global_obj = JS_GetGlobalObject(ctx->context);
 
   // add callback for getting the result
-  JS_SetPropertyStr(js->context, global_obj, "cb", JS_NewCFunction(js->context, __handler_cb, "cb", 1));
-  JS_FreeValue(js->context, global_obj);
+  JS_SetPropertyStr(ctx->context, global_obj, "cb", JS_NewCFunction(ctx->context, __handler_cb, "cb", 1));
+  JS_FreeValue(ctx->context, global_obj);
 
-  JSValue h = JS_Eval(js->context, (const char *)handler, handler_len, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+  JSValue h = JS_Eval(ctx->context, (const char *)handler, handler_len, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
   if (JS_IsException(h)) {
     // TODO: error goes to logger
-    js_std_dump_error(js->context);
-    JS_FreeValue(js->context, h);
+    js_std_dump_error(ctx->context);
+    JS_FreeValue(ctx->context, h);
     return -1;
   }
 
-  js_module_set_import_meta(js->context, h, 0, 0);
-  JS_FreeValue(js->context, h);
+  js_module_set_import_meta(ctx->context, h, 0, 0);
+  JS_FreeValue(ctx->context, h);
 
   const char *eval =
     "import { handler } from 'handler';"
     "const handler1 = new Promise(resolve => handler(__event, __context, resolve).then(resolve));"
     "Promise.resolve(handler1).then(cb)";
 
-  js->future = JS_Eval(js->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_BACKTRACE_BARRIER);
-  if (JS_IsException(js->future)) {
+  ctx->future = JS_Eval(ctx->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_BACKTRACE_BARRIER);
+  if (JS_IsException(ctx->future)) {
     // TODO: error goes to logger
-    js_std_dump_error(js->context);
+    js_std_dump_error(ctx->context);
     return -1;
   }
 
   return 0;
 }
 
-int isere_js_poll(isere_js_t *js)
+int isere_js_poll(isere_js_context_t *ctx)
 {
   JSContext *ctx1;
   int err;
   int tmrerr = 0;
 
   // execute the pending timers
-  tmrerr = isere_js_polyfill_timer_poll(js);
+  tmrerr = isere_js_polyfill_timer_poll(ctx);
 
   // execute the pending jobs
-  err = JS_ExecutePendingJob(JS_GetRuntime(js->context), &ctx1);
+  err = JS_ExecutePendingJob(JS_GetRuntime(ctx->context), &ctx1);
   if (err < 0) {
     js_std_dump_error(ctx1);
   }

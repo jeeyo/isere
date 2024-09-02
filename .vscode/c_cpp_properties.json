@@ -2,7 +2,7 @@
     "configurations": [
         {
             "name": "POSIX",
-            "intelliSenseMode": "gcc-arm64",
+            "intelliSenseMode": "gcc-x64",
             "includePath": [
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/portable/include",
@@ -30,23 +30,45 @@
         },
         {
             "name": "RP2040",
-            "intelliSenseMode": "gcc-arm64",
+            "intelliSenseMode": "gcc-x64",
             "includePath": [
-                "/Applications/ArmGNUToolchain/13.2.Rel1/arm-none-eabi/include",
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/portable/include",
-                "${workspaceFolder}/portable/rp2040/include",
+                "${workspaceFolder}/portable/pico/include",
                 "${workspaceFolder}/schemas",
                 "${workspaceFolder}/3rdparty/FreeRTOS/include",
-                "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/Posix",
-                "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/Posix/utils",
+                "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/RP2040/include",
                 "${workspaceFolder}/3rdparty/quickjs",
                 "${workspaceFolder}/3rdparty/llhttp/include",
                 "${workspaceFolder}/3rdparty/libyuarel",
-                "${workspaceFolder}/3rdparty/cpputest/include",
                 "${workspaceFolder}/3rdparty/c-capnproto/lib"
             ],
-            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c99",
+            "cppStandard": "c++17",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "configurationProvider": "ms-vscode.cpptools"
+        },
+        {
+            "name": "RP2350",
+            "intelliSenseMode": "gcc-x64",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/portable/include",
+                "${workspaceFolder}/portable/pico2/include",
+                "${workspaceFolder}/schemas",
+                "${workspaceFolder}/3rdparty/FreeRTOS/include",
+                "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure",
+                "${workspaceFolder}/3rdparty/quickjs",
+                "${workspaceFolder}/3rdparty/llhttp/include",
+                "${workspaceFolder}/3rdparty/libyuarel",
+                "${workspaceFolder}/3rdparty/c-capnproto/lib"
+            ],
             "cStandard": "c99",
             "cppStandard": "c++17",
             "browse": {

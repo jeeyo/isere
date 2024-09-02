@@ -2,8 +2,12 @@ cmake_minimum_required(VERSION 3.5)
 
 set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
+# build configuration
 option(DEBUG "Debug mode" OFF)
-option(NEED_LWIP "Include LwIP" OFF)
+option(WITH_QUICKJS "Include QuickJS" ON)
+
+# platform-specific configuration
+option(WITH_LWIP "Include LwIP" OFF)
 option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
 
 include(portable/${TARGET_PLATFORM}/platform_features.cmake)
@@ -17,7 +21,7 @@ set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
 set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
-set(EXAMPLES_DIR ./examples)
+set(JS_DIR ./js)
 
 set(SOURCES )
 
@@ -28,7 +32,6 @@ list(APPEND SOURCES
   ./src/ini.c
   ./src/js.c
   ./src/quickjs-libc.c
-  # ./src/rb.c
   ./src/polyfills/fetch.c
   ./src/polyfills/timer.c
   ./src/polyfills/pvPortRealloc.c
@@ -63,7 +66,7 @@ list(APPEND SOURCES
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
 
-if(NEED_LWIP)
+if(WITH_LWIP)
   set(LWIP_INCLUDE_DIRS
     ${LWIP_DIR}/src/include
     ./portable/${TARGET_PLATFORM}/include
@@ -84,11 +87,11 @@ endif()
 
 add_custom_command(
   OUTPUT handler.c
-  COMMAND xxd -i ../${EXAMPLES_DIR}/handler.js handler.c
+  COMMAND xxd -i ../${JS_DIR}/handler.js handler.c
   COMMAND sed -i.bak -E "s/[a-z_]+\\[\\]/handler\\[\\]/" handler.c # change code array variable name to "handler"
   COMMAND sed -i.bak -E "s/[a-z_]+_len/handler_len/" handler.c # change code length variable name to "handler_len"
   COMMENT "Compiling JavaScript files"
-  MAIN_DEPENDENCY ../${EXAMPLES_DIR}/handler.js
+  MAIN_DEPENDENCY ../${JS_DIR}/handler.js
   VERBATIM
 )
 
@@ -103,9 +106,14 @@ execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE
 target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
 
 if(DEBUG)
-  target_compile_options(isere PRIVATE -O0 -g -pg)
-  target_compile_definitions(isere PRIVATE DUMP_LEAKS)
-  # target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
+  target_compile_options(isere PRIVATE -O0 -g)
+
+  # enable profiling on Linux
+  if(TARGET_PLATFORM STREQUAL "linux")
+    # target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
+    target_compile_options(isere PRIVATE -pg)
+    target_link_options(isere PRIVATE -pg)
+  endif()
 endif()
 
 include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)
@@ -122,7 +130,7 @@ target_include_directories(isere PRIVATE
   ${CAPNPROTO_DIR}/lib
 )
 
-if(NEED_LWIP)
+if(WITH_LWIP)
   target_include_directories(isere PRIVATE
     ${LWIP_DIR}/src/include
   )
@@ -140,5 +148,5 @@ add_custom_command(
 )
 
 if(TARGET_PLATFORM STREQUAL "linux")
-  include(unittests.cmake)
+  include(./tests/CMakeLists.txt)
 endif()

@@ -12,9 +12,15 @@
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}/build",
-      "environment": [],
+      "environment": [
+        {
+          "name": "LD_LIBRARY_PATH",
+          "value": "${workspaceFolder}/build"
+        }
+      ],
       "externalConsole": false,
-      "MIMode": "lldb"
+      "miDebuggerPath": "/usr/bin/gdb",
+      "MIMode": "gdb",
     },
     {
       "name": "Pico Debug",
@@ -23,12 +29,9 @@
       "request": "launch",
       "type": "cortex-debug",
       "servertype": "openocd",
-      // This may need to be "arm-none-eabi-gdb" for some previous builds
-      // "gdbPath" : "gdb-multiarch",
       "gdbPath": "arm-none-eabi-gdb",
       "device": "RP2040",
       "configFiles": [
-        // This may need to be "interface/picoprobe.cfg" for some previous builds
         "interface/cmsis-dap.cfg",
         "target/rp2040.cfg"
       ],
@@ -39,7 +42,42 @@
         "break main",
         "continue"
       ],
-      "openOCDLaunchCommands": ["adapter speed 5000"]
+      "openOCDLaunchCommands": [
+        "adapter speed 5000"
+      ],
+      "postLaunchCommands": [
+        "monitor arm semihosting enable",
+        "monitor arm semihosting ioclient 2", // 1: telnet (port 2333); 2: gdb; 3: both telnet and gdbclient output
+      ]
+    },
+    {
+      "name": "Pico 2 Debug",
+      "cwd": "${workspaceRoot}",
+      "executable": "${workspaceFolder}/build/isere.elf",
+      "request": "launch",
+      "type": "cortex-debug",
+      "servertype": "openocd",
+      "gdbPath": "arm-none-eabi-gdb",
+      "device": "RP2350",
+      "configFiles": [
+        "interface/cmsis-dap.cfg",
+        "target/rp2350.cfg"
+      ],
+      "svdFile": "${workspaceFolder}/3rdparty/pico-sdk/src/rp2350/hardware_regs/RP2350.svd",
+      "runToEntryPoint": "main",
+      // Work around for stopping at main on restart
+      "postRestartCommands": [
+        "break main",
+        "continue"
+      ],
+      "openOCDLaunchCommands": [
+        "bindto 0.0.0.0",
+        "adapter speed 5000"
+      ],
+      "postLaunchCommands": [
+        "monitor arm semihosting enable",
+        "monitor arm semihosting ioclient 2", // 1: telnet (port 2333); 2: gdb; 3: both telnet and gdbclient output
+      ]
     }
   ]
 }

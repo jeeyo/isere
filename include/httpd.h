@@ -47,6 +47,18 @@ extern "C" {
 #define PARSED (METHODED | PATHED | HEADERED | BODYED)
 #define DONE (PARSED | PROCESSED | WROTE)
 
+#ifndef ISERE_HTTPD_SERVER_TASK_STACK_SIZE
+#define ISERE_HTTPD_SERVER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
+#endif /* ISERE_HTTPD_SERVER_TASK_STACK_SIZE */
+
+#ifndef ISERE_HTTPD_SERVER_PARSER_TASK_STACK_SIZE
+#define ISERE_HTTPD_SERVER_PARSER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
+#endif /* ISERE_HTTPD_SERVER_PARSER_TASK_STACK_SIZE */
+
+#ifndef ISERE_HTTPD_SERVER_POLLER_TASK_STACK_SIZE
+#define ISERE_HTTPD_SERVER_POLLER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
+#endif /* ISERE_HTTPD_SERVER_POLLER_TASK_STACK_SIZE */
+
 // #define HTTP_STATUS_BAD_REQUEST -400
 // #define HTTP_STATUS_NOT_FOUND -404
 // #define HTTP_STATUS_PAYLOAD_TOO_LARGE -413
@@ -62,7 +74,7 @@ typedef struct {
   tcp_socket_t *socket;
   int32_t recvd;  // number of bytes received
 
-  isere_js_t js;
+  isere_js_context_t js;
 
   llhttp_t llhttp;
   llhttp_settings_t llhttp_settings;
