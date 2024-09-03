@@ -275,8 +275,7 @@ static void __httpd_poller_task(void *param)
   {
     taskYIELD();
 
-    // skip if there's no new events
-    // or an error occurred
+    // poll sockets to see if there's any new events
     tcp_socket_t *socks[ISERE_HTTPD_MAX_CONNECTIONS];
     uint32_t num_socks = 0;
     for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
@@ -305,8 +304,8 @@ static void __httpd_poller_task(void *param)
         goto finally;
       }
 
-      // // close error connections
       // // TODO: POLLERR
+      // // close error connections
       // if (conn->socket->revents & TCP_POLL_ERROR_READY) {
       //   goto finally;
       // }
@@ -322,6 +321,7 @@ static void __httpd_poller_task(void *param)
           goto finally;
         }
 
+        // pass the new data to http parser
         enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
         if (err != HPE_OK) {
           __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
@@ -329,7 +329,7 @@ static void __httpd_poller_task(void *param)
         }
 
         if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
-          __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "request too long");
+          __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
 
           const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
           isere_tcp_write(conn->socket, buf, strlen(buf));
@@ -340,6 +340,8 @@ static void __httpd_poller_task(void *param)
           continue;
         }
 
+        // execute request handler function
+        // if the request was done parsing
         // TODO: HTTP path
         if ((conn->path[0] != '\0') ||
           (conn->path[0] != '/' && conn->path[1] != '\0'))
@@ -362,7 +364,7 @@ static void __httpd_poller_task(void *param)
         continue;
       }
 
-      // or it is not waiting for JavaScript jobs
+      // skip if the pending jobs are not done yet
       if (!(conn->completed & POLLING)) {
         continue;
       }

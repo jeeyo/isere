@@ -183,31 +183,6 @@ ssize_t isere_tcp_write(tcp_socket_t *sock, const char *buf, size_t len)
   return lwip_write(sock->fd, buf, len);
 }
 
-// int isere_tcp_poll(tcp_socket_t *sock, int timeout_ms)
-// {
-//   if (sock->fd < 0) {
-//     return -1;
-//   }
-
-//   sock->revents = 0;
-
-//   struct pollfd pfd;
-//   pfd.fd = sock->fd;
-//   pfd.events = POLLIN;
-
-//   int ready = lwip_poll(&pfd, 1, timeout_ms);
-//   if (ready < 0 && errno == EINTR) {
-//     return -1;
-//   }
-
-//   // TODO: POLLOUT & POLLERR
-//   if (pfd.revents & POLLIN) {
-//     sock->revents |= TCP_POLL_READ_READY;
-//   }
-
-//   return sock->revents > 0 ? 1 : 0;
-// }
-
 int isere_tcp_poll(tcp_socket_t **socks, uint32_t numsocks, int timeout_ms)
 {
   struct pollfd pfds[ISERE_TCP_MAX_CONNECTIONS];

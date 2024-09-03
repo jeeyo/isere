@@ -22,16 +22,7 @@ static isere_t isere;
 #ifdef __linux__
 void sigint(int dummy) {
   isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
-
-  isere_httpd_deinit(isere.httpd);
-  isere_tcp_deinit(isere.tcp);
-  isere_js_deinit(isere.js);
-  isere_loader_deinit(isere.loader);
-  // fs_deinit(isere.fs);
-  // isere_ini_deinit(isere.ini);
-  isere_logger_deinit(isere.logger);
-
-  vTaskEndScheduler();
+  // vTaskEndScheduler();
   exit(EXIT_SUCCESS);
 }
 #endif
@@ -120,6 +111,14 @@ int main(void)
 
   // start FreeRTOS scheduler
   vTaskStartScheduler();
+
+  isere_httpd_deinit(isere.httpd);
+  isere_tcp_deinit(isere.tcp);
+  isere_js_deinit(isere.js);
+  isere_loader_deinit(isere.loader);
+  // fs_deinit(isere.fs);
+  // isere_ini_deinit(isere.ini);
+  isere_logger_deinit(isere.logger);
 
   return EXIT_SUCCESS;
 }
