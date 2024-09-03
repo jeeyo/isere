@@ -183,29 +183,41 @@ ssize_t isere_tcp_write(tcp_socket_t *sock, const char *buf, size_t len)
   return lwip_write(sock->fd, buf, len);
 }
 
-int isere_tcp_poll(tcp_socket_t *sock, int timeout_ms)
+int isere_tcp_poll(tcp_socket_t **socks, uint32_t numsocks, int timeout_ms)
 {
-  if (sock->fd < 0) {
+  struct pollfd pfds[ISERE_TCP_MAX_CONNECTIONS];
+  nfds_t nfds = 0;
+
+  for (int i = 0; i < numsocks; i++) {
+    if (socks[i]->fd < 0) {
+      return -1;
+    }
+
+    socks[i]->revents = 0;
+    pfds[i].fd = socks[i]->fd;
+    pfds[i].events = POLLIN;
+    nfds++;
+  }
+
+  if (nfds == 0) {
     return -1;
   }
 
-  sock->revents = 0;
-
-  struct pollfd pfd;
-  pfd.fd = sock->fd;
-  pfd.events = POLLIN;
-
-  int ready = lwip_poll(&pfd, 1, timeout_ms);
+  int ready = lwip_poll(pfds, nfds, timeout_ms);
   if (ready < 0 && errno == EINTR) {
     return -1;
   }
 
-  // TODO: POLLOUT & POLLERR
-  if (pfd.revents & POLLIN) {
-    sock->revents |= TCP_POLL_READ_READY;
+  int has_new_events = 0;
+  for (int i = 0; i < nfds; i++) {
+    // TODO: POLLOUT & POLLERR
+    if (pfds[i].revents & POLLIN) {
+      has_new_events = 1;
+      socks[i]->revents |= TCP_POLL_READ_READY;
+    }
   }
 
-  return sock->revents > 0 ? 1 : 0;
+  return has_new_events;
 }
 
 int isere_tcp_is_initialized()

@@ -22,9 +22,7 @@ static isere_t isere;
 #ifdef __linux__
 void sigint(int dummy) {
   isere.logger->info(ISERE_LOG_TAG, "Received SIGINT");
-
   // vTaskEndScheduler();
-
   exit(EXIT_SUCCESS);
 }
 #endif

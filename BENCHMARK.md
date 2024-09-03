@@ -15,21 +15,19 @@ Requests/sec:  85861.04
 Transfer/sec:     14.08MB
 ```
 
-### isère on Apple M1
-
-##### with QuickJS
+### isère
 
 ```
 $ wrk -t12 -c400 -d10s http://127.0.0.1:8080
 Running 10s test @ http://127.0.0.1:8080
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    99.14ms   49.36ms 363.49ms   84.35%
-    Req/Sec    22.88     18.13    90.00     74.92%
-  786 requests in 10.10s, 53.73KB read
-  Socket errors: connect 155, read 2163, write 15, timeout 0
-Requests/sec:     77.85
-Transfer/sec:      5.32KB
+    Latency     8.23ms   82.89ms   1.77s    98.74%
+    Req/Sec   247.53    294.62     2.27k    84.42%
+  20067 requests in 10.06s, 372.36KB read
+  Socket errors: connect 0, read 143090, write 0, timeout 4
+Requests/sec:   1994.10
+Transfer/sec:     37.00KB
 ```
 
 ### isère on Raspberry Pi Pico 2
@@ -39,10 +37,10 @@ $ wrk -t12 -c400 -d10s http://192.168.7.1:8080
 Running 10s test @ http://192.168.7.1:8080
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.19s   239.32ms   1.88s    72.73%
-    Req/Sec     0.73      0.83     3.00     86.36%
-  22 requests in 10.08s, 770.00B read
-  Socket errors: connect 0, read 1321, write 0, timeout 0
-Requests/sec:      2.18
-Transfer/sec:      76.40B
+    Latency    69.48ms  245.68ms   1.99s    95.52%
+    Req/Sec    34.36     22.33    70.00     53.93%
+  335 requests in 10.06s, 6.22KB read
+  Socket errors: connect 0, read 1432, write 0, timeout 0
+Requests/sec:     33.29
+Transfer/sec:     632.42B
 ```
