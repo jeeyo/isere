@@ -41,8 +41,11 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 - [ ] Memory Leak Check
 - [ ] Valgrind
 - [x] gprof profiling
-- [ ] Optimize libc usage
-  - [ ] Use less printf()
+- [ ] Optimization
+  - [ ] async llhttp__internal__run()
+  - [ ] less libc usage + buffered printf()
+  - [ ] use another data structure for httpd and tcp sockets
+  - [ ] construct pollfd with less loops
 - [ ] Project Template
 - [ ] Low-power mode
 - [x] Benchmark

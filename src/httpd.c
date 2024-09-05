@@ -286,7 +286,7 @@ static void __httpd_poller_task(void *param)
       socks[num_socks++] = __conns[i].socket;
     }
 
-    if (isere_tcp_poll(socks, num_socks, 0) <= 0) {
+    if (isere_tcp_poll(socks, num_socks, 5) < 0) {
       continue;
     }
 
@@ -299,20 +299,17 @@ static void __httpd_poller_task(void *param)
         continue;
       }
 
-      // disconnect processed connections
-      if ((conn->completed & DONE) == DONE) {
-        goto finally;
-      }
-
       // // TODO: POLLERR
       // // close error connections
       // if (conn->socket->revents & TCP_POLL_ERROR_READY) {
       //   goto finally;
       // }
 
-      // receive and parse
-      // if there's new incoming data
-      if (conn->socket->revents & TCP_POLL_READ_READY) {
+      // if the http header parsing is not done
+      // and there's a new incoming data
+      if ((conn->completed & PARSED) != PARSED &&
+        conn->socket->revents & TCP_POLL_READ_READY) {
+
         int len = isere_tcp_recv(conn->socket, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
         if (len <= 0) {
           if (len == -2) {  // EAGAIN
@@ -321,18 +318,19 @@ static void __httpd_poller_task(void *param)
           goto finally;
         }
 
-        // pass the new data to http parser
-        enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
-        if (err != HPE_OK) {
-          __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
-          goto finally;
-        }
-
         if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
           __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
 
           const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
           isere_tcp_write(conn->socket, buf, strlen(buf));
+          goto finally;
+        }
+
+        // TODO: make this async
+        // pass the new data to http parser
+        enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
+        if (err != HPE_OK) {
+          __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
           goto finally;
         }
 
@@ -361,20 +359,16 @@ static void __httpd_poller_task(void *param)
         __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
 
         conn->completed |= POLLING;
-        continue;
       }
 
-      // skip if the pending jobs are not done yet
-      if (!(conn->completed & POLLING)) {
-        continue;
-      }
-
-      if (!(conn->completed & PROCESSED)) {
+      // if http handler function was invoked
+      // and pending jobs are not done yet
+      if ((conn->completed & POLLING) == POLLING) {
 
         // respond as there's no pending jobs left
         if (isere_js_poll(&conn->js) == 0) {
           conn->completed |= PROCESSED;
-          break;
+          continue;
         }
 
         // respond as the response object is constructed from `cb()`
@@ -388,14 +382,16 @@ static void __httpd_poller_task(void *param)
         JS_FreeValue(conn->js.context, global_obj);
       }
 
-      if ((conn->completed & PROCESSED) && !(conn->completed & WRITING)) {
+      if ((conn->completed & PROCESSED) == PROCESSED) {
         conn->completed |= WRITING;
         __httpd_writeback(conn);  // TODO: non-blocking write?
-        break;
       }
 
+
+      if ((conn->completed & DONE) == DONE) {
   finally:
-      __httpd_cleanup_conn(conn);
+        __httpd_cleanup_conn(conn);
+      }
     }
   }
 
