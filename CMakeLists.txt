@@ -4,7 +4,6 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 # build configuration
 option(DEBUG "Debug mode" OFF)
-option(WITH_QUICKJS "Include QuickJS" ON)
 
 # platform-specific configuration
 option(WITH_LWIP "Include LwIP" OFF)

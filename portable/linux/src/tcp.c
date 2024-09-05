@@ -189,7 +189,7 @@ int isere_tcp_poll(tcp_socket_t **socks, uint32_t numsocks, int timeout_ms)
   }
 
   int ready = poll(pfds, nfds, timeout_ms);
-  if (ready < 0 && errno == EINTR) {
+  if (ready < 0 && errno != EINTR) {
     return -1;
   }
 
