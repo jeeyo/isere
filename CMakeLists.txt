@@ -19,6 +19,7 @@ set(QUICKJS_DIR ./3rdparty/quickjs)
 set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
+set(LIBUV_DIR ./3rdparty/libuv)
 set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
 set(JS_DIR ./js)
 
@@ -58,6 +59,7 @@ list(APPEND SOURCES
   ${LLHTTP_DIR}/src/http.c
   ${LLHTTP_DIR}/src/llhttp.c
   ${LIBYUAREL_DIR}/yuarel.c
+  ${LIBUV_DIR}/src/unix/posix-poll.c
   ${CAPNPROTO_DIR}/lib/capn-malloc.c
   ${CAPNPROTO_DIR}/lib/capn-stream.c
   ${CAPNPROTO_DIR}/lib/capn.c
@@ -126,6 +128,8 @@ target_include_directories(isere PRIVATE
   ${QUICKJS_DIR}
   ${LLHTTP_DIR}/include
   ${LIBYUAREL_DIR}
+  ${LIBUV_DIR}/include
+  ${LIBUV_DIR}/src
   ${CAPNPROTO_DIR}/lib
 )
 
