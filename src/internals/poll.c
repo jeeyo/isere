@@ -28,8 +28,9 @@
  */
 
 #include <stdint.h>
-#include <poll.h>
 #include <errno.h>
+
+#include "tcp.h"
 
 #include "FreeRTOS.h"
 #include "pvPortRealloc.h"
@@ -278,7 +279,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout)
     w->events = w->pevents;
   }
 
-  int ready = poll(loop->poll_fds, loop->poll_fds_used, timeout);
+  int ready = isere_tcp_poll(loop->poll_fds, loop->poll_fds_used, timeout);
   if (ready < 0 && errno != EINTR) {
     return;
   }
@@ -312,7 +313,8 @@ void uv__io_poll(uv_loop_t* loop, int timeout)
     /* Filter out events that user has not requested us to watch
       * (e.g. POLLNVAL).
       */
-    pe->revents &= w->pevents | POLLERR | POLLHUP;
+    // pe->revents &= w->pevents | POLLERR | POLLHUP;
+    pe->revents &= w->pevents;
 
     if (pe->revents != 0) {
       w->cb(loop, w, pe->revents);

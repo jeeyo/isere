@@ -2,13 +2,10 @@
 
 #include <string.h>
 #include <sys/param.h>
-#include <poll.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
-
-#include "tcp.h"
 
 static uint8_t should_exit = 0;
 
@@ -365,12 +362,6 @@ static void __httpd_poller_task(void *param)
       if (conn->fd == -1) {
         continue;
       }
-
-      // // TODO: POLLERR
-      // // close error connections
-      // if (conn->socket->revents & TCP_POLL_ERROR_READY) {
-      //   goto finally;
-      // }
 
       // if http handler function was invoked
       // and pending jobs are not done yet

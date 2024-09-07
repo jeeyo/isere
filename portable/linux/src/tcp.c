@@ -78,7 +78,7 @@ int isere_tcp_accept(int fd, char *ip_addr)
   socklen_t addr_len = sizeof(source_addr);
 
   int newfd = accept(fd, (struct sockaddr *)&source_addr, &addr_len);
-  if (newfd < 0 && errno == EINTR) {
+  if (newfd < 0 && errno != EINTR) {
     return -1;
   }
 
@@ -116,6 +116,11 @@ ssize_t isere_tcp_recv(int fd, char *buf, size_t len)
 ssize_t isere_tcp_write(int fd, const char *buf, size_t len)
 {
   return write(fd, buf, len);
+}
+
+int isere_tcp_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+{
+  return poll(fds, nfds, timeout);
 }
 
 int isere_tcp_is_initialized()

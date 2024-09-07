@@ -9,9 +9,18 @@ extern "C" {
 
 #define ISERE_TCP_LOG_TAG "tcp"
 
-#define TCP_POLL_READ_READY (1 << 0)
-#define TCP_POLL_WRITE_READY (1 << 1)
-#define TCP_POLL_ERROR_READY (1 << 2)
+#if !defined(POLLIN) && !defined(POLLOUT)
+#define POLLIN     0x1
+#define POLLOUT    0x2
+#define POLLERR    0x4
+typedef unsigned int nfds_t;
+struct pollfd
+{
+  int fd;
+  short events;
+  short revents;
+};
+#endif
 
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp);
 int isere_tcp_deinit(isere_tcp_t *tcp);
@@ -26,6 +35,7 @@ int isere_tcp_listen(int fd, uint16_t port);
 int isere_tcp_accept(int fd, char *ip_addr);
 ssize_t isere_tcp_recv(int fd, char *buf, size_t len);
 ssize_t isere_tcp_write(int fd, const char *buf, size_t len);
+int isere_tcp_poll(struct pollfd *fds, nfds_t nfds, int timeout);
 int isere_tcp_is_initialized();
 
 #ifdef __cplusplus
