@@ -2,26 +2,27 @@
 
 #include <string.h>
 #include <sys/param.h>
+#include <poll.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 
 #include "tcp.h"
 
 static uint8_t should_exit = 0;
 
 static isere_t *__isere = NULL;
+static isere_httpd_t *__httpd = NULL;
 static httpd_handler_t *__httpd_handler = NULL;
-
-static TaskHandle_t __httpd_server_task_handle = NULL;
-static TaskHandle_t __httpd_process_task_handle = NULL;
-static TaskHandle_t __httpd_poll_task_handle = NULL;
-
-static tcp_socket_t __server_socket;
 static httpd_conn_t __conns[ISERE_HTTPD_MAX_CONNECTIONS];
 
+static TaskHandle_t __httpd_server_task_handle = NULL;
+static TaskHandle_t __httpd_poll_task_handle = NULL;
+
+static int __httpd_server_fd = -1;
+
 static void __httpd_server_task(void *params);
-static void __httpd_parser_task(void *params);
 static void __httpd_poller_task(void *params);
 
 static void __httpd_cleanup_conn(httpd_conn_t *conn);
@@ -190,9 +191,79 @@ static int __on_message_complete(llhttp_t *parser)
   return 0;
 }
 
+static void __on_poll(struct uv_loop_s* loop,
+                          struct uv__io_s* w,
+                          unsigned int events)
+{
+  if ((events & POLLIN) != POLLIN) {
+    return;
+  }
+
+  char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
+
+  httpd_conn_t *conn = (httpd_conn_t *)w->opaque;
+
+  // if the http header parsing is not done
+  // and there's a new incoming data
+  if ((conn->completed & PARSED) != PARSED) {
+
+    int len = isere_tcp_recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
+    if (len <= 0) {
+      if (len == -2) {  // EAGAIN
+        return;
+      }
+
+      conn->completed = DONE;
+    }
+
+    if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
+      __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
+
+      const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
+      isere_tcp_write(conn->fd, buf, strlen(buf));
+      conn->completed = DONE;
+    }
+
+    // TODO: make this async
+    // pass the new data to http parser
+    enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
+    if (err != HPE_OK) {
+      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
+      conn->completed = DONE;
+    }
+
+    if (conn->completed < PARSED) {
+      return;
+    }
+
+    // execute request handler function
+    // if the request was done parsing
+    // TODO: HTTP path
+    if ((conn->path[0] != '\0') ||
+      (conn->path[0] != '/' && conn->path[1] != '\0'))
+    {
+      const char *buf = "HTTP/1.1 404 Not Found\r\n\r\n";
+      isere_tcp_write(conn->fd, buf, strlen(buf));
+      conn->completed = DONE;
+    }
+
+    if (__httpd_handler == NULL) {
+      const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
+      isere_tcp_write(conn->fd, buf, strlen(buf));
+      conn->completed = DONE;
+    }
+
+    uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
+    __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
+
+    conn->completed |= POLLING;
+  }
+}
+
 int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *handler)
 {
   __isere = isere;
+  __httpd = httpd;
   __httpd_handler = handler;
 
   assert(ISERE_HTTPD_MAX_CONNECTIONS <= ISERE_TCP_MAX_CONNECTIONS);
@@ -201,10 +272,16 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
     return -1;
   }
 
+  uv__platform_loop_init(&httpd->loop);
+  httpd->loop.nfds = 0;
+  httpd->loop.watchers = NULL;
+  httpd->loop.nwatchers = 0;
+  uv__queue_init(&httpd->loop.watcher_queue);
+
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
     httpd_conn_t *conn = &__conns[i];
     memset(conn, 0, sizeof(httpd_conn_t));
-    conn->socket = NULL;
+    conn->fd = -1;
     conn->recvd = 0;
   }
 
@@ -215,7 +292,7 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
   }
 
   // start poller task
-  if (xTaskCreate(__httpd_poller_task, "httpd_poller", ISERE_HTTPD_SERVER_POLLER_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_poll_task_handle) != pdPASS) {
+  if (xTaskCreate(__httpd_poller_task, "httpd_poller", ISERE_HTTPD_POLLER_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_poll_task_handle) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd poller task");
     return -1;
   }
@@ -235,7 +312,9 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
     __httpd_cleanup_conn(conn);
   }
 
-  isere_tcp_close(&__server_socket);
+  uv__platform_loop_delete(&httpd->loop);
+
+  isere_tcp_close(__httpd_server_fd);
 
   // stop httpd tasks
   should_exit = 1;
@@ -246,7 +325,7 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
 static httpd_conn_t *__httpd_get_free_slot()
 {
   for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-    if (__conns[i].socket == NULL) {
+    if (__conns[i].fd == -1) {
       return &__conns[i];
     }
   }
@@ -260,42 +339,30 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   isere_js_free_context(&conn->js);
 
   // cleanup client socket
-  isere_tcp_close(conn->socket);
+  uv__io_stop(&__httpd->loop, &conn->w, POLLIN);
+  uv__platform_invalidate_fd(&__httpd->loop, conn->fd);
+  isere_tcp_close(conn->fd);
   memset(conn, 0, sizeof(httpd_conn_t));
-  conn->socket = NULL;
+  conn->fd = -1;
   conn->recvd = 0;
   conn->completed = 0;
 }
 
 static void __httpd_poller_task(void *param)
 {
-  char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
-
   while (!should_exit)
   {
     taskYIELD();
 
     // poll sockets to see if there's any new events
-    tcp_socket_t *socks[ISERE_HTTPD_MAX_CONNECTIONS];
-    uint32_t num_socks = 0;
-    for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++) {
-      if (__conns[i].socket == NULL) {
-        continue;
-      }
-
-      socks[num_socks++] = __conns[i].socket;
-    }
-
-    if (isere_tcp_poll(socks, num_socks, 5) < 0) {
-      continue;
-    }
+    uv__io_poll(&__httpd->loop, 5);
 
     for (int i = 0; i < ISERE_HTTPD_MAX_CONNECTIONS; i++)
     {
       httpd_conn_t *conn = &__conns[i];
 
       // ignore empty slots
-      if (conn->socket == NULL) {
+      if (conn->fd == -1) {
         continue;
       }
 
@@ -304,62 +371,6 @@ static void __httpd_poller_task(void *param)
       // if (conn->socket->revents & TCP_POLL_ERROR_READY) {
       //   goto finally;
       // }
-
-      // if the http header parsing is not done
-      // and there's a new incoming data
-      if ((conn->completed & PARSED) != PARSED &&
-        conn->socket->revents & TCP_POLL_READ_READY) {
-
-        int len = isere_tcp_recv(conn->socket, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
-        if (len <= 0) {
-          if (len == -2) {  // EAGAIN
-            continue;
-          }
-          goto finally;
-        }
-
-        if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
-          __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
-
-          const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
-          isere_tcp_write(conn->socket, buf, strlen(buf));
-          goto finally;
-        }
-
-        // TODO: make this async
-        // pass the new data to http parser
-        enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
-        if (err != HPE_OK) {
-          __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
-          goto finally;
-        }
-
-        if (conn->completed < PARSED) {
-          continue;
-        }
-
-        // execute request handler function
-        // if the request was done parsing
-        // TODO: HTTP path
-        if ((conn->path[0] != '\0') ||
-          (conn->path[0] != '/' && conn->path[1] != '\0'))
-        {
-          const char *buf = "HTTP/1.1 404 Not Found\r\n\r\n";
-          isere_tcp_write(conn->socket, buf, strlen(buf));
-          goto finally;
-        }
-
-        if (__httpd_handler == NULL) {
-          const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
-          isere_tcp_write(conn->socket, buf, strlen(buf));
-          goto finally;
-        }
-
-        uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
-        __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
-
-        conn->completed |= POLLING;
-      }
 
       // if http handler function was invoked
       // and pending jobs are not done yet
@@ -387,7 +398,6 @@ static void __httpd_poller_task(void *param)
         __httpd_writeback(conn);  // TODO: non-blocking write?
       }
 
-
       if ((conn->completed & DONE) == DONE) {
   finally:
         __httpd_cleanup_conn(conn);
@@ -406,11 +416,11 @@ static void __httpd_server_task(void *params)
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 
-  if (isere_tcp_socket_init(&__server_socket) < 0) {
+  if ((__httpd_server_fd = isere_tcp_socket_new()) < 0) {
     goto exit;
   }
 
-  if (isere_tcp_listen(&__server_socket, ISERE_HTTPD_PORT) < 0) {
+  if (isere_tcp_listen(__httpd_server_fd, ISERE_HTTPD_PORT) < 0) {
     goto exit;
   }
 
@@ -420,8 +430,8 @@ static void __httpd_server_task(void *params)
   {
     // accept connection
     char ipaddr[16];
-    tcp_socket_t *newsock = isere_tcp_accept(&__server_socket, ipaddr);
-    if (newsock == NULL) {
+    int newfd = isere_tcp_accept(__httpd_server_fd, ipaddr);
+    if (newfd < 0) {
       continue;
     }
 
@@ -429,7 +439,7 @@ static void __httpd_server_task(void *params)
 
     httpd_conn_t *conn = __httpd_get_free_slot();
     if (conn == NULL) {
-      isere_tcp_close(newsock);
+      isere_tcp_close(newfd);
       continue;
     }
 
@@ -453,7 +463,16 @@ static void __httpd_server_task(void *params)
       isere_js_new_context(__isere->js, &conn->js);
     }
 
-    conn->socket = newsock;
+    conn->fd = newfd;
+
+    uv__io_t *w = &conn->w;
+    w->fd = newfd;
+    w->events = 0;
+    w->cb = __on_poll;
+    w->opaque = (void *)conn;
+    uv__queue_init(&w->watcher_queue);
+
+    uv__io_start(&__httpd->loop, w, POLLIN);
   }
 
 exit:
@@ -472,20 +491,20 @@ static void __httpd_writeback(httpd_conn_t *conn)
   JSValue response_obj = JS_GetPropertyStr(ctx->context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
 
   // send HTTP response code
-  isere_tcp_write(conn->socket, "HTTP/1.1 ", 9);
+  isere_tcp_write(conn->fd, "HTTP/1.1 ", 9);
   JSValue statusCode = JS_GetPropertyStr(ctx->context, response_obj, ISERE_JS_RESPONSE_STATUS_CODE_PROP_NAME);
   if (!JS_IsNumber(statusCode)) {
-    isere_tcp_write(conn->socket, "200 OK", 3);
+    isere_tcp_write(conn->fd, "200 OK", 3);
   } else {
     size_t len = 0;
     const char *statusCode1 = JS_ToCStringLen(ctx->context, &len, statusCode);
-    isere_tcp_write(conn->socket, statusCode1, len);
+    isere_tcp_write(conn->fd, statusCode1, len);
 
     // TODO: status code to status text
 
     JS_FreeCString(ctx->context, statusCode1);
   }
-  isere_tcp_write(conn->socket, "\r\n", 2);
+  isere_tcp_write(conn->fd, "\r\n", 2);
   JS_FreeValue(ctx->context, statusCode);
 
   // send HTTP response headers
@@ -505,10 +524,10 @@ static void __httpd_writeback(httpd_conn_t *conn)
         size_t header_value_len = 0;
         const char *header_value_str = JS_ToCStringLen(ctx->context, &header_value_len, header_value);
 
-        isere_tcp_write(conn->socket, header_field_str, strlen(header_field_str));
-        isere_tcp_write(conn->socket, ": ", 2);
-        isere_tcp_write(conn->socket, header_value_str, header_value_len);
-        isere_tcp_write(conn->socket, "\r\n", 2);
+        isere_tcp_write(conn->fd, header_field_str, strlen(header_field_str));
+        isere_tcp_write(conn->fd, ": ", 2);
+        isere_tcp_write(conn->fd, header_value_str, header_value_len);
+        isere_tcp_write(conn->fd, "\r\n", 2);
 
         JS_FreeCString(ctx->context, header_field_str);
         JS_FreeCString(ctx->context, header_value_str);
@@ -524,8 +543,8 @@ static void __httpd_writeback(httpd_conn_t *conn)
 
   // TODO: `Date`
   const char *server_header = "Server: isere\r\n";
-  isere_tcp_write(conn->socket, server_header, strlen(server_header));
-  isere_tcp_write(conn->socket, "\r\n", 2);
+  isere_tcp_write(conn->fd, server_header, strlen(server_header));
+  isere_tcp_write(conn->fd, "\r\n", 2);
 
   // send HTTP response body
   JSValue body = JS_GetPropertyStr(ctx->context, response_obj, ISERE_JS_RESPONSE_BODY_PROP_NAME);
@@ -541,7 +560,7 @@ static void __httpd_writeback(httpd_conn_t *conn)
   }
 
   if (body_str != NULL) {
-    isere_tcp_write(conn->socket, body_str, body_len);
+    isere_tcp_write(conn->fd, body_str, body_len);
     JS_FreeCString(ctx->context, body_str);
   }
   JS_FreeValue(ctx->context, body);
@@ -549,7 +568,7 @@ static void __httpd_writeback(httpd_conn_t *conn)
   JS_FreeValue(ctx->context, response_obj);
   JS_FreeValue(ctx->context, global_obj);
 
-  isere_tcp_write(conn->socket, "\r\n\r\n", 4);
+  isere_tcp_write(conn->fd, "\r\n\r\n", 4);
 
   conn->completed |= WROTE;
 }

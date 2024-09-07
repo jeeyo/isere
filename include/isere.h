@@ -16,6 +16,8 @@ extern "C" {
 
 #include "quickjs.h"
 
+#include "libuv/uv.h"
+
 #define ISERE_APP_NAME "isere"
 
 #ifndef ISERE_APP_VERSION
@@ -71,7 +73,9 @@ typedef struct {
 
 typedef void * isere_js_t;
 
-typedef void * isere_httpd_t;
+typedef struct {
+  uv_loop_t loop;
+} isere_httpd_t;
 
 typedef void * isere_tcp_t;
 

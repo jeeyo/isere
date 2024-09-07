@@ -19,8 +19,7 @@ extern "C" {
 #define ISERE_JS_RESPONSE_HEADERS_PROP_NAME "headers"
 #define ISERE_JS_RESPONSE_BODY_PROP_NAME "body"
 
-// TODO: make this configurable
-#define ISERE_JS_STACK_SIZE 4096
+// #define ISERE_JS_STACK_SIZE 4096
 
 int isere_js_init(isere_t *isere, isere_js_t *js);
 int isere_js_deinit(isere_js_t *js);

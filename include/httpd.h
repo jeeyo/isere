@@ -14,6 +14,7 @@ extern "C" {
 
 #include "llhttp.h"
 #include "yuarel.h"
+#include "libuv/uv.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -51,13 +52,9 @@ extern "C" {
 #define ISERE_HTTPD_SERVER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
 #endif /* ISERE_HTTPD_SERVER_TASK_STACK_SIZE */
 
-#ifndef ISERE_HTTPD_SERVER_PARSER_TASK_STACK_SIZE
-#define ISERE_HTTPD_SERVER_PARSER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
-#endif /* ISERE_HTTPD_SERVER_PARSER_TASK_STACK_SIZE */
-
-#ifndef ISERE_HTTPD_SERVER_POLLER_TASK_STACK_SIZE
-#define ISERE_HTTPD_SERVER_POLLER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
-#endif /* ISERE_HTTPD_SERVER_POLLER_TASK_STACK_SIZE */
+#ifndef ISERE_HTTPD_POLLER_TASK_STACK_SIZE
+#define ISERE_HTTPD_POLLER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
+#endif /* ISERE_HTTPD_POLLER_TASK_STACK_SIZE */
 
 // #define HTTP_STATUS_BAD_REQUEST -400
 // #define HTTP_STATUS_NOT_FOUND -404
@@ -71,9 +68,10 @@ typedef struct {
 
 typedef struct {
 
-  tcp_socket_t *socket;
+  int fd;
   int32_t recvd;  // number of bytes received
 
+  uv__io_t w;
   isere_js_context_t js;
 
   llhttp_t llhttp;

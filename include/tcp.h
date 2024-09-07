@@ -20,20 +20,12 @@ int isere_tcp_deinit(isere_tcp_t *tcp);
 #define ISERE_TCP_MAX_CONNECTIONS 12
 #endif /* ISERE_TCP_MAX_CONNECTIONS */
 
-typedef struct {
-  int fd;
-  short events;
-  short revents;
-} tcp_socket_t;
-
-tcp_socket_t *isere_tcp_socket_new();
-int isere_tcp_socket_init(tcp_socket_t *sock);
-void isere_tcp_close(tcp_socket_t *sock);
-int isere_tcp_listen(tcp_socket_t *sock, uint16_t port);
-tcp_socket_t *isere_tcp_accept(tcp_socket_t *sock, char *ip_addr);
-ssize_t isere_tcp_recv(tcp_socket_t *sock, char *buf, size_t len);
-ssize_t isere_tcp_write(tcp_socket_t *sock, const char *buf, size_t len);
-int isere_tcp_poll(tcp_socket_t **socks, uint32_t numsocks, int timeout_ms);
+int isere_tcp_socket_new();
+void isere_tcp_close(int fd);
+int isere_tcp_listen(int fd, uint16_t port);
+int isere_tcp_accept(int fd, char *ip_addr);
+ssize_t isere_tcp_recv(int fd, char *buf, size_t len);
+ssize_t isere_tcp_write(int fd, const char *buf, size_t len);
 int isere_tcp_is_initialized();
 
 #ifdef __cplusplus
