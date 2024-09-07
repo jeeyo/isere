@@ -21,6 +21,3 @@
 [submodule "3rdparty/pico-sdk"]
 	path = 3rdparty/pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git
-[submodule "3rdparty/libuv"]
-	path = 3rdparty/libuv
-	url = https://github.com/libuv/libuv.git
