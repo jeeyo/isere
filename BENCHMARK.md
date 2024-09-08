@@ -22,12 +22,12 @@ $ wrk -t12 -c400 -d10s http://127.0.0.1:8080
 Running 10s test @ http://127.0.0.1:8080
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    63.75ms   18.29ms 309.20ms   85.25%
-    Req/Sec    28.73     19.29   150.00     75.18%
-  2013 requests in 10.07s, 86.50KB read
-  Socket errors: connect 0, read 41121, write 0, timeout 0
-Requests/sec:    199.94
-Transfer/sec:      8.59KB
+    Latency    83.71ms  202.49ms   1.80s    94.84%
+    Req/Sec    39.83     33.50   190.00     81.59%
+  1837 requests in 10.06s, 62.79KB read
+  Socket errors: connect 0, read 1837, write 0, timeout 16
+Requests/sec:    182.62
+Transfer/sec:      6.24KB
 ```
 
 ### isère on Raspberry Pi Pico 2
