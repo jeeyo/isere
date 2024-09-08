@@ -248,7 +248,7 @@ static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int e
   }
 }
 
-static void __on_accept(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int events)
+static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int events)
 {
   if ((events & POLLIN) != POLLIN) {
     return;
@@ -289,6 +289,7 @@ static void __on_accept(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int
 
   if (__httpd_handler != NULL) {
     isere_js_new_context(__isere->js, &conn->js);
+    uv__queue_init(&conn->js_queue);
   }
 
   conn->fd = newfd;
@@ -300,7 +301,6 @@ static void __on_accept(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int
   sw->cb = __on_poll;
   sw->opaque = (void *)conn;
   uv__queue_init(&sw->watcher_queue);
-  uv__queue_init(&conn->js_queue);
 
   uv__io_start(&__httpd->loop, sw, POLLIN);
 }
@@ -321,7 +321,9 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
   httpd->loop.nwatchers = 0;
   uv__queue_init(&httpd->loop.watcher_queue);
 
-  uv__queue_init(&httpd->js_queue);
+  if (__httpd_handler != NULL) {
+    uv__queue_init(&httpd->js_queue);
+  }
 
   // start poller task
   if (xTaskCreate(__httpd_poller_task, "httpd_poller", ISERE_HTTPD_POLLER_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_poll_task_handle) != pdPASS) {
@@ -361,9 +363,12 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   llhttp_reset(&conn->llhttp);
   isere_js_free_context(&conn->js);
 
+  if (__httpd_handler != NULL) {
+    uv__queue_remove(&conn->js_queue);
+  }
+
   // cleanup client socket
   uv__io_stop(&__httpd->loop, &conn->w, POLLIN);
-  uv__queue_remove(&conn->js_queue);
   isere_tcp_close(conn->fd);
   vPortFree(conn);
 }
@@ -385,7 +390,7 @@ static void __httpd_poller_task(void *param)
   uv__io_t *w = &__httpd->w;
   w->fd = __httpd->serverfd;
   w->events = 0;
-  w->cb = __on_accept;
+  w->cb = __on_connected;
   w->opaque = NULL;
   uv__queue_init(&w->watcher_queue);
 

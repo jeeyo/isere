@@ -303,6 +303,7 @@ int isere_js_poll(isere_js_context_t *ctx)
   err = JS_ExecutePendingJob(JS_GetRuntime(ctx->context), &ctx1);
   if (err < 0) {
     js_std_dump_error(ctx1);
+    return -1;
   }
 
   if (tmrerr == 0 && err <= 0) {
