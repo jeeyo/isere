@@ -127,7 +127,7 @@ ssize_t isere_tcp_write(int fd, const char *buf, size_t len)
   return lwip_write(fd, buf, len);
 }
 
-int isere_tcp_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+int isere_tcp_poll(struct pollfd *fds, unsigned int nfds, int timeout)
 {
   return lwip_poll(fds, nfds, timeout);
 }

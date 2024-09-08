@@ -27,6 +27,9 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
     return -1;
   }
 
+  // catch SIGPIPE on EPIPE
+  signal(SIGPIPE, SIG_IGN);
+
   return 0;
 }
 
@@ -74,6 +77,10 @@ int isere_tcp_listen(int fd, uint16_t port)
 
 int isere_tcp_accept(int fd, char *ip_addr)
 {
+  if (__num_of_tcp_conns >= ISERE_TCP_MAX_CONNECTIONS) {
+    return -1;
+  }
+
   struct sockaddr_in source_addr;
   socklen_t addr_len = sizeof(source_addr);
 
@@ -90,12 +97,10 @@ int isere_tcp_accept(int fd, char *ip_addr)
   int keep_alive = 0;
   setsockopt(newfd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
 
-  // catch SIGPIPE on EPIPE
-  signal(SIGPIPE, SIG_IGN);
-
   // copy ip address string
   strncpy(ip_addr, inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr), INET_ADDRSTRLEN);
 
+  __num_of_tcp_conns++;
   return newfd;
 }
 
@@ -118,7 +123,7 @@ ssize_t isere_tcp_write(int fd, const char *buf, size_t len)
   return write(fd, buf, len);
 }
 
-int isere_tcp_poll(struct pollfd *fds, nfds_t nfds, int timeout)
+int isere_tcp_poll(struct pollfd *fds, unsigned int nfds, int timeout)
 {
   return poll(fds, nfds, timeout);
 }

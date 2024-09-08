@@ -3,6 +3,8 @@
 #include <string.h>
 #include <sys/param.h>
 
+#include "libuv/uv.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -48,7 +50,6 @@ static int __on_method(llhttp_t *parser, const char *at, size_t length)
 static int __on_method_complete(llhttp_t *parser)
 {
   httpd_conn_t *conn = (httpd_conn_t *)parser->data;
-  conn->completed |= METHODED;
   return 0;
 }
 
@@ -76,7 +77,6 @@ static int __on_url_complete(llhttp_t *parser)
 {
   httpd_conn_t *conn = (httpd_conn_t *)parser->data;
   yuarel_parse(&conn->url_parser, conn->path);
-  conn->completed |= PATHED;
   return 0;
 }
 
@@ -157,7 +157,6 @@ static int __on_header_value_complete(llhttp_t *parser)
 static int __on_headers_complete(llhttp_t *parser)
 {
   httpd_conn_t *conn = (httpd_conn_t *)parser->data;
-  conn->completed |= HEADERED;
   return 0;
 }
 
@@ -184,77 +183,79 @@ static int __on_body(llhttp_t *parser, const char *at, size_t length)
 static int __on_message_complete(llhttp_t *parser)
 {
   httpd_conn_t *conn = (httpd_conn_t *)parser->data;
-  conn->completed |= BODYED;
+  conn->completed = PARSED;
   return 0;
 }
 
-static void __on_poll(struct uv_loop_s* loop,
-                          struct uv__io_s* w,
-                          unsigned int events)
+static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int events)
 {
   if ((events & POLLIN) != POLLIN) {
     return;
   }
 
-  char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
-
   httpd_conn_t *conn = (httpd_conn_t *)w->opaque;
+
+  char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
 
   // if the http header parsing is not done
   // and there's a new incoming data
-  if ((conn->completed & PARSED) != PARSED) {
-
-    int len = isere_tcp_recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
-    if (len <= 0) {
-      if (len == -2) {  // EAGAIN
-        return;
-      }
-
-      conn->completed = DONE;
-    }
-
-    if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
-      __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
-
-      const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
-      isere_tcp_write(conn->fd, buf, strlen(buf));
-      conn->completed = DONE;
-    }
-
-    // TODO: make this async
-    // pass the new data to http parser
-    enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
-    if (err != HPE_OK) {
-      __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
-      conn->completed = DONE;
-    }
-
-    if (conn->completed < PARSED) {
+  int len = isere_tcp_recv(conn->fd, linebuf, ISERE_HTTPD_LINE_BUFFER_LEN);
+  if (len <= 0) {
+    if (len == -2) {  // EAGAIN
       return;
     }
 
-    // execute request handler function
-    // if the request was done parsing
-    // TODO: HTTP path
-    if ((conn->path[0] != '\0') ||
-      (conn->path[0] != '/' && conn->path[1] != '\0'))
-    {
-      const char *buf = "HTTP/1.1 404 Not Found\r\n\r\n";
-      isere_tcp_write(conn->fd, buf, strlen(buf));
-      conn->completed = DONE;
-    }
-
-    if (__httpd_handler == NULL) {
-      const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
-      isere_tcp_write(conn->fd, buf, strlen(buf));
-      conn->completed = DONE;
-    }
-
-    uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
-    __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
-
-    conn->completed |= POLLING;
+    goto finally;
   }
+
+  if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
+    __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
+
+    const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
+    isere_tcp_write(conn->fd, buf, strlen(buf));
+    goto finally;
+  }
+
+  // TODO: make this async
+  // pass the new data to http parser
+  enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
+  if (err != HPE_OK) {
+    __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
+    goto finally;
+  }
+
+  if (conn->completed != PARSED) {
+    return;
+  }
+
+  // execute request handler function
+  // if the request was done parsing
+  // TODO: HTTP path
+  if ((conn->path[0] != '\0') ||
+    (conn->path[0] != '/' && conn->path[1] != '\0'))
+  {
+    const char *buf = "HTTP/1.1 404 Not Found\r\n\r\n";
+    isere_tcp_write(conn->fd, buf, strlen(buf));
+    goto finally;
+  }
+
+  if (__httpd_handler == NULL) {
+    const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
+    isere_tcp_write(conn->fd, buf, strlen(buf));
+    goto finally;
+  }
+
+  uv__io_stop(&__httpd->loop, &conn->w, POLLIN);
+  uv__platform_invalidate_fd(&__httpd->loop, conn->fd);
+
+  uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
+  __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
+
+  conn->completed = POLLING;
+  return;
+
+finally:
+  __httpd_cleanup_conn(conn);
 }
 
 int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *handler)
@@ -301,6 +302,14 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
 {
   if (__isere) {
     __isere = NULL;
+  }
+
+  if (__httpd) {
+    __httpd = NULL;
+  }
+
+  if (__httpd_handler) {
+    __httpd_handler = NULL;
   }
 
   // stop client tasks and close client sockets
@@ -365,11 +374,11 @@ static void __httpd_poller_task(void *param)
 
       // if http handler function was invoked
       // and pending jobs are not done yet
-      if ((conn->completed & POLLING) == POLLING) {
+      if (conn->completed == POLLING) {
 
         // respond as there's no pending jobs left
         if (isere_js_poll(&conn->js) == 0) {
-          conn->completed |= PROCESSED;
+          conn->completed = PROCESSED;
           continue;
         }
 
@@ -378,18 +387,18 @@ static void __httpd_poller_task(void *param)
         JSValue response_obj = JS_GetPropertyStr(conn->js.context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
         if (!JS_IsUndefined(response_obj)) {
           // TODO: callbackWaitsForEmptyEventLoop
-          conn->completed |= PROCESSED;
+          conn->completed = PROCESSED;
         }
         JS_FreeValue(conn->js.context, response_obj);
         JS_FreeValue(conn->js.context, global_obj);
       }
 
-      if ((conn->completed & PROCESSED) == PROCESSED) {
-        conn->completed |= WRITING;
+      if (conn->completed == PROCESSED) {
+        conn->completed = WRITING;
         __httpd_writeback(conn);  // TODO: non-blocking write?
       }
 
-      if ((conn->completed & DONE) == DONE) {
+      if (conn->completed == WROTE) {
   finally:
         __httpd_cleanup_conn(conn);
       }
@@ -561,5 +570,5 @@ static void __httpd_writeback(httpd_conn_t *conn)
 
   isere_tcp_write(conn->fd, "\r\n\r\n", 4);
 
-  conn->completed |= WROTE;
+  conn->completed = WROTE;
 }
