@@ -22,7 +22,6 @@ extern "C" {
 #define ISERE_HTTPD_LOG_TAG "httpd"
 #define ISERE_HTTPD_PORT 8080
 
-#define ISERE_HTTPD_MAX_CONNECTIONS ISERE_TCP_MAX_CONNECTIONS
 #define ISERE_HTTPD_HANDLER_TIMEOUT_MS 30000
 
 #define ISERE_HTTPD_LINE_BUFFER_LEN 64
@@ -35,17 +34,10 @@ extern "C" {
 #define ISERE_HTTPD_MAX_HTTP_BODY_LEN 512
 
 #define ISERE_HTTPD_MAX_HTTP_REQUEST_LEN \
-  (ISERE_HTTPD_MAX_HTTP_METHOD_LEN + ISERE_HTTPD_MAX_HTTP_PATH_LEN + ISERE_HTTPD_MAX_HTTP_HEADERS * (ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN + ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN) + ISERE_HTTPD_MAX_HTTP_BODY_LEN)
-
-#define PARSED 1
-#define POLLING 2
-#define PROCESSED 3
-#define WRITING 4
-#define WROTE 5
-
-#ifndef ISERE_HTTPD_SERVER_TASK_STACK_SIZE
-#define ISERE_HTTPD_SERVER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
-#endif /* ISERE_HTTPD_SERVER_TASK_STACK_SIZE */
+  (ISERE_HTTPD_MAX_HTTP_METHOD_LEN + \
+    ISERE_HTTPD_MAX_HTTP_PATH_LEN + \
+    ISERE_HTTPD_MAX_HTTP_HEADERS * (ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN + ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN) + \
+    ISERE_HTTPD_MAX_HTTP_BODY_LEN)
 
 #ifndef ISERE_HTTPD_POLLER_TASK_STACK_SIZE
 #define ISERE_HTTPD_POLLER_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
@@ -64,17 +56,18 @@ typedef struct {
 typedef struct {
 
   int fd;
-  int32_t recvd;  // number of bytes received
+  char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
+  int linebuflen;
+  int32_t recvd;  // total number of bytes received
 
   uv__io_t w;
   isere_js_context_t js;
+  struct uv__queue js_queue;
 
   llhttp_t llhttp;
   llhttp_settings_t llhttp_settings;
 
   struct yuarel url_parser;
-
-  uint8_t completed;  // bitfield of completed parts of the request
 
   char method[ISERE_HTTPD_MAX_HTTP_METHOD_LEN]; // GET, POST, etc.
   char path[ISERE_HTTPD_MAX_HTTP_PATH_LEN]; // /foo/bar
