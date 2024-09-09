@@ -76,6 +76,7 @@ typedef struct {
 typedef void * isere_js_t;
 
 typedef struct {
+  TaskHandle_t tsk;
   int serverfd;
   uv__io_t w;
   uv_loop_t loop;
