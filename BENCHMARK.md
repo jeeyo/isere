@@ -1,5 +1,7 @@
 # Benchmark
 
+Tested with WSL2 on Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz with 16GB RAM
+
 ### Node 20
 
 ```bash
@@ -7,12 +9,12 @@ $ wrk -t12 -c400 -d10s http://127.0.0.1:8080
 Running 10s test @ http://127.0.0.1:8080
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.13ms    6.22ms 249.40ms   99.33%
-    Req/Sec     7.19k     3.31k   13.33k    58.25%
-  860006 requests in 10.02s, 141.07MB read
-  Socket errors: connect 155, read 320, write 0, timeout 0
-Requests/sec:  85861.04
-Transfer/sec:     14.08MB
+    Latency    42.32ms  149.54ms   1.99s    96.70%
+    Req/Sec     1.71k   648.15     7.07k    85.64%
+  190318 requests in 10.07s, 23.78MB read
+  Socket errors: connect 0, read 0, write 0, timeout 134
+Requests/sec:  18902.95
+Transfer/sec:      2.36MB
 ```
 
 ### isère
