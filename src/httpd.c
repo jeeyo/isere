@@ -15,9 +15,7 @@ static isere_t *__isere = NULL;
 static isere_httpd_t *__httpd = NULL;
 static httpd_handler_t *__httpd_handler = NULL;
 
-static TaskHandle_t __httpd_poll_task_handle = NULL;
-
-static void __httpd_poller_task(void *params);
+static void __httpd_task(void *params);
 
 static void __httpd_cleanup_conn(httpd_conn_t *conn);
 static void __httpd_writeback(httpd_conn_t *conn);
@@ -320,13 +318,10 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
   httpd->loop.watchers = NULL;
   httpd->loop.nwatchers = 0;
   uv__queue_init(&httpd->loop.watcher_queue);
+  uv__queue_init(&httpd->js_queue);
 
-  if (__httpd_handler != NULL) {
-    uv__queue_init(&httpd->js_queue);
-  }
-
-  // start poller task
-  if (xTaskCreate(__httpd_poller_task, "httpd_poller", ISERE_HTTPD_POLLER_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &__httpd_poll_task_handle) != pdPASS) {
+  // start httpd task
+  if (xTaskCreate(__httpd_task, "httpd", ISERE_HTTPD_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &httpd->tsk) != pdPASS) {
     isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd poller task");
     return -1;
   }
@@ -373,7 +368,7 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   vPortFree(conn);
 }
 
-static void __httpd_poller_task(void *param)
+static void __httpd_task(void *param)
 {
   while (!isere_tcp_is_initialized()) {
     vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -402,6 +397,10 @@ static void __httpd_poller_task(void *param)
   {
     // poll sockets to see if there's any new events
     uv__io_poll(&__httpd->loop, 0);
+
+    if (__httpd_handler == NULL) {
+      continue;
+    }
 
     while (!uv__queue_empty(&__httpd->js_queue))
     {
