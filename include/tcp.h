@@ -7,24 +7,13 @@ extern "C" {
 
 #include "isere.h"
 
-#ifdef __linux__
+#if defined(__linux__)
 #include <poll.h>
-#endif /* __linux__ */
+#elif defined(ISERE_WITH_LWIP)
+#include "lwip/sockets.h"
+#endif
 
 #define ISERE_TCP_LOG_TAG "tcp"
-
-// #if !defined(POLLIN) && !defined(POLLOUT)
-// #define POLLIN     0x1
-// #define POLLOUT    0x2
-// #define POLLERR    0x4
-// typedef unsigned int unsigned int;
-// struct pollfd
-// {
-//   int fd;
-//   short events;
-//   short revents;
-// };
-// #endif
 
 int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp);
 int isere_tcp_deinit(isere_tcp_t *tcp);

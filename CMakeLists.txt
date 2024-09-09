@@ -135,6 +135,7 @@ if(WITH_LWIP)
     ${LWIP_DIR}/src/include
   )
   target_link_libraries(isere lwipallapps lwipcore)
+  target_compile_definitions(isere PRIVATE ISERE_WITH_LWIP)
 endif()
 
 add_custom_command(

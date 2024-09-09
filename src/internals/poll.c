@@ -35,43 +35,6 @@
 #include "FreeRTOS.h"
 #include "pvPortRealloc.h"
 
-static void uv__pollfds_del(uv_loop_t* loop, int fd);
-
-int uv__platform_loop_init(uv_loop_t* loop) {
-  loop->poll_fds = NULL;
-  loop->poll_fds_used = 0;
-  loop->poll_fds_size = 0;
-  loop->poll_fds_iterating = 0;
-  return 0;
-}
-
-void uv__platform_loop_delete(uv_loop_t* loop) {
-  vPortFree(loop->poll_fds);
-  loop->poll_fds = NULL;
-}
-
-/* Remove the given fd from our poll fds array because no one
- * is interested in its events anymore.
- */
-void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
-  size_t i;
-
-  assert(fd >= 0);
-
-  if (loop->poll_fds_iterating) {
-    /* uv__io_poll is currently iterating.  Just invalidate fd.  */
-    for (i = 0; i < loop->poll_fds_used; i++)
-      if (loop->poll_fds[i].fd == fd) {
-        loop->poll_fds[i].fd = -1;
-        loop->poll_fds[i].events = 0;
-        loop->poll_fds[i].revents = 0;
-      }
-  } else {
-    /* uv__io_poll is not iterating.  Delete fd from the set.  */
-    uv__pollfds_del(loop, fd);
-  }
-}
-
 /* Allocate or dynamically resize our poll fds array.  */
 static void uv__pollfds_maybe_resize(uv_loop_t* loop) {
   size_t i;
@@ -204,7 +167,7 @@ static void maybe_resize(uv_loop_t* loop, unsigned int len) {
 }
 
 void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
-  assert(0 == (events & ~(POLLIN | POLLOUT)));
+  assert(0 == (events & ~(UV_POLLIN | UV_POLLOUT)));
   assert(0 != events);
   assert(w->fd >= 0);
   assert(w->fd < INT_MAX);
@@ -222,7 +185,7 @@ void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
 }
 
 void uv__io_stop(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
-  assert(0 == (events & ~(POLLIN | POLLOUT)));
+  assert(0 == (events & ~(UV_POLLIN | UV_POLLOUT)));
   assert(0 != events);
 
   if (w->fd == -1)
@@ -322,4 +285,39 @@ void uv__io_poll(uv_loop_t* loop, int timeout)
   }
 
   loop->poll_fds_iterating = 0;
+}
+
+int uv__platform_loop_init(uv_loop_t* loop) {
+  loop->poll_fds = NULL;
+  loop->poll_fds_used = 0;
+  loop->poll_fds_size = 0;
+  loop->poll_fds_iterating = 0;
+  return 0;
+}
+
+void uv__platform_loop_delete(uv_loop_t* loop) {
+  vPortFree(loop->poll_fds);
+  loop->poll_fds = NULL;
+}
+
+/* Remove the given fd from our poll fds array because no one
+ * is interested in its events anymore.
+ */
+void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
+  size_t i;
+
+  assert(fd >= 0);
+
+  if (loop->poll_fds_iterating) {
+    /* uv__io_poll is currently iterating.  Just invalidate fd.  */
+    for (i = 0; i < loop->poll_fds_used; i++)
+      if (loop->poll_fds[i].fd == fd) {
+        loop->poll_fds[i].fd = -1;
+        loop->poll_fds[i].events = 0;
+        loop->poll_fds[i].revents = 0;
+      }
+  } else {
+    /* uv__io_poll is not iterating.  Delete fd from the set.  */
+    uv__pollfds_del(loop, fd);
+  }
 }

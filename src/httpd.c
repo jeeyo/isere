@@ -179,7 +179,7 @@ static int __on_message_complete(llhttp_t *parser)
 {
   httpd_conn_t *conn = (httpd_conn_t *)parser->data;
 
-  uv__io_stop(&__httpd->loop, &conn->w, POLLIN);
+  uv__io_stop(&__httpd->loop, &conn->w, UV_POLLIN);
 
   // execute request handler function
   // if the request was done parsing
@@ -209,7 +209,7 @@ static int __on_message_complete(llhttp_t *parser)
 
 static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int events)
 {
-  if ((events & POLLIN) != POLLIN) {
+  if ((events & UV_POLLIN) != UV_POLLIN) {
     return;
   }
 
@@ -250,7 +250,7 @@ static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int e
 
 static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int events)
 {
-  if ((events & POLLIN) != POLLIN) {
+  if ((events & UV_POLLIN) != UV_POLLIN) {
     return;
   }
 
@@ -302,7 +302,7 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
   sw->opaque = (void *)conn;
   uv__queue_init(&sw->watcher_queue);
 
-  uv__io_start(&__httpd->loop, sw, POLLIN);
+  uv__io_start(&__httpd->loop, sw, UV_POLLIN);
 }
 
 int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *handler)
@@ -368,7 +368,7 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   }
 
   // cleanup client socket
-  uv__io_stop(&__httpd->loop, &conn->w, POLLIN);
+  uv__io_stop(&__httpd->loop, &conn->w, UV_POLLIN);
   isere_tcp_close(conn->fd);
   vPortFree(conn);
 }
@@ -394,7 +394,7 @@ static void __httpd_poller_task(void *param)
   w->opaque = NULL;
   uv__queue_init(&w->watcher_queue);
 
-  uv__io_start(&__httpd->loop, w, POLLIN);
+  uv__io_start(&__httpd->loop, w, UV_POLLIN);
 
   __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Listening on port %d", ISERE_HTTPD_PORT);
 
@@ -420,15 +420,15 @@ static void __httpd_poller_task(void *param)
       // and pending jobs are not done yet
       int is_done = 0;
 
-      // // respond as the response object is constructed from `cb()`
-      // JSValue global_obj = JS_GetGlobalObject(conn->js.context);
-      // JSValue response_obj = JS_GetPropertyStr(conn->js.context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
-      // if (!JS_IsUndefined(response_obj)) {
-      //   // TODO: callbackWaitsForEmptyEventLoop
-      //   is_done = 1;
-      // }
-      // JS_FreeValue(conn->js.context, response_obj);
-      // JS_FreeValue(conn->js.context, global_obj);
+      // respond as the response object is constructed from `cb()`
+      JSValue global_obj = JS_GetGlobalObject(conn->js.context);
+      JSValue response_obj = JS_GetPropertyStr(conn->js.context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
+      if (!JS_IsUndefined(response_obj)) {
+        // TODO: callbackWaitsForEmptyEventLoop
+        is_done = 1;
+      }
+      JS_FreeValue(conn->js.context, response_obj);
+      JS_FreeValue(conn->js.context, global_obj);
 
       // add back to queue if there are pending jobs left
       if (!is_done && isere_js_poll(&conn->js) != 0) {
@@ -445,7 +445,7 @@ writeback:
 
 exit:
   __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd poller task was unexpectedly closed");
-  uv__io_stop(&__httpd->loop, &__httpd->w, POLLIN);
+  uv__io_stop(&__httpd->loop, &__httpd->w, UV_POLLIN);
   should_exit = 1;
   vTaskDelete(NULL);
 }
