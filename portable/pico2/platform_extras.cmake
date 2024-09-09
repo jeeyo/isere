@@ -16,7 +16,9 @@ target_link_libraries(isere
   tinyusb_device
 )
 
-target_compile_definitions(isere PRIVATE PICO_STDOUT_MUTEX=0)
+target_compile_definitions(isere PRIVATE
+                            PICO_STDOUT_MUTEX=0
+                            ISERE_WITH_LWIP)
 # target_compile_options(isere PRIVATE -fno-math-errno)
 
 pico_enable_stdio_usb(isere 0)

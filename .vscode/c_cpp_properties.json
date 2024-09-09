@@ -41,7 +41,13 @@
                 "${workspaceFolder}/3rdparty/quickjs",
                 "${workspaceFolder}/3rdparty/llhttp/include",
                 "${workspaceFolder}/3rdparty/libyuarel",
-                "${workspaceFolder}/3rdparty/c-capnproto/lib"
+                "${workspaceFolder}/3rdparty/c-capnproto/lib",
+                "${workspaceFolder}/3rdparty/pico-sdk/lib/lwip/src/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2040/hardware_regs/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2040/hardware_structs/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_base/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_sync/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/boards/include/boards"
             ],
             "cStandard": "c99",
             "cppStandard": "c++17",
@@ -67,7 +73,13 @@
                 "${workspaceFolder}/3rdparty/quickjs",
                 "${workspaceFolder}/3rdparty/llhttp/include",
                 "${workspaceFolder}/3rdparty/libyuarel",
-                "${workspaceFolder}/3rdparty/c-capnproto/lib"
+                "${workspaceFolder}/3rdparty/c-capnproto/lib",
+                "${workspaceFolder}/3rdparty/pico-sdk/lib/lwip/src/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2350/hardware_regs/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2350/hardware_structs/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_base/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_sync/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/boards/include/boards"
             ],
             "cStandard": "c99",
             "cppStandard": "c++17",

@@ -277,7 +277,7 @@ int isere_js_eval(isere_js_context_t *ctx, unsigned char *handler, unsigned int 
 
   const char *eval =
     "import { handler } from 'handler';"
-    "const handler1 = new Promise(resolve => handler(__event, __context, resolve).then(resolve));"
+    "const handler1 = new Promise(resolve => resolve(handler(__event, __context, resolve)));"
     "Promise.resolve(handler1).then(cb)";
 
   ctx->future = JS_Eval(ctx->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_BACKTRACE_BARRIER);
@@ -303,6 +303,7 @@ int isere_js_poll(isere_js_context_t *ctx)
   err = JS_ExecutePendingJob(JS_GetRuntime(ctx->context), &ctx1);
   if (err < 0) {
     js_std_dump_error(ctx1);
+    return -1;
   }
 
   if (tmrerr == 0 && err <= 0) {

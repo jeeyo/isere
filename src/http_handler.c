@@ -69,7 +69,8 @@ int __http_handler(
 
   // evaluate handler function
   // TODO: make this async
-  if (isere_js_eval(ctx, isere->loader->fn, isere->loader->fn_size) < 0) {
+  int ret = isere_js_eval(ctx, isere->loader->fn, isere->loader->fn_size);
+  if (ret < 0) {
     // TODO: this should be logged
   }
 

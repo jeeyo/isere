@@ -16,6 +16,8 @@ extern "C" {
 
 #include "quickjs.h"
 
+#include "libuv/uv.h"
+
 #define ISERE_APP_NAME "isere"
 
 #ifndef ISERE_APP_VERSION
@@ -23,6 +25,8 @@ extern "C" {
 #endif /* ISERE_APP_VERSION */
 
 #define ISERE_LOG_TAG "isere"
+
+typedef struct isere_s isere_t;
 
 typedef enum {
   LOG_LEVEL_ERROR = 40,
@@ -71,7 +75,12 @@ typedef struct {
 
 typedef void * isere_js_t;
 
-typedef void * isere_httpd_t;
+typedef struct {
+  int serverfd;
+  uv__io_t w;
+  uv_loop_t loop;
+  struct uv__queue js_queue;
+} isere_httpd_t;
 
 typedef void * isere_tcp_t;
 
@@ -81,7 +90,7 @@ typedef void * isere_ini_t;
 
 typedef void * isere_rtc_t;
 
-typedef struct {
+struct isere_s {
   isere_logger_t *logger;
   isere_loader_t *loader;
   isere_js_t *js;
@@ -90,7 +99,7 @@ typedef struct {
   isere_fs_t *fs;
   // isere_ini_t *ini;
   isere_rtc_t *rtc;
-} isere_t;
+};
 
 #ifdef __cplusplus
 }

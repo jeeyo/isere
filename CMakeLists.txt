@@ -34,6 +34,7 @@ list(APPEND SOURCES
   ./src/polyfills/fetch.c
   ./src/polyfills/timer.c
   ./src/polyfills/pvPortRealloc.c
+  ./src/internals/uv_poll.c
   ./portable/${TARGET_PLATFORM}/src/fs.c
   ./portable/${TARGET_PLATFORM}/src/loader.c
   ./portable/${TARGET_PLATFORM}/src/logger.c
@@ -134,6 +135,7 @@ if(WITH_LWIP)
     ${LWIP_DIR}/src/include
   )
   target_link_libraries(isere lwipallapps lwipcore)
+  target_compile_definitions(isere PRIVATE ISERE_WITH_LWIP)
 endif()
 
 add_custom_command(
