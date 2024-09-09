@@ -7,9 +7,9 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 ### Current progress
 
 - [x] FreeRTOS as Kernel
-- [ ] JavaScript runtime
+- [x] JavaScript runtime
   - [x] QuickJS
-  - [ ] JerryScript (for memory-constrained port)
+  - [ ] JerryScript
 - [ ] Python runtime (?)
   - [ ] MicroPython
 - [x] HTTP server
@@ -40,9 +40,7 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
   - [x] setTimeout / clearTimeout (FreeRTOS Timer)
 - [ ] Memory Leak Check
 - [ ] Valgrind
-- [x] gprof profiling
 - [ ] Optimization
-  - [ ] async llhttp__internal__run()
   - [ ] less libc usage + buffered printf()
   - [ ] use another data structure for httpd and tcp sockets
   - [ ] construct pollfd with less loops
@@ -137,4 +135,5 @@ See [BENCHMARK.md](BENCHMARK.md)
 
 Special thanks to
 
-[maxnet](https://github.com/maxnet/pico-webserver/) for tinyusb RNDIS to LwIP glue for Raspberry Pi Pico
+- [maxnet](https://github.com/maxnet/pico-webserver/) for tinyusb RNDIS to LwIP glue for Raspberry Pi Pico
+- [src/internals/uv_poll.c](src/internals/uv_poll.c) was extracted from [libuv](https://github.com/libuv/libuv)

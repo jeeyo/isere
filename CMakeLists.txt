@@ -34,7 +34,7 @@ list(APPEND SOURCES
   ./src/polyfills/fetch.c
   ./src/polyfills/timer.c
   ./src/polyfills/pvPortRealloc.c
-  ./src/internals/poll.c
+  ./src/internals/uv_poll.c
   ./portable/${TARGET_PLATFORM}/src/fs.c
   ./portable/${TARGET_PLATFORM}/src/loader.c
   ./portable/${TARGET_PLATFORM}/src/logger.c
