@@ -430,14 +430,10 @@ static void __httpd_task(void *param)
       // is the handler javascript function returned?
       // TODO: callbackWaitsForEmptyEventLoop
       int callbacked = js_runtime_process_response(&conn->js, &conn->response);
-      if (callbacked < 0) {
-        uv__queue_insert_tail(&__httpd->js_queue, &conn->js_queue);
-        continue;
-      }
+      int pending_jobs_left = isere_js_poll(&conn->js);
 
       // add back to queue if there are pending jobs left
-      int pending_jobs_left = isere_js_poll(&conn->js);
-      if (pending_jobs_left != 0) {
+      if (callbacked != 0 && pending_jobs_left != 0) {
         if (pending_jobs_left < 0) {
           goto fail;
         }
@@ -465,21 +461,27 @@ static void __httpd_writeback(httpd_conn_t *conn)
 {
   httpd_response_object_t *resp = &conn->response;
 
+  if (!resp->completed) {
+    const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
+    isere_tcp_write(conn->fd, buf, strlen(buf));
+    return;
+  }
+
   // send HTTP response code
-  isere_tcp_write(conn->socket, "HTTP/1.1 ", 9);
+  isere_tcp_write(conn->fd, "HTTP/1.1 ", 9);
 
   char statusCode[4] = "200";
   int len = snprintf(statusCode, 4, "%d", resp->statusCode);
-  isere_tcp_write(conn->socket, statusCode, len);
+  isere_tcp_write(conn->fd, statusCode, len);
   // TODO: status code to status text
-  isere_tcp_write(conn->socket, "\r\n", 2);
+  isere_tcp_write(conn->fd, "\r\n", 2);
 
   // send HTTP response headers
   for (int i = 0; i < resp->num_header_fields; i++) {
-    isere_tcp_write(conn->socket, resp->header_names[i], strlen(resp->header_names[i]));
-    isere_tcp_write(conn->socket, ": ", 2);
-    isere_tcp_write(conn->socket, resp->header_values[i], strlen(resp->header_values[i]));
-    isere_tcp_write(conn->socket, "\r\n", 2);
+    isere_tcp_write(conn->fd, resp->header_names[i], strlen(resp->header_names[i]));
+    isere_tcp_write(conn->fd, ": ", 2);
+    isere_tcp_write(conn->fd, resp->header_values[i], strlen(resp->header_values[i]));
+    isere_tcp_write(conn->fd, "\r\n", 2);
   }
 
   // TODO: `Date`
@@ -488,7 +490,7 @@ static void __httpd_writeback(httpd_conn_t *conn)
   isere_tcp_write(conn->fd, "\r\n", 2);
 
   // send HTTP response body
-  isere_tcp_write(conn->socket, resp->body, resp->body_len);
+  isere_tcp_write(conn->fd, resp->body, resp->body_len);
 
   isere_tcp_write(conn->fd, "\r\n\r\n", 4);
 }
