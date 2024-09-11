@@ -68,7 +68,7 @@ if(JS_RUNTIME STREQUAL "quickjs")
     ${QUICKJS_DIR}/libregexp.c
     ${QUICKJS_DIR}/libunicode.c
     ${QUICKJS_DIR}/cutils.c
-    ./src/runtimes/quickjs.c
+    ./src/runtimes/quickjs/quickjs.c
   )
 elseif()
   add_custom_target(amalgam)

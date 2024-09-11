@@ -364,7 +364,7 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
 static void __httpd_cleanup_conn(httpd_conn_t *conn)
 {
   llhttp_reset(&conn->llhttp);
-  isere_js_free_context(&conn->js);
+  isere_js_free_context(__isere->js, &conn->js);
 
   if (__httpd_handler != NULL) {
     uv__queue_remove(&conn->js_queue);
