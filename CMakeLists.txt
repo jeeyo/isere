@@ -4,7 +4,7 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 # build configuration
 option(DEBUG "Debug mode" OFF)
-set(JS_RUNTIME "quickjs" CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
+set(JS_RUNTIME "quickjs" CACHE STRING "JavaScript runtime") # quickjs (default)
 
 # platform-specific configuration
 option(WITH_LWIP "Include LwIP" OFF)
@@ -17,7 +17,6 @@ project(isere C CXX ASM)
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
 set(FREERTOS_POSIX_DIR ./3rdparty/FreeRTOS-Plus-POSIX)
 set(QUICKJS_DIR ./3rdparty/quickjs)
-set(JERRYSCRIPT_DIR ./3rdparty/jerryscript)
 set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
@@ -70,11 +69,6 @@ if(JS_RUNTIME STREQUAL "quickjs")
     ${QUICKJS_DIR}/cutils.c
     ./src/runtimes/quickjs/quickjs.c
   )
-elseif()
-  add_custom_target(amalgam)
-  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-math)
-  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
-  target_link_libraries(isere PRIVATE jerry-math jerry-core)
 endif()
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)

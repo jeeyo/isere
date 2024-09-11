@@ -21,6 +21,3 @@
 [submodule "3rdparty/pico-sdk"]
 	path = 3rdparty/pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git
-[submodule "3rdparty/jerryscript"]
-	path = 3rdparty/jerryscript
-	url = https://github.com/jerryscript-project/jerryscript.git
