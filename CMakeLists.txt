@@ -31,9 +31,6 @@ list(APPEND SOURCES
   ./src/httpd.c
   ./src/ini.c
   ./src/js.c
-  ./src/quickjs-libc.c
-  ./src/polyfills/fetch.c
-  ./src/polyfills/timer.c
   ./src/polyfills/pvPortRealloc.c
   ./src/internals/uv_poll.c
   ./portable/${TARGET_PLATFORM}/src/fs.c
@@ -68,6 +65,9 @@ if(JS_RUNTIME STREQUAL "quickjs")
     ${QUICKJS_DIR}/libunicode.c
     ${QUICKJS_DIR}/cutils.c
     ./src/runtimes/quickjs/quickjs.c
+    ./src/runtimes/quickjs/quickjs-libc.c
+    ./src/polyfills/quickjs/fetch.c
+    ./src/polyfills/quickjs/timer.c
   )
 endif()
 
