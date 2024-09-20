@@ -16,13 +16,17 @@ int js_runtime_deinit(isere_js_t *js);
 int js_runtime_init_context(isere_js_t *js, isere_js_context_t *ctx);
 int js_runtime_deinit_context(isere_js_t *js, isere_js_context_t *ctx);
 
-int js_runtime_process_response(isere_js_context_t *ctx, httpd_response_object_t *resp);
-void js_runtime_populate_params_to_globalobj(
+int js_runtime_poll(isere_js_context_t *ctx);
+
+int js_runtime_eval_handler(
   isere_js_context_t *ctx,
+  unsigned char *handler,
+  unsigned int handler_len,
   const char *method,
   const char *path,
   const char *query,
-  const httpd_header_t *request_headers,
+  const char **request_header_names,
+  const char **request_header_values,
   const uint32_t request_headers_len,
   const char *body);
 

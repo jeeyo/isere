@@ -45,49 +45,30 @@ int isere_js_free_context(isere_js_t *js, isere_js_context_t *ctx)
   ```
 */
 
-static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+int isere_js_eval(
+  isere_js_context_t *ctx,
+  unsigned char *handler,
+  unsigned int handler_len,
+  const char *method,
+  const char *path,
+  const char *query,
+  const char (*request_header_names)[],
+  const char (*request_header_values)[],
+  const uint32_t request_headers_len,
+  const char *body)
 {
-  if (argc < 1) {
-    return JS_ThrowTypeError(ctx, "not a function");
-  }
-
-  JSValueConst resp = argv[0];
-
-  JSValue global_obj = JS_GetGlobalObject(ctx);
-  JS_SetPropertyStr(ctx, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME, JS_DupValue(ctx, resp));
-  JS_FreeValue(ctx, global_obj);
-
-  return JS_UNDEFINED;
-}
-
-int isere_js_eval(isere_js_context_t *ctx, unsigned char *handler, unsigned int handler_len)
-{
-  JSValue global_obj = JS_GetGlobalObject(ctx->context);
-
-  // add callback for getting the result
-  JS_SetPropertyStr(ctx->context, global_obj, "cb", JS_NewCFunction(ctx->context, __handler_cb, "cb", 1));
-  JS_FreeValue(ctx->context, global_obj);
-
-  JSValue h = JS_Eval(ctx->context, (const char *)handler, handler_len, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-  if (JS_IsException(h)) {
+  if (js_runtime_eval_handler(
+    ctx,
+    handler,
+    handler_len,
+    method,
+    path,
+    query,
+    request_header_names,
+    request_header_values,
+    request_headers_len,
+    body) < 0) {
     // TODO: error goes to logger
-    js_std_dump_error(ctx->context);
-    JS_FreeValue(ctx->context, h);
-    return -1;
-  }
-
-  js_module_set_import_meta(ctx->context, h, 0, 0);
-  JS_FreeValue(ctx->context, h);
-
-  const char *eval =
-    "import { handler } from 'handler';"
-    "const handler1 = new Promise(resolve => resolve(handler(globalThis.__event, globalThis.__context, resolve)));"
-    "Promise.resolve(handler1).then(cb)";
-
-  ctx->future = JS_Eval(ctx->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_BACKTRACE_BARRIER);
-  if (JS_IsException(ctx->future)) {
-    // TODO: error goes to logger
-    js_std_dump_error(ctx->context);
     return -1;
   }
 
@@ -96,23 +77,5 @@ int isere_js_eval(isere_js_context_t *ctx, unsigned char *handler, unsigned int 
 
 int isere_js_poll(isere_js_context_t *ctx)
 {
-  JSContext *ctx1;
-  int err;
-  int tmrerr = 0;
-
-  // execute the pending timers
-  tmrerr = isere_js_polyfill_timer_poll(ctx);
-
-  // execute the pending jobs
-  err = JS_ExecutePendingJob(JS_GetRuntime(ctx->context), &ctx1);
-  if (err < 0) {
-    js_std_dump_error(ctx1);
-    return -1;
-  }
-
-  if (tmrerr == 0 && err <= 0) {
-    return 0;
-  }
-
-  return 1;
+  return js_runtime_poll(ctx);
 }

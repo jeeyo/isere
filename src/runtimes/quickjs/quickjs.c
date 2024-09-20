@@ -5,8 +5,8 @@
 
 #include "pvPortRealloc.h"
 
-// #include "quickjs.h"
-// #include "quickjs-libc.h"
+#include "quickjs.h"
+#include "quickjs-libc.h"
 
 #include <string.h>
 #include <stdint.h>
@@ -14,6 +14,7 @@
 static inline int32_t MAX(int32_t a, int32_t b) { return((a) > (b) ? a : b); }
 static inline int32_t MIN(int32_t a, int32_t b) { return((a) < (b) ? a : b); }
 
+static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, const char *color);
 static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 static JSValue __console_warn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
@@ -128,110 +129,48 @@ int js_runtime_deinit(isere_js_t *js)
   return 0;
 }
 
-int js_runtime_process_response(isere_js_context_t *ctx, httpd_response_object_t *resp)
-{
-  JSValue global_obj = JS_GetGlobalObject(ctx->context);
-  JSValue response_obj = JS_GetPropertyStr(ctx->context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
-  if (JS_IsUndefined(response_obj)) {
-    resp->completed = 0;
-    JS_FreeValue(ctx->context, response_obj);
-    JS_FreeValue(ctx->context, global_obj);
-    return -1;
-  }
-
-  resp->completed = 1;
-
-  // HTTP response code
-  JSValue statusCode = JS_GetPropertyStr(ctx->context, response_obj, ISERE_JS_RESPONSE_STATUS_CODE_PROP_NAME);
-  if (!JS_IsNumber(statusCode)) {
-    resp->statusCode = 200;
-  } else {
-    if (JS_ToUint32(ctx->context, &resp->statusCode, statusCode) < 0) {
-      resp->statusCode = 500;
-    }
-  }
-  JS_FreeValue(ctx->context, statusCode);
-
-  // HTTP response headers
-  JSValue headers = JS_GetPropertyStr(ctx->context, response_obj, ISERE_JS_RESPONSE_HEADERS_PROP_NAME);
-  if (JS_IsObject(headers)) {
-
-    JSPropertyEnum *props = NULL;
-    uint32_t props_len = 0;
-
-    if (JS_GetOwnPropertyNames(ctx->context, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
-
-      resp->num_header_fields = MIN(props_len, ISERE_HTTPD_MAX_HTTP_HEADERS);
-
-      for (int i = 0; i < resp->num_header_fields; i++) {
-
-        const char *header_field_str = JS_AtomToCString(ctx->context, props[i].atom);
-
-        JSValue header_value = JS_GetProperty(ctx->context, headers, props[i].atom);
-        size_t header_value_len = 0;
-        const char *header_value_str = JS_ToCStringLen(ctx->context, &header_value_len, header_value);
-
-        resp->header_names[i] = strdup(header_field_str);
-        resp->header_values[i] = strdup(header_value_str);
-
-        JS_FreeCString(ctx->context, header_field_str);
-        JS_FreeCString(ctx->context, header_value_str);
-        JS_FreeValue(ctx->context, header_value);
-
-        JS_FreeAtom(ctx->context, props[i].atom);
-      }
-
-      js_free(ctx->context, props);
-    }
-  }
-  JS_FreeValue(ctx->context, headers);
-
-  // send HTTP response body
-  JSValue body = JS_GetPropertyStr(ctx->context, response_obj, ISERE_JS_RESPONSE_BODY_PROP_NAME);
-  size_t body_len = 0;
-  const char *body_str = NULL;
-
-  if (JS_IsObject(body)) {
-    JSValue stringifiedBody = JS_JSONStringify(ctx->context, body, JS_UNDEFINED, JS_UNDEFINED);
-    body_str = JS_ToCStringLen(ctx->context, &body_len, stringifiedBody);
-    JS_FreeValue(ctx->context, stringifiedBody);
-  } else if (JS_IsString(body)) {
-    body_str = JS_ToCStringLen(ctx->context, &body_len, body);
-  }
-
-  if (body_str != NULL) {
-    resp->body_len = body_len;
-    resp->body = strdup(body_str);
-    JS_FreeCString(ctx->context, body_str);
-  }
-  JS_FreeValue(ctx->context, body);
-
-  JS_FreeValue(ctx->context, response_obj);
-  JS_FreeValue(ctx->context, global_obj);
-
-  return 0;
-}
-
-void js_runtime_populate_params_to_globalobj(
+int js_runtime_eval_handler(
   isere_js_context_t *ctx,
+  unsigned char *handler,
+  unsigned int handler_len,
   const char *method,
   const char *path,
   const char *query,
-  const httpd_header_t *request_headers,
+  const char **request_header_names,
+  const char **request_header_values,
   const uint32_t request_headers_len,
   const char *body)
 {
-  JSValue global_obj = JS_GetGlobalObject(ctx->context);
+  // import handler as a module
+  JSValue h = JS_Eval(ctx->context, (const char *)handler, handler_len, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+  if (JS_IsException(h)) {
+    js_std_dump_error(ctx->context);
+    JS_FreeValue(ctx->context, h);
+    return -1;
+  }
 
-  // TODO: add `event` object: https://aws-lambda-for-python-developers.readthedocs.io/en/latest/02_event_and_context/
+  js_module_set_import_meta(ctx->context, h, 0, 0);
+  JS_FreeValue(ctx->context, h);
+
+  // TODO: `event` object: https://aws-lambda-for-python-developers.readthedocs.io/en/latest/02_event_and_context/
   JSValue event = JS_NewObject(ctx->context);
   JS_SetPropertyStr(ctx->context, event, "httpMethod", JS_NewString(ctx->context, method));
   JS_SetPropertyStr(ctx->context, event, "path", JS_NewString(ctx->context, path));
 
   // TODO: multi-value headers
   JSValue headers = JS_NewObject(ctx->context);
-  for (int i = 0; i < request_headers_len; i++) {
-    JS_SetPropertyStr(ctx->context, headers, request_headers[i].name, JS_NewString(ctx->context, request_headers[i].value));
+  {
+    int i = request_headers_len;
+    char *name = (char *)request_header_names;
+    char *value = (char *)request_header_values;
+    while (i) {
+      JS_SetPropertyStr(ctx->context, headers, name, JS_NewString(ctx->context, value));
+      while (*(++name) != '\0');
+      while (*(++name) == '\0');
+      while (*(++value) != '\0');
+      while (*(++value) == '\0');
+      i--;
+    }
   }
   JS_SetPropertyStr(ctx->context, event, "headers", headers);
 
@@ -249,9 +188,8 @@ void js_runtime_populate_params_to_globalobj(
 
   // TODO: binary body
   JS_SetPropertyStr(ctx->context, event, "isBase64Encoded", JS_FALSE);
-  JS_SetPropertyStr(ctx->context, global_obj, "__event", event);
 
-  // add `context` object
+  // `context` object
   JSValue context = JS_NewObject(ctx->context);
   // // TODO: a C function?
   // JS_SetPropertyStr(ctx->context, context, "getRemainingTimeInMillis", NULL);
@@ -263,9 +201,114 @@ void js_runtime_populate_params_to_globalobj(
   JS_SetPropertyStr(ctx->context, context, "logStreamName", JS_NewString(ctx->context, ISERE_APP_NAME));
   // TODO: callbackWaitsForEmptyEventLoop
   JS_SetPropertyStr(ctx->context, context, "callbackWaitsForEmptyEventLoop", JS_NewBool(ctx->context, 1));
-  JS_SetPropertyStr(ctx->context, global_obj, "__context", context);
 
-  JS_FreeValue(ctx->context, global_obj);
+  // callback for getting result
+  JSValue cb = JS_NewCFunction(ctx->context, __handler_cb, "cb", 1);
+
+  const char *eval =
+    "(event, context, cb) => {"
+    "  import { handler } from 'handler';"
+    "  const handler1 = new Promise(resolve => resolve(handler(event, context, resolve)));"
+    "  Promise.resolve(handler1).then(cb)"
+    "}";
+
+  JSValue fn = JS_Eval(ctx->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+  if (JS_IsException(fn)) {
+    js_std_dump_error(ctx->context);
+    return -1;
+  }
+
+  JSValueConst args[3];
+  args[0] = event;
+  args[1] = context;
+  args[2] = cb;
+  ctx->future = JS_Call(ctx->context, fn, JS_UNDEFINED, 3, args);
+  if (JS_IsException(ctx->future)) {
+    js_std_dump_error(ctx->context);
+    return -1;
+  }
+
+  return 0;
+}
+
+static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+  if (argc < 1) {
+    return JS_ThrowTypeError(ctx, "response is not an object");
+  }
+
+  isere_js_context_t *context = JS_GetContextOpaque(ctx);
+  httpd_response_object_t *response = &((httpd_conn_t *)context->opaque)->response;
+
+  JSValueConst response_obj = argv[0];
+
+  // HTTP response code
+  JSValue statusCode = JS_GetPropertyStr(ctx, response_obj, "statusCode");
+  if (!JS_IsNumber(statusCode)) {
+    response->statusCode = 200;
+  } else {
+    if (JS_ToInt32(ctx, &response->statusCode, statusCode) < 0) {
+      response->statusCode = 500;
+    }
+  }
+  JS_FreeValue(ctx, statusCode);
+
+  // HTTP response headers
+  JSValue headers = JS_GetPropertyStr(ctx, response_obj, "headers");
+  if (JS_IsObject(headers)) {
+
+    JSPropertyEnum *props = NULL;
+    uint32_t props_len = 0;
+
+    if (JS_GetOwnPropertyNames(ctx, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
+
+      response->num_header_fields = MIN(props_len, ISERE_HTTPD_MAX_HTTP_HEADERS);
+
+      for (int i = 0; i < response->num_header_fields; i++) {
+
+        const char *header_field_str = JS_AtomToCString(ctx, props[i].atom);
+
+        JSValue header_value = JS_GetProperty(ctx, headers, props[i].atom);
+        size_t header_value_len = 0;
+        const char *header_value_str = JS_ToCStringLen(ctx, &header_value_len, header_value);
+
+        response->header_names[i] = strdup(header_field_str);
+        response->header_values[i] = strdup(header_value_str);
+
+        JS_FreeCString(ctx, header_field_str);
+        JS_FreeCString(ctx, header_value_str);
+        JS_FreeValue(ctx, header_value);
+
+        JS_FreeAtom(ctx, props[i].atom);
+      }
+
+      js_free(ctx, props);
+    }
+  }
+  JS_FreeValue(ctx, headers);
+
+  // send HTTP response body
+  JSValue body = JS_GetPropertyStr(ctx, response_obj, "body");
+  size_t body_len = 0;
+  const char *body_str = NULL;
+
+  if (JS_IsObject(body)) {
+    JSValue stringifiedBody = JS_JSONStringify(ctx, body, JS_UNDEFINED, JS_UNDEFINED);
+    body_str = JS_ToCStringLen(ctx, &body_len, stringifiedBody);
+    JS_FreeValue(ctx, stringifiedBody);
+  } else if (JS_IsString(body)) {
+    body_str = JS_ToCStringLen(ctx, &body_len, body);
+  }
+
+  if (body_str != NULL) {
+    response->body_len = body_len;
+    response->body = strdup(body_str);
+    JS_FreeCString(ctx, body_str);
+  }
+  JS_FreeValue(ctx, body);
+
+  response->completed = 1;
+  return JS_UNDEFINED;
 }
 
 int js_runtime_init_context(isere_js_t *js, isere_js_context_t *ctx)
@@ -329,6 +372,29 @@ int js_runtime_deinit_context(isere_js_t *js, isere_js_context_t *ctx)
 
   JS_FreeContext(ctx->context);
   return 0;
+}
+
+int js_runtime_poll(isere_js_context_t *ctx)
+{
+  JSContext *ctx1;
+  int err;
+  int tmrerr = 0;
+
+  // execute the pending timers
+  tmrerr = isere_js_polyfill_timer_poll(ctx);
+
+  // execute the pending jobs
+  err = JS_ExecutePendingJob(JS_GetRuntime(ctx->context), &ctx1);
+  if (err < 0) {
+    js_std_dump_error(ctx1);
+    return -1;
+  }
+
+  if (tmrerr == 0 && err <= 0) {
+    return 0;
+  }
+
+  return 1;
 }
 
 static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, const char *color)

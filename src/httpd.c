@@ -290,6 +290,7 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
 
   if (__httpd_handler != NULL) {
     isere_js_new_context(__isere->js, &conn->js);
+    conn->js.opaque = conn;
     uv__queue_init(&conn->js_queue);
   }
 
@@ -429,7 +430,7 @@ static void __httpd_task(void *param)
 
       // is the handler javascript function returned?
       // TODO: callbackWaitsForEmptyEventLoop
-      int callbacked = js_runtime_process_response(&conn->js, &conn->response);
+      int callbacked = conn->response.completed == 1;
       int pending_jobs_left = isere_js_poll(&conn->js);
 
       // add back to queue if there are pending jobs left
