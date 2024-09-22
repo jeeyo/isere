@@ -4,6 +4,7 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 # build configuration
 option(DEBUG "Debug mode" OFF)
+set(JS_RUNTIME "quickjs" CACHE STRING "JavaScript runtime") # quickjs (default)
 
 # platform-specific configuration
 option(WITH_LWIP "Include LwIP" OFF)
@@ -30,9 +31,6 @@ list(APPEND SOURCES
   ./src/httpd.c
   ./src/ini.c
   ./src/js.c
-  ./src/quickjs-libc.c
-  ./src/polyfills/fetch.c
-  ./src/polyfills/timer.c
   ./src/polyfills/pvPortRealloc.c
   ./src/internals/uv_poll.c
   ./portable/${TARGET_PLATFORM}/src/fs.c
@@ -50,11 +48,6 @@ list(APPEND SOURCES
   ${FREERTOS_DIR}/tasks.c
   ${FREERTOS_DIR}/timers.c
   ${FREERTOS_DIR}/portable/MemMang/heap_3.c
-  ${QUICKJS_DIR}/quickjs.c
-  ${QUICKJS_DIR}/libbf.c
-  ${QUICKJS_DIR}/libregexp.c
-  ${QUICKJS_DIR}/libunicode.c
-  ${QUICKJS_DIR}/cutils.c
   ${LLHTTP_DIR}/src/api.c
   ${LLHTTP_DIR}/src/http.c
   ${LLHTTP_DIR}/src/llhttp.c
@@ -63,6 +56,20 @@ list(APPEND SOURCES
   ${CAPNPROTO_DIR}/lib/capn-stream.c
   ${CAPNPROTO_DIR}/lib/capn.c
 )
+
+if(JS_RUNTIME STREQUAL "quickjs")
+  list(APPEND SOURCES
+    ${QUICKJS_DIR}/quickjs.c
+    ${QUICKJS_DIR}/libbf.c
+    ${QUICKJS_DIR}/libregexp.c
+    ${QUICKJS_DIR}/libunicode.c
+    ${QUICKJS_DIR}/cutils.c
+    ./src/runtimes/quickjs/quickjs.c
+    ./src/runtimes/quickjs/quickjs-libc.c
+    ./src/polyfills/quickjs/fetch.c
+    ./src/polyfills/quickjs/timer.c
+  )
+endif()
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
 

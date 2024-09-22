@@ -49,6 +49,18 @@ typedef struct {
 } httpd_header_t;
 
 typedef struct {
+  uint8_t completed;
+  uint32_t statusCode;
+
+  char *header_names[ISERE_HTTPD_MAX_HTTP_HEADERS];
+  char *header_values[ISERE_HTTPD_MAX_HTTP_HEADERS];
+  uint32_t num_header_fields;
+
+  char *body;
+  size_t body_len;
+} httpd_response_object_t;
+
+typedef struct {
 
   int fd;
   char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
@@ -64,6 +76,7 @@ typedef struct {
 
   struct yuarel url_parser;
 
+  // request
   char method[ISERE_HTTPD_MAX_HTTP_METHOD_LEN]; // GET, POST, etc.
   char path[ISERE_HTTPD_MAX_HTTP_PATH_LEN]; // /foo/bar
   char body[ISERE_HTTPD_MAX_HTTP_BODY_LEN]; // request body
@@ -71,6 +84,9 @@ typedef struct {
   httpd_header_t headers[ISERE_HTTPD_MAX_HTTP_HEADERS];
   uint32_t num_header_fields;
   uint32_t num_header_values;
+
+  // response
+  httpd_response_object_t response;
 
 } httpd_conn_t;
 

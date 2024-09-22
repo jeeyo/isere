@@ -7,6 +7,9 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+
+#include "runtime.h"
+
 #include "queue.h"
 
 static uint8_t should_exit = 0;
@@ -287,11 +290,17 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
 
   if (__httpd_handler != NULL) {
     isere_js_new_context(__isere->js, &conn->js);
+    conn->js.opaque = conn;
     uv__queue_init(&conn->js_queue);
   }
 
   conn->fd = newfd;
   conn->recvd = 0;
+  conn->response.completed = 0;
+  conn->response.statusCode = 200;
+  conn->response.num_header_fields = 0;
+  conn->response.body = NULL;
+  conn->response.body_len = 0;
 
   uv__io_t *sw = &conn->w;
   sw->fd = newfd;
@@ -322,7 +331,7 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
 
   // start httpd task
   if (xTaskCreate(__httpd_task, "httpd", ISERE_HTTPD_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &httpd->tsk) != pdPASS) {
-    isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd poller task");
+    isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
     return -1;
   }
 
@@ -356,7 +365,7 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
 static void __httpd_cleanup_conn(httpd_conn_t *conn)
 {
   llhttp_reset(&conn->llhttp);
-  isere_js_free_context(&conn->js);
+  isere_js_free_context(__isere->js, &conn->js);
 
   if (__httpd_handler != NULL) {
     uv__queue_remove(&conn->js_queue);
@@ -417,20 +426,18 @@ static void __httpd_task(void *param)
 
       // if http handler function was invoked
       // and pending jobs are not done yet
-      int is_done = 0;
 
-      // respond as the response object is constructed from `cb()`
-      JSValue global_obj = JS_GetGlobalObject(conn->js.context);
-      JSValue response_obj = JS_GetPropertyStr(conn->js.context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
-      if (!JS_IsUndefined(response_obj)) {
-        // TODO: callbackWaitsForEmptyEventLoop
-        is_done = 1;
-      }
-      JS_FreeValue(conn->js.context, response_obj);
-      JS_FreeValue(conn->js.context, global_obj);
+      // is the handler javascript function returned?
+      // TODO: callbackWaitsForEmptyEventLoop
+      int callbacked = conn->response.completed == 1;
+      int pending_jobs_left = isere_js_poll(&conn->js);
 
       // add back to queue if there are pending jobs left
-      if (!is_done && isere_js_poll(&conn->js) != 0) {
+      if (!callbacked && pending_jobs_left != 0) {
+        if (pending_jobs_left < 0) {
+          goto fail;
+        }
+
         uv__queue_insert_tail(&__httpd->js_queue, &conn->js_queue);
         continue;
       }
@@ -438,12 +445,13 @@ static void __httpd_task(void *param)
 writeback:
       // TODO: non-blocking write?
       __httpd_writeback(conn);
+fail:
       __httpd_cleanup_conn(conn);
     }
   }
 
 exit:
-  __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd poller task was unexpectedly closed");
+  __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd task was unexpectedly closed");
   uv__io_stop(&__httpd->loop, &__httpd->w, UV_POLLIN);
   should_exit = 1;
   vTaskDelete(NULL);
@@ -451,63 +459,30 @@ exit:
 
 static void __httpd_writeback(httpd_conn_t *conn)
 {
-  isere_js_context_t *ctx = &conn->js;
+  httpd_response_object_t *resp = &conn->response;
 
-  JS_FreeValue(ctx->context, ctx->future);
-
-  JSValue global_obj = JS_GetGlobalObject(ctx->context);
-  JSValue response_obj = JS_GetPropertyStr(ctx->context, global_obj, ISERE_JS_HANDLER_FUNCTION_RESPONSE_OBJ_NAME);
+  if (!resp->completed) {
+    const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
+    isere_tcp_write(conn->fd, buf, strlen(buf));
+    return;
+  }
 
   // send HTTP response code
   isere_tcp_write(conn->fd, "HTTP/1.1 ", 9);
-  JSValue statusCode = JS_GetPropertyStr(ctx->context, response_obj, ISERE_JS_RESPONSE_STATUS_CODE_PROP_NAME);
-  if (!JS_IsNumber(statusCode)) {
-    isere_tcp_write(conn->fd, "200 OK", 3);
-  } else {
-    size_t len = 0;
-    const char *statusCode1 = JS_ToCStringLen(ctx->context, &len, statusCode);
-    isere_tcp_write(conn->fd, statusCode1, len);
 
-    // TODO: status code to status text
-
-    JS_FreeCString(ctx->context, statusCode1);
-  }
+  char statusCode[4] = "200";
+  int len = snprintf(statusCode, 4, "%d", resp->statusCode);
+  isere_tcp_write(conn->fd, statusCode, len);
+  // TODO: status code to status text
   isere_tcp_write(conn->fd, "\r\n", 2);
-  JS_FreeValue(ctx->context, statusCode);
 
   // send HTTP response headers
-  JSValue headers = JS_GetPropertyStr(ctx->context, response_obj, ISERE_JS_RESPONSE_HEADERS_PROP_NAME);
-  if (JS_IsObject(headers)) {
-
-    JSPropertyEnum *props = NULL;
-    uint32_t props_len = 0;
-
-    if (JS_GetOwnPropertyNames(ctx->context, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
-
-      for (int i = 0; i < props_len; i++) {
-
-        const char *header_field_str = JS_AtomToCString(ctx->context, props[i].atom);
-
-        JSValue header_value = JS_GetProperty(ctx->context, headers, props[i].atom);
-        size_t header_value_len = 0;
-        const char *header_value_str = JS_ToCStringLen(ctx->context, &header_value_len, header_value);
-
-        isere_tcp_write(conn->fd, header_field_str, strlen(header_field_str));
-        isere_tcp_write(conn->fd, ": ", 2);
-        isere_tcp_write(conn->fd, header_value_str, header_value_len);
-        isere_tcp_write(conn->fd, "\r\n", 2);
-
-        JS_FreeCString(ctx->context, header_field_str);
-        JS_FreeCString(ctx->context, header_value_str);
-        JS_FreeValue(ctx->context, header_value);
-
-        JS_FreeAtom(ctx->context, props[i].atom);
-      }
-
-      js_free(ctx->context, props);
-    }
+  for (int i = 0; i < resp->num_header_fields; i++) {
+    isere_tcp_write(conn->fd, resp->header_names[i], strlen(resp->header_names[i]));
+    isere_tcp_write(conn->fd, ": ", 2);
+    isere_tcp_write(conn->fd, resp->header_values[i], strlen(resp->header_values[i]));
+    isere_tcp_write(conn->fd, "\r\n", 2);
   }
-  JS_FreeValue(ctx->context, headers);
 
   // TODO: `Date`
   const char *server_header = "Server: isere\r\n";
@@ -515,26 +490,7 @@ static void __httpd_writeback(httpd_conn_t *conn)
   isere_tcp_write(conn->fd, "\r\n", 2);
 
   // send HTTP response body
-  JSValue body = JS_GetPropertyStr(ctx->context, response_obj, ISERE_JS_RESPONSE_BODY_PROP_NAME);
-  size_t body_len = 0;
-  const char *body_str = NULL;
-
-  if (JS_IsObject(body)) {
-    JSValue stringifiedBody = JS_JSONStringify(ctx->context, body, JS_UNDEFINED, JS_UNDEFINED);
-    body_str = JS_ToCStringLen(ctx->context, &body_len, stringifiedBody);
-    JS_FreeValue(ctx->context, stringifiedBody);
-  } else if (JS_IsString(body)) {
-    body_str = JS_ToCStringLen(ctx->context, &body_len, body);
-  }
-
-  if (body_str != NULL) {
-    isere_tcp_write(conn->fd, body_str, body_len);
-    JS_FreeCString(ctx->context, body_str);
-  }
-  JS_FreeValue(ctx->context, body);
-
-  JS_FreeValue(ctx->context, response_obj);
-  JS_FreeValue(ctx->context, global_obj);
+  isere_tcp_write(conn->fd, resp->body, resp->body_len);
 
   isere_tcp_write(conn->fd, "\r\n\r\n", 4);
 }

@@ -67,13 +67,15 @@ typedef struct {
 } polyfill_timer_t;
 
 typedef struct {
-  JSRuntime *runtime;
   JSContext *context;
   JSValue future;
   polyfill_timer_t timers[ISERE_JS_POLYFILLS_MAX_TIMERS];
+  void *opaque;
 } isere_js_context_t;
 
-typedef void * isere_js_t;
+typedef struct {
+  JSRuntime *runtime;
+ } isere_js_t;
 
 typedef struct {
   TaskHandle_t tsk;
