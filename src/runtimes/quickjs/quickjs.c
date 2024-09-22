@@ -141,16 +141,7 @@ int js_runtime_eval_handler(
   const uint32_t request_headers_len,
   const char *body)
 {
-  // import handler as a module
-  JSValue h = JS_Eval(ctx->context, (const char *)handler, handler_len, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-  if (JS_IsException(h)) {
-    js_std_dump_error(ctx->context);
-    JS_FreeValue(ctx->context, h);
-    return -1;
-  }
-
-  js_module_set_import_meta(ctx->context, h, 0, 0);
-  JS_FreeValue(ctx->context, h);
+  JSValue global_obj = JS_GetGlobalObject(ctx->context);
 
   // TODO: `event` object: https://aws-lambda-for-python-developers.readthedocs.io/en/latest/02_event_and_context/
   JSValue event = JS_NewObject(ctx->context);
@@ -188,6 +179,7 @@ int js_runtime_eval_handler(
 
   // TODO: binary body
   JS_SetPropertyStr(ctx->context, event, "isBase64Encoded", JS_FALSE);
+  JS_SetPropertyStr(ctx->context, global_obj, "event", event);
 
   // `context` object
   JSValue context = JS_NewObject(ctx->context);
@@ -201,28 +193,29 @@ int js_runtime_eval_handler(
   JS_SetPropertyStr(ctx->context, context, "logStreamName", JS_NewString(ctx->context, ISERE_APP_NAME));
   // TODO: callbackWaitsForEmptyEventLoop
   JS_SetPropertyStr(ctx->context, context, "callbackWaitsForEmptyEventLoop", JS_NewBool(ctx->context, 1));
+  JS_SetPropertyStr(ctx->context, global_obj, "context", context);
 
   // callback for getting result
-  JSValue cb = JS_NewCFunction(ctx->context, __handler_cb, "cb", 1);
+  JS_SetPropertyStr(ctx->context, global_obj, "cb", JS_NewCFunction(ctx->context, __handler_cb, "cb", 1));
+  JS_FreeValue(ctx->context, global_obj);
 
-  const char *eval =
-    "(event, context, cb) => {"
-    "  import { handler } from 'handler';"
-    "  const handler1 = new Promise(resolve => resolve(handler(event, context, resolve)));"
-    "  Promise.resolve(handler1).then(cb)"
-    "}";
-
-  JSValue fn = JS_Eval(ctx->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-  if (JS_IsException(fn)) {
+  // import handler as a module
+  JSValue h = JS_Eval(ctx->context, (const char *)handler, handler_len, "handler", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+  if (JS_IsException(h)) {
     js_std_dump_error(ctx->context);
+    JS_FreeValue(ctx->context, h);
     return -1;
   }
 
-  JSValueConst args[3];
-  args[0] = event;
-  args[1] = context;
-  args[2] = cb;
-  ctx->future = JS_Call(ctx->context, fn, JS_UNDEFINED, 3, args);
+  js_module_set_import_meta(ctx->context, h, 0, 0);
+  JS_FreeValue(ctx->context, h);
+
+  const char *eval =
+    "import { handler } from 'handler';"
+    "const handler1 = new Promise(resolve => resolve(handler(event, context, resolve)));"
+    "Promise.resolve(handler1).then(cb)";
+
+  ctx->future = JS_Eval(ctx->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE);
   if (JS_IsException(ctx->future)) {
     js_std_dump_error(ctx->context);
     return -1;
