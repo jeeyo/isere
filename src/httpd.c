@@ -290,6 +290,7 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
 
   if (__httpd_handler != NULL) {
     isere_js_new_context(__isere->js, &conn->js);
+    conn->js.opaque = conn;
     uv__queue_init(&conn->js_queue);
   }
 
@@ -330,7 +331,7 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
 
   // start httpd task
   if (xTaskCreate(__httpd_task, "httpd", ISERE_HTTPD_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &httpd->tsk) != pdPASS) {
-    isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd poller task");
+    isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
     return -1;
   }
 
@@ -364,7 +365,7 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
 static void __httpd_cleanup_conn(httpd_conn_t *conn)
 {
   llhttp_reset(&conn->llhttp);
-  isere_js_free_context(&conn->js);
+  isere_js_free_context(__isere->js, &conn->js);
 
   if (__httpd_handler != NULL) {
     uv__queue_remove(&conn->js_queue);
@@ -425,15 +426,14 @@ static void __httpd_task(void *param)
 
       // if http handler function was invoked
       // and pending jobs are not done yet
-      int is_done = 0;
 
       // is the handler javascript function returned?
       // TODO: callbackWaitsForEmptyEventLoop
-      int callbacked = js_runtime_process_response(&conn->js, &conn->response);
+      int callbacked = conn->response.completed == 1;
       int pending_jobs_left = isere_js_poll(&conn->js);
 
       // add back to queue if there are pending jobs left
-      if (callbacked != 0 && pending_jobs_left != 0) {
+      if (!callbacked && pending_jobs_left != 0) {
         if (pending_jobs_left < 0) {
           goto fail;
         }
@@ -451,7 +451,7 @@ fail:
   }
 
 exit:
-  __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd poller task was unexpectedly closed");
+  __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd task was unexpectedly closed");
   uv__io_stop(&__httpd->loop, &__httpd->w, UV_POLLIN);
   should_exit = 1;
   vTaskDelete(NULL);

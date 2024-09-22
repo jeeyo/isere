@@ -24,17 +24,13 @@ TEST(JSTest, ShouldReturnErrorWhenQuickJSRuntimeIsAlreadyInitialized)
 
   isere_js_t js;
   memset(&js, 0, sizeof(isere_js_t));
-  isere_js_init(&isere, &js);
 
-  isere_js_context_t ctx;
-  memset(&ctx, 0, sizeof(isere_js_context_t));
-  ctx.runtime = (JSRuntime *)malloc(1);
+  js.runtime = (JSRuntime *)malloc(1);
+  int ret = isere_js_init(&isere, &js);
 
-  int ret = isere_js_new_context(&js, &ctx);
+  free(js.runtime);
 
-  free(ctx.runtime);
-
-  LONGS_EQUAL_TEXT(ret, -1, "isere_js_new_context() did not return -1 when runtime is already initialized");
+  LONGS_EQUAL_TEXT(ret, -1, "isere_js_init() did not return -1 when runtime is already initialized");
 }
 
 TEST(JSTest, ShouldReturnErrorWhenQuickJSContextIsAlreadyInitialized)
@@ -71,7 +67,7 @@ TEST(JSTest, ShouldInitializeSuccessfully)
   memset(&ctx, 0, sizeof(isere_js_context_t));
 
   int ret = isere_js_new_context(&js, &ctx);
-  isere_js_free_context(&ctx);
+  isere_js_free_context(&js, &ctx);
 
   isere_js_deinit(&js);
 

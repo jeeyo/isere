@@ -53,7 +53,7 @@ JSValue polyfill_timer_setTimeout(JSContext *ctx, JSValueConst this_val, int arg
   if (!JS_IsFunction(ctx, func)) {
     return JS_ThrowTypeError(ctx, "not a function");
   }
-  if (JS_ToInt64(ctx, &delay, argv[1])) {
+  if (JS_ToInt64(ctx, &delay, argv[1]) < 0) {
     return JS_ThrowTypeError(ctx, "not a number");
   }
   obj = JS_NewObjectClass(ctx, polyfill_timer_class_id);
