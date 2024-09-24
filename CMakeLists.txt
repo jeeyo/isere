@@ -70,11 +70,10 @@ if(JS_RUNTIME STREQUAL "quickjs")
     ./src/polyfills/quickjs/fetch.c
     ./src/polyfills/quickjs/timer.c
   )
-elseif()
-  add_custom_target(amalgam)
-  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-math)
-  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
-  target_link_libraries(isere PRIVATE jerry-math jerry-core)
+elseif(JS_RUNTIME STREQUAL "jerryscript")
+  list(APPEND SOURCES
+    ./src/runtimes/jerryscript/jerryscript.c
+  )
 endif()
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
@@ -109,6 +108,16 @@ add_custom_command(
 )
 
 add_executable(isere ${SOURCES} ./src/main.c)
+
+if(JS_RUNTIME STREQUAL "quickjs")
+  target_compile_definitions(isere PRIVATE ISERE_RUNTIME_QUICKJS)
+elseif(JS_RUNTIME STREQUAL "jerryscript")
+  add_custom_target(amalgam)
+  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-math)
+  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
+  target_link_libraries(isere PRIVATE jerry-math jerry-core)
+  target_compile_definitions(isere PRIVATE ISERE_RUNTIME_JERRYSCRIPT)
+endif()
 
 if(SUPPORT_DYNLINK)
   target_compile_definitions(isere PRIVATE ISERE_USE_DYNLINK)

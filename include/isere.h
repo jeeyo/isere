@@ -62,19 +62,25 @@ typedef struct {
 
 typedef struct {
   TimerHandle_t timer;
+#ifdef ISERE_RUNTIME_QUICKJS
   JSContext *ctx;
   JSValue func;
+#endif /* ISERE_RUNTIME_QUICKJS */
 } polyfill_timer_t;
 
 typedef struct {
+#ifdef ISERE_RUNTIME_QUICKJS
   JSContext *context;
   JSValue future;
+#endif /* ISERE_RUNTIME_QUICKJS */
   polyfill_timer_t timers[ISERE_JS_POLYFILLS_MAX_TIMERS];
   void *opaque;
 } isere_js_context_t;
 
 typedef struct {
+#ifdef ISERE_RUNTIME_QUICKJS
   JSRuntime *runtime;
+#endif /* ISERE_RUNTIME_QUICKJS */
  } isere_js_t;
 
 typedef struct {
