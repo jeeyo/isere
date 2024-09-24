@@ -79,6 +79,28 @@ else()
   )
 endif()
 
+if(JS_RUNTIME STREQUAL "quickjs")
+  list(APPEND SOURCES
+    ${QUICKJS_DIR}/quickjs.c
+    ${QUICKJS_DIR}/libbf.c
+    ${QUICKJS_DIR}/libregexp.c
+    ${QUICKJS_DIR}/libunicode.c
+    ${QUICKJS_DIR}/cutils.c
+    ./src/runtimes/quickjs/quickjs.c
+    ./src/runtimes/quickjs/quickjs-libc.c
+    ./src/polyfills/quickjs/fetch.c
+    ./src/polyfills/quickjs/timer.c
+  )
+elseif(JS_RUNTIME STREQUAL "jerryscript")
+  list(APPEND SOURCES
+    ./src/runtimes/jerryscript/jerryscript.c
+  )
+else()
+  list(APPEND SOURCES
+    ./src/runtimes/empty/empty.c
+  )
+endif()
+
 add_custom_command(
   OUTPUT handler.c
   COMMAND xxd -i ../${JS_DIR}/handler.js handler.c
@@ -92,22 +114,8 @@ add_custom_command(
 add_executable(isere ${SOURCES} ./src/main.c)
 
 if(JS_RUNTIME STREQUAL "quickjs")
-  list(APPEND SOURCES
-    ${QUICKJS_DIR}/quickjs.c
-    ${QUICKJS_DIR}/libbf.c
-    ${QUICKJS_DIR}/libregexp.c
-    ${QUICKJS_DIR}/libunicode.c
-    ${QUICKJS_DIR}/cutils.c
-    ./src/runtimes/quickjs/quickjs.c
-    ./src/runtimes/quickjs/quickjs-libc.c
-    ./src/polyfills/quickjs/fetch.c
-    ./src/polyfills/quickjs/timer.c
-  )
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_QUICKJS)
 elseif(JS_RUNTIME STREQUAL "jerryscript")
-  list(APPEND SOURCES
-    ./src/runtimes/jerryscript/jerryscript.c
-  )
   add_custom_target(amalgam)
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-math)
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)

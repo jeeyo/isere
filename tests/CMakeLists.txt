@@ -12,6 +12,7 @@ if (DEFINED ENV{CPPUTEST_HOME} AND NOT "$ENV{CPPUTEST_HOME}" STREQUAL "")
   add_executable(unittests
     ${SOURCES}
     handler_for_test.c
+    ./src/runtimes/empty/empty.c
     ./tests/js_test.cpp
     ./tests/loader_test.cpp
     ./tests/main.cpp
