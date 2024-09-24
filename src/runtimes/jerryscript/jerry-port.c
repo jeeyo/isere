@@ -43,7 +43,9 @@ jerry_char_t *jerry_port_path_normalize(const jerry_char_t *path_p, /**< input p
                                         jerry_size_t path_size) /**< size of the path */
 {
   (void) path_size;
-  return (jerry_char_t *) realpath ((char *) path_p, NULL);
+  jerry_char_t *path = (jerry_char_t *)pvPortMalloc(8);
+  strncpy((char *)path, "handler", 8);
+  return path;
 }
 
 jerry_size_t jerry_port_path_base(const jerry_char_t *path_p)
@@ -54,65 +56,50 @@ jerry_size_t jerry_port_path_base(const jerry_char_t *path_p)
 
 void jerry_port_path_free(jerry_char_t *path_p)
 {
-  free (path_p);
-}
-
-static jerry_size_t jerry_port_get_file_size (FILE *file_p) /**< opened file */
-{
-  fseek (file_p, 0, SEEK_END);
-  long size = ftell (file_p);
-  fseek (file_p, 0, SEEK_SET);
-
-  return (jerry_size_t) size;
+  vPortFree(path_p);
 }
 
 jerry_char_t *jerry_port_source_read(const char *file_name_p, /**< file name */
                                     jerry_size_t *out_size_p) /**< [out] read bytes */
 {
-  /* TODO(dbatyai): Temporary workaround for nuttx target
-   * The nuttx target builds and copies the jerryscript libraries as a separate build step, which causes linking issues
-   * later due to different libc libraries. It should incorporate the amalgam sources into the main nuttx build so that
-   * the correct libraries are used, then this guard should be removed from here and also from the includes. */
-#if defined(__GLIBC__) || defined(_WIN32)
-  struct stat stat_buffer;
-  if (stat (file_name_p, &stat_buffer) == -1 || S_ISDIR (stat_buffer.st_mode))
-  {
-    return NULL;
-  }
-#endif /* __GLIBC__ */
-
-  FILE *file_p = fopen (file_name_p, "rb");
-
-  if (file_p == NULL)
-  {
+  if (strcmp(file_name_p, "handler") != 0) {
     return NULL;
   }
 
-  jerry_size_t file_size = jerry_port_get_file_size (file_p);
-  jerry_char_t *buffer_p = (jerry_char_t *) malloc (file_size);
+  // *out_size_p = (jerry_size_t) bytes_read;
+  // return buffer_p;
 
-  if (buffer_p == NULL)
-  {
-    fclose (file_p);
-    return NULL;
-  }
-
-  size_t bytes_read = fread (buffer_p, 1u, file_size, file_p);
-
-  if (bytes_read != file_size)
-  {
-    fclose (file_p);
-    free (buffer_p);
-    return NULL;
-  }
-
-  fclose (file_p);
-  *out_size_p = (jerry_size_t) bytes_read;
-
-  return buffer_p;
+  return NULL;
 }
 
 void jerry_port_source_free(uint8_t *buffer_p) /**< buffer to free */
 {
-  free(buffer_p);
+  // we store handler code in static memory, so don't have to free() it
+  // vPortFree(buffer_p);
+}
+
+size_t jerry_port_context_alloc(size_t context_size)
+{
+  size_t total_size = context_size + JERRY_GLOBAL_HEAP_SIZE * 1024;
+  current_context_p = malloc(total_size);
+
+  return total_size;
+}
+
+/**
+ * Get the current context.
+ *
+ * @return the pointer to the current context
+ */
+jerry_context_t *jerry_port_context_get(void)
+{
+  return current_context_p;
+}
+
+/**
+ * Free the currently allocated external context.
+ */
+void jerry_port_context_free(void)
+{
+  free(current_context_p);
 }

@@ -117,6 +117,8 @@ add_executable(isere ${SOURCES} ./src/main.c)
 if(JS_RUNTIME STREQUAL "quickjs")
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_QUICKJS)
 elseif(JS_RUNTIME STREQUAL "jerryscript")
+  SET(JERRY_EXTERNAL_CONTEXT ON CACHE BOOL "")
+
   add_custom_target(amalgam)
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-math)
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
