@@ -33,7 +33,7 @@ int js_runtime_eval_handler(
   const char *body)
 {
   const char *eval = "console.log('a');";
-  jerry_value_t eval_ret = jerry_eval(eval, strlen(eval), JERRY_PARSE_NO_OPTS);
+  jerry_value_t eval_ret = jerry_eval((jerry_char_t *)eval, strlen(eval), JERRY_PARSE_NO_OPTS);
   if (!jerry_value_is_exception(eval_ret)) {
     jerry_value_free(eval_ret);
     return -1;
