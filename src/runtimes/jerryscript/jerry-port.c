@@ -78,27 +78,21 @@ void jerry_port_source_free(uint8_t *buffer_p) /**< buffer to free */
   // vPortFree(buffer_p);
 }
 
+static jerry_context_t *current_context_p = NULL;
+
 size_t jerry_port_context_alloc(size_t context_size)
 {
   size_t total_size = context_size + JERRY_GLOBAL_HEAP_SIZE * 1024;
-  current_context_p = malloc(total_size);
+  current_context_p = pvPortMalloc(total_size);
 
   return total_size;
 }
 
-/**
- * Get the current context.
- *
- * @return the pointer to the current context
- */
 jerry_context_t *jerry_port_context_get(void)
 {
   return current_context_p;
 }
 
-/**
- * Free the currently allocated external context.
- */
 void jerry_port_context_free(void)
 {
   free(current_context_p);
