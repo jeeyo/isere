@@ -34,8 +34,8 @@ int __http_handler(
     method,
     path,
     query,
-    (const char **)header_names,
-    (const char **)header_values,
+    header_names,
+    header_values,
     request_headers_len,
     body);
   if (ret < 0) {

@@ -47,7 +47,7 @@ jobs:
       - run: mkdir build
 
       - name: Build
-        run: cmake -DJS_RUNTIME=empty .. && make VERBOSE=1 -j4
+        run: cmake .. && make VERBOSE=1 -j4
         env:
           CPPUTEST_HOME: ${{ github.workspace }}/cpputest
         working-directory: build

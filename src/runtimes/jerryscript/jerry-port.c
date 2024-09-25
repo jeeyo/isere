@@ -8,6 +8,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -37,6 +38,7 @@ void jerry_port_sleep(uint32_t sleep_time)
 void jerry_port_log(const char *message_p)
 {
   // fputs (message_p, stderr);
+  puts(message_p);
 }
 
 jerry_char_t *jerry_port_path_normalize(const jerry_char_t *path_p, /**< input path */
@@ -76,24 +78,4 @@ void jerry_port_source_free(uint8_t *buffer_p) /**< buffer to free */
 {
   // we store handler code in static memory, so don't have to free() it
   // vPortFree(buffer_p);
-}
-
-static jerry_context_t *current_context_p = NULL;
-
-size_t jerry_port_context_alloc(size_t context_size)
-{
-  size_t total_size = context_size + JERRY_GLOBAL_HEAP_SIZE * 1024;
-  current_context_p = pvPortMalloc(total_size);
-
-  return total_size;
-}
-
-jerry_context_t *jerry_port_context_get(void)
-{
-  return current_context_p;
-}
-
-void jerry_port_context_free(void)
-{
-  free(current_context_p);
 }

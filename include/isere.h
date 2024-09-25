@@ -13,6 +13,7 @@ extern "C" {
 
 #include "FreeRTOS.h"
 #include "timers.h"
+#include "semphr.h"
 
 #ifdef ISERE_RUNTIME_QUICKJS
 #include "quickjs.h"
@@ -75,8 +76,8 @@ typedef struct {
 } polyfill_timer_t;
 
 typedef struct {
-#ifdef ISERE_RUNTIME_QUICKJS
   uint8_t initialized;
+#ifdef ISERE_RUNTIME_QUICKJS
   JSRuntime *runtime;
   JSContext *context;
   JSValue future;

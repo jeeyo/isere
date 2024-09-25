@@ -96,10 +96,6 @@ elseif(JS_RUNTIME STREQUAL "jerryscript")
     ./src/runtimes/jerryscript/jerryscript.c
     ./src/runtimes/jerryscript/jerry-port.c
   )
-else()
-  list(APPEND SOURCES
-    ./src/runtimes/empty/empty.c
-  )
 endif()
 
 add_custom_command(
@@ -124,6 +120,9 @@ elseif(JS_RUNTIME STREQUAL "jerryscript")
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
   target_link_libraries(isere PRIVATE jerry-math jerry-core)
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_JERRYSCRIPT)
+  target_include_directories(isere PRIVATE
+    ${JERRYSCRIPT_DIR}/jerry-core/include
+  )
 endif()
 
 if(SUPPORT_DYNLINK)
@@ -177,6 +176,7 @@ add_custom_command(
   VERBATIM
 )
 
-if(TARGET_PLATFORM STREQUAL "linux")
-  include(./tests/CMakeLists.txt)
-endif()
+# TODO: make isere a library for unittests
+# if(TARGET_PLATFORM STREQUAL "linux")
+#   include(./tests/CMakeLists.txt)
+# endif()
