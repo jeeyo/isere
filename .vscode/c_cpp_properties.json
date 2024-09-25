@@ -29,38 +29,6 @@
             "configurationProvider": "ms-vscode.cpptools"
         },
         {
-            "name": "RP2040",
-            "intelliSenseMode": "gcc-x64",
-            "includePath": [
-                "${workspaceFolder}/include",
-                "${workspaceFolder}/portable/include",
-                "${workspaceFolder}/portable/pico/include",
-                "${workspaceFolder}/schemas",
-                "${workspaceFolder}/3rdparty/FreeRTOS/include",
-                "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/RP2040/include",
-                "${workspaceFolder}/3rdparty/quickjs",
-                "${workspaceFolder}/3rdparty/llhttp/include",
-                "${workspaceFolder}/3rdparty/libyuarel",
-                "${workspaceFolder}/3rdparty/c-capnproto/lib",
-                "${workspaceFolder}/3rdparty/pico-sdk/lib/lwip/src/include",
-                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2040/hardware_regs/include",
-                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2040/hardware_structs/include",
-                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_base/include",
-                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_sync/include",
-                "${workspaceFolder}/3rdparty/pico-sdk/src/boards/include/boards"
-            ],
-            "cStandard": "c99",
-            "cppStandard": "c++17",
-            "browse": {
-                "path": [
-                    "${workspaceFolder}"
-                ],
-                "limitSymbolsToIncludedHeaders": true,
-                "databaseFilename": ""
-            },
-            "configurationProvider": "ms-vscode.cpptools"
-        },
-        {
             "name": "RP2350",
             "intelliSenseMode": "gcc-x64",
             "includePath": [

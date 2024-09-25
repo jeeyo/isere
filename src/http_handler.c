@@ -2,11 +2,8 @@
 #include <unistd.h>
 
 #include "isere.h"
-#include "js.h"
 #include "httpd.h"
 #include "tcp.h"
-
-#include "runtime.h"
 
 int __http_handler(
   isere_t *isere,
@@ -20,8 +17,9 @@ int __http_handler(
 {
   isere_js_context_t *ctx = &conn->js;
 
-  char header_names[ISERE_HTTPD_MAX_HTTP_HEADERS][ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN];
-  char header_values[ISERE_HTTPD_MAX_HTTP_HEADERS][ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN];
+  // TODO: optimize this for smaller ISERE_HTTPD_TASK_STACK_SIZE
+  char header_names[ISERE_HTTPD_MAX_HTTP_HEADERS][ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN] = {0};
+  char header_values[ISERE_HTTPD_MAX_HTTP_HEADERS][ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN] = {0};
   for (int i = 0; i < request_headers_len; i++) {
     strncpy(header_names[i], request_headers[i].name, ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN);
     strncpy(header_values[i], request_headers[i].value, ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN);
@@ -36,8 +34,8 @@ int __http_handler(
     method,
     path,
     query,
-    header_names,
-    header_values,
+    (const char **)header_names,
+    (const char **)header_values,
     request_headers_len,
     body);
   if (ret < 0) {

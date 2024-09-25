@@ -48,8 +48,7 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 - [ ] Low-power mode
 - [x] Benchmark
 - [ ] Port
-  - [x] Raspberry Pi Pico (RP2040)
-  - [ ] Raspberry Pi Pico 2 (RP2350)
+  - [x] Raspberry Pi Pico 2 (RP2350)
   - [ ] ESP32?
 - [ ] Monitoring
   - [ ] CPU Usage ([vTaskGetRunTimeStats](https://www.freertos.org/rtos-run-time-stats.html))
@@ -110,7 +109,7 @@ make -j
 
 |Name|Description|Supported values|
 |-|-|-|
-|TARGET_PLATFORM|Target platform to build isère executable for|linux (default), ~~pico~~, pico2|
+|TARGET_PLATFORM|Target platform to build isère executable for|linux (default), pico2|
 |DEBUG|Whether to build isère executable with debug symbol|off (default), on|
 
 ### Running
