@@ -11,8 +11,13 @@
 #include <string.h>
 #include <stdint.h>
 
+#ifndef MAX
 static inline int32_t MAX(int32_t a, int32_t b) { return((a) > (b) ? a : b); }
+#endif /* MAX */
+
+#ifndef MIN
 static inline int32_t MIN(int32_t a, int32_t b) { return((a) < (b) ? a : b); }
+#endif /* MIN */
 
 static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 static JSValue __logger_internal(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, const char *color);
@@ -105,7 +110,6 @@ int js_runtime_init(isere_js_t *js)
   }
 
   // initialize quickjs runtime
-  // ctx->runtime = JS_NewRuntime();
   js->runtime = JS_NewRuntime2(&__mf, NULL);
   if (js->runtime == NULL)
   {
@@ -113,7 +117,6 @@ int js_runtime_init(isere_js_t *js)
     return -1;
   }
 
-  // TODO: custom memory allocation with JS_NewRuntime2()
   // TODO: set global memory limit with JS_SetMemoryLimit()
   // JS_SetMaxStackSize(js->runtime, ISERE_JS_STACK_SIZE);
   return 0;
@@ -156,11 +159,12 @@ int js_runtime_eval_handler(
     char *value = (char *)request_header_values;
     while (i) {
       JS_SetPropertyStr(ctx->context, headers, name, JS_NewString(ctx->context, value));
+      if (--i == 0) break;
+
       while (*(++name) != '\0');
       while (*(++name) == '\0');
       while (*(++value) != '\0');
       while (*(++value) == '\0');
-      i--;
     }
   }
   JS_SetPropertyStr(ctx->context, event, "headers", headers);
@@ -212,7 +216,7 @@ int js_runtime_eval_handler(
 
   const char *eval =
     "import { handler } from 'handler';"
-    "const handler1 = new Promise(resolve => resolve(handler(event, context, resolve)));"
+    "const handler1 = new Promise(resolve => handler(event, context, resolve).then(resolve));"
     "Promise.resolve(handler1).then(cb)";
 
   ctx->future = JS_Eval(ctx->context, eval, strlen(eval), "<isere>", JS_EVAL_TYPE_MODULE);

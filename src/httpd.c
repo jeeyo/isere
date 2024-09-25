@@ -12,8 +12,6 @@
 
 #include "queue.h"
 
-static uint8_t should_exit = 0;
-
 static isere_t *__isere = NULL;
 static isere_httpd_t *__httpd = NULL;
 static httpd_handler_t *__httpd_handler = NULL;
@@ -180,6 +178,7 @@ static int __on_message_complete(llhttp_t *parser)
 {
   httpd_conn_t *conn = (httpd_conn_t *)parser->data;
 
+  // stop receiving
   uv__io_stop(&__httpd->loop, &conn->w, UV_POLLIN);
 
   // execute request handler function
@@ -200,6 +199,11 @@ static int __on_message_complete(llhttp_t *parser)
     __httpd_cleanup_conn(conn);
     return 0;
   }
+
+  isere_js_new_context(__isere->js, &conn->js);
+  conn->js.opaque = conn;
+  uv__queue_init(&conn->js_queue);
+  conn->js.initialized = 1;
 
   uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
   __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
@@ -288,12 +292,6 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
   llhttp_init(&conn->llhttp, HTTP_REQUEST, &conn->llhttp_settings);
   conn->llhttp.data = (void *)conn;
 
-  if (__httpd_handler != NULL) {
-    isere_js_new_context(__isere->js, &conn->js);
-    conn->js.opaque = conn;
-    uv__queue_init(&conn->js_queue);
-  }
-
   conn->fd = newfd;
   conn->recvd = 0;
   conn->response.completed = 0;
@@ -301,6 +299,8 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
   conn->response.num_header_fields = 0;
   conn->response.body = NULL;
   conn->response.body_len = 0;
+
+  conn->js.initialized = 0;
 
   uv__io_t *sw = &conn->w;
   sw->fd = newfd;
@@ -341,6 +341,7 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
 int isere_httpd_deinit(isere_httpd_t *httpd)
 {
   if (__isere) {
+    __isere->should_exit = 1;
     __isere = NULL;
   }
 
@@ -356,19 +357,17 @@ int isere_httpd_deinit(isere_httpd_t *httpd)
 
   isere_tcp_close(httpd->serverfd);
 
-  // stop httpd tasks
-  should_exit = 1;
-
   return 0;
 }
 
 static void __httpd_cleanup_conn(httpd_conn_t *conn)
 {
-  llhttp_reset(&conn->llhttp);
-  isere_js_free_context(__isere->js, &conn->js);
+  // llhttp_reset(&conn->llhttp);
 
-  if (__httpd_handler != NULL) {
+  if (conn->js.initialized) {
     uv__queue_remove(&conn->js_queue);
+    isere_js_free_context(__isere->js, &conn->js);
+    conn->js.initialized = 0;
   }
 
   // cleanup client socket
@@ -402,7 +401,7 @@ static void __httpd_task(void *param)
 
   __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Listening on port %d", ISERE_HTTPD_PORT);
 
-  while (!should_exit)
+  while (!__isere->should_exit)
   {
     // poll sockets to see if there's any new events
     uv__io_poll(&__httpd->loop, 0);
@@ -453,7 +452,7 @@ fail:
 exit:
   __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd task was unexpectedly closed");
   uv__io_stop(&__httpd->loop, &__httpd->w, UV_POLLIN);
-  should_exit = 1;
+  __isere->should_exit = 1;
   vTaskDelete(NULL);
 }
 
