@@ -67,15 +67,15 @@ typedef struct {
 } polyfill_timer_t;
 
 typedef struct {
+  uint8_t initialized;
+  JSRuntime *runtime;
   JSContext *context;
   JSValue future;
   polyfill_timer_t timers[ISERE_JS_POLYFILLS_MAX_TIMERS];
   void *opaque;
 } isere_js_context_t;
 
-typedef struct {
-  JSRuntime *runtime;
- } isere_js_t;
+typedef void * isere_js_t;
 
 typedef struct {
   TaskHandle_t tsk;
@@ -94,6 +94,7 @@ typedef void * isere_ini_t;
 typedef void * isere_rtc_t;
 
 struct isere_s {
+  uint8_t should_exit;
   isere_logger_t *logger;
   isere_loader_t *loader;
   isere_js_t *js;
