@@ -105,30 +105,14 @@ static const JSMallocFunctions __mf = {
 
 int js_runtime_init(isere_js_t *js)
 {
-  if (js->runtime != NULL) {
-    return -1;
-  }
-
-  // initialize quickjs runtime
-  js->runtime = JS_NewRuntime2(&__mf, NULL);
-  if (js->runtime == NULL)
-  {
-    // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");
-    return -1;
-  }
-
-  // TODO: set global memory limit with JS_SetMemoryLimit()
-  // JS_SetMaxStackSize(js->runtime, ISERE_JS_STACK_SIZE);
+  // sharing single QuickJS runtime for multiple contexts
+  // causes heap allocation to grow uncontrollably
+  // so we decided to use single runtime instance for each context
   return 0;
 }
 
 int js_runtime_deinit(isere_js_t *js)
 {
-  if (js->runtime == NULL) {
-    return -1;
-  }
-
-  JS_FreeRuntime(js->runtime);
   return 0;
 }
 
@@ -310,13 +294,29 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
 int js_runtime_init_context(isere_js_t *js, isere_js_context_t *ctx)
 {
+  if (ctx->runtime != NULL) {
+    // __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS runtime already initialized");
+    return -1;
+  }
+
+  // initialize quickjs runtime
+  ctx->runtime = JS_NewRuntime2(&__mf, NULL);
+  if (ctx->runtime == NULL)
+  {
+    // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS runtime");
+    return -1;
+  }
+
+  // TODO: set global memory limit with JS_SetMemoryLimit()
+  // JS_SetMaxStackSize(js->runtime, ISERE_JS_STACK_SIZE);
+
   if (ctx->context != NULL) {
-    // __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS runtime or context already initialized");
+    // __isere->logger->error(ISERE_JS_LOG_TAG, "QuickJS context already initialized");
     return -1;
   }
 
   // initialize quickjs context
-  ctx->context = JS_NewContextRaw(js->runtime);
+  ctx->context = JS_NewContextRaw(ctx->runtime);
   if (ctx->context == NULL)
   {
     // __isere->logger->error(ISERE_JS_LOG_TAG, "failed to create QuickJS context");
@@ -368,6 +368,12 @@ int js_runtime_deinit_context(isere_js_t *js, isere_js_context_t *ctx)
   // isere_js_polyfill_fetch_deinit(ctx->context);
 
   JS_FreeContext(ctx->context);
+
+  if (ctx->runtime == NULL) {
+    return -1;
+  }
+
+  JS_FreeRuntime(ctx->runtime);
   return 0;
 }
 
