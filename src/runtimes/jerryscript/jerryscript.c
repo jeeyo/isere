@@ -13,8 +13,10 @@
 #include <stdint.h>
 
 static SemaphoreHandle_t __ctx_mut = NULL;
+static isere_js_context_t *__current_isere_js_context = NULL;
 static jerry_context_t *__current_context_p = NULL;
 
+static jerry_value_t __handler_cb(const jerry_call_info_t *call_info_p, const jerry_value_t arguments[], const jerry_length_t argument_count);
 static jerry_value_t __console_log(const jerry_call_info_t *call_info_p, const jerry_value_t arguments[], const jerry_length_t argument_count);
 static jerry_value_t __console_warn(const jerry_call_info_t *call_info_p, const jerry_value_t arguments[], const jerry_length_t argument_count);
 static jerry_value_t __console_error(const jerry_call_info_t *call_info_p, const jerry_value_t arguments[], const jerry_length_t argument_count);
@@ -58,8 +60,16 @@ int js_runtime_deinit(isere_js_t *js)
   return 0;
 }
 
-static inline void __lock_context() { xSemaphoreTake(__ctx_mut, portMAX_DELAY); }
-static inline void __unlock_context() { xSemaphoreGive(__ctx_mut); }
+static inline void __lock_context(isere_js_context_t *ctx) {
+  xSemaphoreTake(__ctx_mut, portMAX_DELAY);
+  __current_context_p = ctx->context;
+  __current_isere_js_context = ctx;
+}
+static inline void __unlock_context() {
+  __current_context_p = NULL;
+  __current_isere_js_context = NULL;
+  xSemaphoreGive(__ctx_mut);
+}
 
 // will jerry_value_free() `key` and `value`, but not `object`
 static inline int __add_key_value_to_object(jerry_value_t object, jerry_value_t key, jerry_value_t value)
@@ -78,6 +88,14 @@ static inline int __add_key_value_to_object(jerry_value_t object, jerry_value_t 
   return 0;
 }
 
+// will jerry_value_free() `key`, but not `object`
+static inline jerry_value_t __get_value_from_object_by_key(jerry_value_t object, jerry_value_t key)
+{
+  jerry_value_t ret = jerry_object_get(object, key);
+  jerry_value_free(key);
+  return ret;
+}
+
 int js_runtime_eval_handler(
   isere_js_context_t *ctx,
   unsigned char *handler,
@@ -90,8 +108,7 @@ int js_runtime_eval_handler(
   const uint32_t request_headers_len,
   const char *body)
 {
-  __lock_context();
-  __current_context_p = ctx->context;
+  __lock_context(ctx);
 
   jerry_value_t global_obj = jerry_current_realm();
 
@@ -148,28 +165,28 @@ int js_runtime_eval_handler(
   __add_key_value_to_object(context, jerry_string_sz("callbackWaitsForEmptyEventLoop"), jerry_boolean(true));
   __add_key_value_to_object(global_obj, jerry_string_sz("context"), context);
 
+  // callback for getting result
+  __add_key_value_to_object(global_obj, jerry_string_sz("cb"), jerry_function_external(__handler_cb));
+
   jerry_value_free(global_obj);
 
   const char *eval =
-    "console.log('context', context);"
-    "console.warn('event', event);"
-    "console.error('process', process);";
-  jerry_value_t eval_ret = jerry_eval((jerry_char_t *)eval, strlen(eval), JERRY_PARSE_NO_OPTS);
-  if (!jerry_value_is_exception(eval_ret)) {
-    jerry_value_free(eval_ret);
-    return -1;
-  }
+    "cb({ statusCode: 200 });";
 
+  int ret = 0;
+  jerry_value_t eval_ret = jerry_eval((jerry_char_t *)eval, strlen(eval), JERRY_PARSE_NO_OPTS);
+  if (jerry_value_is_exception(eval_ret)) {
+    ret = -1;
+  }
   jerry_value_free(eval_ret);
 
-  __current_context_p = NULL;
   __unlock_context();
-  return 0;
+  return ret;
 }
 
 int js_runtime_init_context(isere_js_t *js, isere_js_context_t *ctx)
 {
-  __lock_context();
+  __lock_context(ctx);
 
   jerry_init(JERRY_INIT_EMPTY);
   ctx->context = __current_context_p;
@@ -192,20 +209,17 @@ int js_runtime_init_context(isere_js_t *js, isere_js_context_t *ctx)
 
   jerry_value_free(global_obj);
 
-  __current_context_p = NULL;
   __unlock_context();
   return 0;
 }
 
 int js_runtime_deinit_context(isere_js_t *js, isere_js_context_t *ctx)
 {
-  __lock_context();
-  __current_context_p = ctx->context;
+  __lock_context(ctx);
 
   jerry_cleanup();
   ctx->context = NULL;
 
-  __current_context_p = NULL;
   __unlock_context();
   return 0;
 }
@@ -213,6 +227,88 @@ int js_runtime_deinit_context(isere_js_t *js, isere_js_context_t *ctx)
 int js_runtime_poll(isere_js_context_t *ctx)
 {
   return 0;
+}
+
+static jerry_value_t __handler_cb(const jerry_call_info_t *call_info_p, const jerry_value_t arguments[], const jerry_length_t argument_count)
+{
+  if (argument_count < 1) {
+    return jerry_throw_sz(JERRY_ERROR_COMMON, "response is not an object");
+  }
+
+  isere_js_context_t *context = __current_isere_js_context;
+  httpd_response_object_t *response = &((httpd_conn_t *)context->opaque)->response;
+
+  jerry_value_t response_obj = arguments[0];
+
+  // HTTP response code
+  jerry_value_t statusCode = __get_value_from_object_by_key(response_obj, jerry_string_sz("statusCode"));
+  if (!jerry_value_is_number(statusCode)) {
+    response->statusCode = 200;
+  } else {
+    response->statusCode = jerry_value_as_int32(statusCode);
+  }
+  jerry_value_free(statusCode);
+
+  // HTTP response headers
+  // jerry_value_t headers = __get_value_from_object_by_key(response_obj, jerry_string_sz("headers"));
+  // if (jerry_value_is_object(headers)) {
+
+  //   JSPropertyEnum *props = NULL;
+  //   uint32_t props_len = 0;
+
+  //   if (JS_GetOwnPropertyNames(ctx, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
+
+  //     response->num_header_fields = MIN(props_len, ISERE_HTTPD_MAX_HTTP_HEADERS);
+
+  //     for (int i = 0; i < response->num_header_fields; i++) {
+
+  //       const char *header_field_str = JS_AtomToCString(ctx, props[i].atom);
+
+  //       JSValue header_value = JS_GetProperty(ctx, headers, props[i].atom);
+  //       size_t header_value_len = 0;
+  //       const char *header_value_str = JS_ToCStringLen(ctx, &header_value_len, header_value);
+
+  //       response->header_names[i] = strdup(header_field_str);
+  //       response->header_values[i] = strdup(header_value_str);
+
+  //       JS_FreeCString(ctx, header_field_str);
+  //       JS_FreeCString(ctx, header_value_str);
+  //       JS_FreeValue(ctx, header_value);
+
+  //       JS_FreeAtom(ctx, props[i].atom);
+  //     }
+
+  //     js_free(ctx, props);
+  //   }
+  // }
+  // jerry_value_free(headers);
+
+  // send HTTP response body
+  jerry_value_t body = __get_value_from_object_by_key(response_obj, jerry_string_sz("body"));
+  size_t body_len = 0;
+  char *body_str = NULL;
+
+  if (jerry_value_is_object(body)) {
+    jerry_value_t stringifiedBody = jerry_json_stringify(body);
+    body_len = jerry_string_size(stringifiedBody, JERRY_ENCODING_UTF8);
+    body_str = (char *)pvPortMalloc(body_len + 1);
+    jerry_size_t copied_bytes = jerry_string_to_buffer(stringifiedBody, JERRY_ENCODING_UTF8, body_str, body_len);
+    jerry_value_free(stringifiedBody);
+  } else if (jerry_value_is_string(body)) {
+    body_len = jerry_string_size(body, JERRY_ENCODING_UTF8);
+    body_str = (char *)pvPortMalloc(body_len + 1);
+    jerry_size_t copied_bytes = jerry_string_to_buffer(body, JERRY_ENCODING_UTF8, body_str, body_len);
+  }
+
+  if (body_str != NULL) {
+    response->body_len = body_len;
+    response->body = strdup(body_str);
+    vPortFree(body_str);
+  }
+  jerry_value_free(body);
+
+  response->completed = 1;
+  return jerry_undefined();
 }
 
 #define MAX_LOG_LENGTH_PER_LINE 256
