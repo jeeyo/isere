@@ -114,6 +114,8 @@ if(JS_RUNTIME STREQUAL "quickjs")
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_QUICKJS)
 elseif(JS_RUNTIME STREQUAL "jerryscript")
   SET(JERRY_EXTERNAL_CONTEXT ON CACHE BOOL "")
+  SET(JERRY_PROMISE_CALLBACK ON CACHE BOOL "")
+  SET(JERRY_GLOBAL_HEAP_SIZE "(512)" CACHE STRING "")
 
   add_custom_target(amalgam)
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-math)

@@ -485,8 +485,12 @@ static void __httpd_writeback(httpd_conn_t *conn)
   }
 
   // TODO: `Date`
+  // TODO: check for duplicated headers from users
   const char *server_header = "Server: isere\r\n";
   isere_tcp_write(conn->fd, server_header, strlen(server_header));
+  isere_tcp_write(conn->fd, "\r\n", 2);
+  const char *connection_header = "Connection: close\r\n";
+  isere_tcp_write(conn->fd, connection_header, strlen(connection_header));
   isere_tcp_write(conn->fd, "\r\n", 2);
 
   // send HTTP response body
