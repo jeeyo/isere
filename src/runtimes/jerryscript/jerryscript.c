@@ -23,9 +23,7 @@ static jerry_value_t __console_error(const jerry_call_info_t *call_info_p, const
 
 size_t jerry_port_context_alloc(size_t context_size)
 {
-  // TODO
-  // size_t total_size = context_size + JERRY_GLOBAL_HEAP_SIZE * 1024;
-  size_t total_size = context_size + (512 * 1024);
+  size_t total_size = context_size + JERRY_GLOBAL_HEAP_SIZE * 1024;
   __current_context_p = pvPortMalloc(total_size);
 
   return total_size;

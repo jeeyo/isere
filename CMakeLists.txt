@@ -25,6 +25,7 @@ set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
 set(JS_DIR ./js)
 
 set(SOURCES )
+set(LIBS )
 
 list(APPEND SOURCES
   ./src/hooks.c
@@ -115,12 +116,12 @@ if(JS_RUNTIME STREQUAL "quickjs")
 elseif(JS_RUNTIME STREQUAL "jerryscript")
   SET(JERRY_EXTERNAL_CONTEXT ON CACHE BOOL "")
   SET(JERRY_PROMISE_CALLBACK ON CACHE BOOL "")
-  SET(JERRY_GLOBAL_HEAP_SIZE "(512)" CACHE STRING "")
 
   add_custom_target(amalgam)
-  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-math)
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
-  target_link_libraries(isere PRIVATE jerry-math jerry-core)
+  list(APPEND LIBS
+    jerry-core
+  )
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_JERRYSCRIPT)
   target_include_directories(isere PRIVATE
     ${JERRYSCRIPT_DIR}/jerry-core/include
@@ -164,9 +165,14 @@ if(WITH_LWIP)
   target_include_directories(isere PRIVATE
     ${LWIP_DIR}/src/include
   )
-  target_link_libraries(isere lwipallapps lwipcore)
+  list(APPEND LIBS
+    lwipallapps
+    lwipcore
+  )
   target_compile_definitions(isere PRIVATE ISERE_WITH_LWIP)
 endif()
+
+target_link_libraries(isere PRIVATE ${LIBS})
 
 add_custom_command(
   OUTPUT ${CAPNPROTO_DIR}/build/capnpc-c/config.capnp.c

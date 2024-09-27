@@ -51,6 +51,8 @@ Transfer/sec:    272.49KB
 
 ### isère on Raspberry Pi Pico 2
 
+#### QuickJS
+
 ```bash
 $ wrk -t12 -c400 -d10s http://192.168.7.1:8080
 Running 10s test @ http://192.168.7.1:8080
@@ -62,4 +64,19 @@ Running 10s test @ http://192.168.7.1:8080
   Socket errors: connect 0, read 4071, write 0, timeout 0
 Requests/sec:     11.64
 Transfer/sec:     410.87B
+```
+
+#### JerryScript
+
+```bash
+$ wrk -t12 -c400 -d10s http://192.168.7.1:8080
+Running 10s test @ http://192.168.7.1:8080
+  12 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    62.76ms  159.71ms   1.00s    96.57%
+    Req/Sec    21.60     16.20    70.00     58.79%
+  408 requests in 10.06s, 21.52KB read
+  Socket errors: connect 0, read 4789, write 0, timeout 0
+Requests/sec:     40.56
+Transfer/sec:      2.14KB
 ```

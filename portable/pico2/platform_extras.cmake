@@ -1,10 +1,10 @@
 target_include_directories(isere PRIVATE
   ${FREERTOS_DIR}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure
-  ${PICO_TINYUSB_PATH}/src
-  ${PICO_TINYUSB_PATH}/lib/networking
+  ${PICO_SDK_PATH}/lib/tinyusb/src
+  ${PICO_SDK_PATH}/lib/tinyusb/lib/networking
 )
 
-target_link_libraries(isere
+list(APPEND LIBS
   pico_stdlib
   pico_stdio_semihosting
   pico_multicore
