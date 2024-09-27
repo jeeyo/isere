@@ -236,17 +236,17 @@ static JSValue __handler_cb(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
   // HTTP response headers
   JSValue headers = JS_GetPropertyStr(ctx, response_obj, "headers");
-  if (JS_IsObject(headers)) {
-
+  if (JS_IsObject(headers))
+  {
     JSPropertyEnum *props = NULL;
     uint32_t props_len = 0;
 
-    if (JS_GetOwnPropertyNames(ctx, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
-
+    if (JS_GetOwnPropertyNames(ctx, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0)
+    {
       response->num_header_fields = MIN(props_len, ISERE_HTTPD_MAX_HTTP_HEADERS);
 
-      for (int i = 0; i < response->num_header_fields; i++) {
-
+      for (int i = 0; i < response->num_header_fields; i++)
+      {
         const char *header_field_str = JS_AtomToCString(ctx, props[i].atom);
 
         JSValue header_value = JS_GetProperty(ctx, headers, props[i].atom);

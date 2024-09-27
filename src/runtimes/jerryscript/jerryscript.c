@@ -12,6 +12,14 @@
 #include <string.h>
 #include <stdint.h>
 
+#ifndef MAX
+static inline int32_t MAX(int32_t a, int32_t b) { return((a) > (b) ? a : b); }
+#endif /* MAX */
+
+#ifndef MIN
+static inline int32_t MIN(int32_t a, int32_t b) { return((a) < (b) ? a : b); }
+#endif /* MIN */
+
 static SemaphoreHandle_t __ctx_mut = NULL;
 static isere_js_context_t *__current_isere_js_context = NULL;
 static jerry_context_t *__current_context_p = NULL;
@@ -169,7 +177,9 @@ int js_runtime_eval_handler(
   jerry_value_free(global_obj);
 
   const char *eval =
-    "cb({ statusCode: 200 });";
+    "console.warn('event', event);"
+    "console.error('context', context);"
+    "cb({ statusCode: 403 });";
 
   int ret = 0;
   jerry_value_t eval_ret = jerry_eval((jerry_char_t *)eval, strlen(eval), JERRY_PARSE_NO_OPTS);
@@ -248,38 +258,40 @@ static jerry_value_t __handler_cb(const jerry_call_info_t *call_info_p, const je
   jerry_value_free(statusCode);
 
   // HTTP response headers
-  // jerry_value_t headers = __get_value_from_object_by_key(response_obj, jerry_string_sz("headers"));
-  // if (jerry_value_is_object(headers)) {
+  jerry_value_t headers = __get_value_from_object_by_key(response_obj, jerry_string_sz("headers"));
+  if (jerry_value_is_object(headers))
+  {
+    jerry_value_t props = jerry_object_keys(headers);
+    jerry_length_t props_len = jerry_array_length(props);
 
-  //   JSPropertyEnum *props = NULL;
-  //   uint32_t props_len = 0;
+    response->num_header_fields = MIN(props_len, ISERE_HTTPD_MAX_HTTP_HEADERS);
 
-  //   if (JS_GetOwnPropertyNames(ctx, &props, &props_len, headers, JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
+    for (int i = 0; i < response->num_header_fields; i++)
+    {
+      jerry_value_t header_name = jerry_object_get_index(props, i);
+      jerry_value_t header_field = jerry_object_get(headers, header_name);
 
-  //     response->num_header_fields = MIN(props_len, ISERE_HTTPD_MAX_HTTP_HEADERS);
+      if (jerry_value_is_string(header_name) &&
+          jerry_value_is_string(header_field))
+      {
+        jerry_size_t header_name_len = jerry_string_size(header_name, JERRY_ENCODING_UTF8);
+        response->header_names[i] = (char *)pvPortMalloc(header_name_len + 1);
+        jerry_string_to_buffer(header_name, JERRY_ENCODING_UTF8, response->header_names[i], header_name_len);
+        response->header_names[i][header_name_len] = '\0';
 
-  //     for (int i = 0; i < response->num_header_fields; i++) {
+        jerry_size_t header_field_len = jerry_string_size(header_field, JERRY_ENCODING_UTF8);
+        response->header_values[i] = (char *)pvPortMalloc(header_field_len + 1);
+        jerry_string_to_buffer(header_field, JERRY_ENCODING_UTF8, response->header_values[i], header_field_len);
+        response->header_values[i][header_field_len] = '\0';
+      }
 
-  //       const char *header_field_str = JS_AtomToCString(ctx, props[i].atom);
+      jerry_value_free(header_name);
+      jerry_value_free(header_field);
+    }
 
-  //       JSValue header_value = JS_GetProperty(ctx, headers, props[i].atom);
-  //       size_t header_value_len = 0;
-  //       const char *header_value_str = JS_ToCStringLen(ctx, &header_value_len, header_value);
-
-  //       response->header_names[i] = strdup(header_field_str);
-  //       response->header_values[i] = strdup(header_value_str);
-
-  //       JS_FreeCString(ctx, header_field_str);
-  //       JS_FreeCString(ctx, header_value_str);
-  //       JS_FreeValue(ctx, header_value);
-
-  //       JS_FreeAtom(ctx, props[i].atom);
-  //     }
-
-  //     js_free(ctx, props);
-  //   }
-  // }
-  // jerry_value_free(headers);
+    jerry_value_free(props);
+  }
+  jerry_value_free(headers);
 
   // send HTTP response body
   jerry_value_t body = __get_value_from_object_by_key(response_obj, jerry_string_sz("body"));
@@ -290,19 +302,25 @@ static jerry_value_t __handler_cb(const jerry_call_info_t *call_info_p, const je
     jerry_value_t stringifiedBody = jerry_json_stringify(body);
     body_len = jerry_string_size(stringifiedBody, JERRY_ENCODING_UTF8);
     body_str = (char *)pvPortMalloc(body_len + 1);
-    jerry_size_t copied_bytes = jerry_string_to_buffer(stringifiedBody, JERRY_ENCODING_UTF8, body_str, body_len);
+    jerry_string_to_buffer(stringifiedBody, JERRY_ENCODING_UTF8, body_str, body_len);
+    body_str[body_len] = '\0';
     jerry_value_free(stringifiedBody);
   } else if (jerry_value_is_string(body)) {
     body_len = jerry_string_size(body, JERRY_ENCODING_UTF8);
     body_str = (char *)pvPortMalloc(body_len + 1);
-    jerry_size_t copied_bytes = jerry_string_to_buffer(body, JERRY_ENCODING_UTF8, body_str, body_len);
+    jerry_string_to_buffer(body, JERRY_ENCODING_UTF8, body_str, body_len);
+    body_str[body_len] = '\0';
   }
 
   if (body_str != NULL) {
     response->body_len = body_len;
     response->body = strdup(body_str);
     vPortFree(body_str);
+  } else {
+    // TODO: prepare memory in advance instead of strdup()/malloc() from runtime port
+    response->body = pvPortMalloc(1);
   }
+
   jerry_value_free(body);
 
   response->completed = 1;
@@ -325,15 +343,24 @@ static jerry_value_t __logger_internal(const jerry_call_info_t *call_info_p,
     }
 
     // convert argument to C string
-    size_t len;
-    jerry_char_t str[MAX_LOG_LENGTH_PER_LINE] = {0};
+    size_t len = 0;
+    char *str = NULL;
 
-    if (jerry_value_is_object(arguments[i])) {
+    if (jerry_value_is_function(arguments[i])) {
+      const char *fn = "[Function]";
+      str = strdup(fn);
+    } else if (jerry_value_is_object(arguments[i])) {
       jerry_value_t stringified = jerry_json_stringify(arguments[i]);
-      jerry_size_t copied_bytes = jerry_string_to_buffer(stringified, JERRY_ENCODING_UTF8, str, sizeof(str) - 1);
+      len = jerry_string_size(stringified, JERRY_ENCODING_UTF8);
+      str = (char *)pvPortMalloc(len + 1);
+      jerry_string_to_buffer(stringified, JERRY_ENCODING_UTF8, str, len);
+      str[len] = '\0';
       jerry_value_free(stringified);
     } else if (jerry_value_is_string(arguments[i])) {
-      jerry_size_t copied_bytes = jerry_string_to_buffer(arguments[i], JERRY_ENCODING_UTF8, str, sizeof(str) - 1);
+      len = jerry_string_size(arguments[i], JERRY_ENCODING_UTF8);
+      str = (char *)pvPortMalloc(len + 1);
+      jerry_string_to_buffer(arguments[i], JERRY_ENCODING_UTF8, str, len);
+      str[len] = '\0';
     }
 
     if (!str) {
@@ -342,6 +369,7 @@ static jerry_value_t __logger_internal(const jerry_call_info_t *call_info_p,
     }
 
     puts(str);
+    vPortFree(str);
   }
 
   puts("\033[0m\n");

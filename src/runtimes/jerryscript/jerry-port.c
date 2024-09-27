@@ -8,6 +8,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -36,7 +37,7 @@ void jerry_port_sleep(uint32_t sleep_time)
 
 void jerry_port_log(const char *message_p)
 {
-  // fputs (message_p, stderr);
+  fputs(message_p, stderr);
 }
 
 jerry_char_t *jerry_port_path_normalize(const jerry_char_t *path_p, /**< input path */

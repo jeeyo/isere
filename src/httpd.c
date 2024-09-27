@@ -374,6 +374,13 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   // cleanup client socket
   uv__io_stop(&__httpd->loop, &conn->w, UV_POLLIN);
   isere_tcp_close(conn->fd);
+
+  // TODO: prepare memory in advance instead of strdup()/malloc() from runtime port
+  for (int i = 0; i < conn->response.num_header_fields; i++) {
+    vPortFree(conn->response.header_names[i]);
+    vPortFree(conn->response.header_values[i]);
+  }
+  vPortFree(conn->response.body);
   vPortFree(conn);
 }
 

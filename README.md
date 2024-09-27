@@ -9,7 +9,7 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 - [x] FreeRTOS as Kernel
 - [x] JavaScript runtime
   - [x] QuickJS
-  - [ ] JerryScript
+  - [x] JerryScript
 - [ ] Python runtime (?)
   - [ ] MicroPython
 - [x] HTTP server
@@ -19,7 +19,7 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
   - [ ] Static Files (?)
 - [x] Unit tests
   - [x] loader
-  - [x] js
+  - [ ] js
   - [ ] httpd
   - [ ] http handler
   - [ ] logger
@@ -135,4 +135,4 @@ See [BENCHMARK.md](BENCHMARK.md)
 Special thanks to
 
 - [maxnet](https://github.com/maxnet/pico-webserver/) for tinyusb RNDIS to LwIP glue for Raspberry Pi Pico
-- [src/internals/uv_poll.c](src/internals/uv_poll.c) was extracted from [libuv](https://github.com/libuv/libuv)
+- [libuv](https://github.com/libuv/libuv) for [src/internals/uv_poll.c](src/internals/uv_poll.c)
