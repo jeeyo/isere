@@ -179,7 +179,6 @@ int js_runtime_eval_handler(
   JS_SetPropertyStr(ctx->context, context, "memoryLimitInMB", JS_NewInt32(ctx->context, 128));
   JS_SetPropertyStr(ctx->context, context, "logGroupName", JS_NewString(ctx->context, ISERE_APP_NAME));
   JS_SetPropertyStr(ctx->context, context, "logStreamName", JS_NewString(ctx->context, ISERE_APP_NAME));
-  // TODO: callbackWaitsForEmptyEventLoop
   JS_SetPropertyStr(ctx->context, context, "callbackWaitsForEmptyEventLoop", JS_NewBool(ctx->context, 1));
   JS_SetPropertyStr(ctx->context, global_obj, "context", context);
 

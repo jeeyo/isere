@@ -107,11 +107,7 @@ static jerry_value_t module_resolve_callback(const jerry_value_t specifier,
                                               const jerry_value_t referrer,
                                               void *user_data_p)
 {
-  /* In this case, the specifier contains 'b.mjs', and the referrer is the module
-   * created in the main() function below. Normally the specifier string should be
-   * extended to a full file system path, and it should be checked whether a module
-   * corresponding to this path has been loaded already. For simplicity, this function
-   * returns with a new module. */
+  // This resolves only in `isere` main script
 
   // TODO: pass `handler_size` as parameter
   const char *handler = (const char *)user_data_p;
@@ -190,7 +186,6 @@ int js_runtime_eval_handler(
   __add_key_value_to_object(context, jerry_string_sz("memoryLimitInMB"), jerry_number(128));
   __add_key_value_to_object(context, jerry_string_sz("logGroupName"), jerry_string_sz(ISERE_APP_NAME));
   __add_key_value_to_object(context, jerry_string_sz("logStreamName"), jerry_string_sz(ISERE_APP_NAME));
-  // TODO: callbackWaitsForEmptyEventLoop
   __add_key_value_to_object(context, jerry_string_sz("callbackWaitsForEmptyEventLoop"), jerry_boolean(true));
   __add_key_value_to_object(global_obj, jerry_string_sz("context"), context);
 
@@ -285,7 +280,29 @@ int js_runtime_deinit_context(isere_js_t *js, isere_js_context_t *ctx)
 
 int js_runtime_poll(isere_js_context_t *ctx)
 {
-  return 0;
+  __lock_context(ctx);
+
+  int ret = 1;
+
+  jerry_value_t job_value = jerry_run_jobs();
+  if (jerry_value_is_exception(job_value)) {
+    if (jerry_value_is_abort(job_value)) {
+      ret = -1;
+      goto finally;
+    }
+
+    jerryx_print_unhandled_exception(job_value);
+    ret = -1;
+    goto finally;
+  } else {
+    ret = 0;
+    goto finally;
+  }
+
+finally:
+  jerry_value_free(job_value);
+  __unlock_context();
+  return ret;
 }
 
 static jerry_value_t __handler_cb(const jerry_call_info_t *call_info_p, const jerry_value_t arguments[], const jerry_length_t argument_count)
