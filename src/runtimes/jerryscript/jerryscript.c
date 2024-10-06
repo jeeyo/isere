@@ -202,7 +202,6 @@ int js_runtime_eval_handler(
 
   const char *eval =
     "import { handler } from 'handler';"
-    "console.log('handler', handler);"
     "const handler1 = new Promise(resolve => handler(event, context, resolve).then(resolve));"
     "Promise.resolve(handler1).then(cb)";
 
