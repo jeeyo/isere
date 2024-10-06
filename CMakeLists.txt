@@ -116,15 +116,20 @@ if(JS_RUNTIME STREQUAL "quickjs")
 elseif(JS_RUNTIME STREQUAL "jerryscript")
   SET(JERRY_EXTERNAL_CONTEXT ON CACHE BOOL "")
   SET(JERRY_PROMISE_CALLBACK ON CACHE BOOL "")
+  SET(JERRY_ERROR_MESSAGES ON CACHE BOOL "")
+  SET(JERRY_MEM_STATS ON CACHE BOOL "")
 
   add_custom_target(amalgam)
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
+  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-ext)
   list(APPEND LIBS
     jerry-core
+    jerry-ext
   )
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_JERRYSCRIPT)
   target_include_directories(isere PRIVATE
     ${JERRYSCRIPT_DIR}/jerry-core/include
+    ${JERRYSCRIPT_DIR}/jerry-ext/include
   )
 endif()
 
@@ -138,6 +143,8 @@ target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CO
 
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
+  target_compile_options(jerry-core PRIVATE -O0 -g)
+  target_compile_options(jerry-ext PRIVATE -O0 -g)
 
   # enable profiling on Linux
   if(TARGET_PLATFORM STREQUAL "linux")

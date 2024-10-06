@@ -4,6 +4,7 @@
 #include "polyfills.h"
 
 #include "jerryscript.h"
+#include "jerryscript-ext/print.h"
 
 #include "FreeRTOS.h"
 #include "semphr.h"
@@ -102,6 +103,28 @@ static inline jerry_value_t __get_value_from_object_by_key(jerry_value_t object,
   return ret;
 }
 
+static jerry_value_t module_resolve_callback(const jerry_value_t specifier,
+                                              const jerry_value_t referrer,
+                                              void *user_data_p)
+{
+  /* In this case, the specifier contains 'b.mjs', and the referrer is the module
+   * created in the main() function below. Normally the specifier string should be
+   * extended to a full file system path, and it should be checked whether a module
+   * corresponding to this path has been loaded already. For simplicity, this function
+   * returns with a new module. */
+
+  // TODO: pass `handler_size` as parameter
+  const char *handler = (const char *)user_data_p;
+
+  jerry_parse_options_t parse_options;
+  parse_options.options = JERRY_PARSE_MODULE | JERRY_PARSE_HAS_SOURCE_NAME;
+  parse_options.source_name = jerry_string_sz("handler");
+
+  jerry_value_t result = jerry_parse(handler, strlen(handler), &parse_options);
+  jerry_value_free(parse_options.source_name);
+  return result;
+}
+
 int js_runtime_eval_handler(
   isere_js_context_t *ctx,
   unsigned char *handler,
@@ -176,17 +199,45 @@ int js_runtime_eval_handler(
 
   jerry_value_free(global_obj);
 
-  const char *eval =
-    "console.warn('event', event);"
-    "console.error('context', context);"
-    "cb({ statusCode: 403 });";
+  int ret = -1;
 
-  int ret = 0;
-  jerry_value_t eval_ret = jerry_eval((jerry_char_t *)eval, strlen(eval), JERRY_PARSE_NO_OPTS);
-  if (jerry_value_is_exception(eval_ret)) {
-    ret = -1;
+  jerry_parse_options_t parse_options;
+  parse_options.options = JERRY_PARSE_MODULE | JERRY_PARSE_HAS_SOURCE_NAME;
+  parse_options.source_name = jerry_string_sz("isere");
+
+  const char *eval =
+    "import { handler } from 'handler';"
+    "console.log('handler', handler);"
+    "const handler1 = new Promise(resolve => handler(event, context, resolve).then(resolve));"
+    "Promise.resolve(handler1).then(cb)";
+
+  jerry_value_t e = jerry_parse((const jerry_char_t *)eval, strlen(eval), &parse_options);
+  if (jerry_value_is_exception(e)) {
+    jerryx_print_unhandled_exception(e);
+    goto fail;
   }
-  jerry_value_free(eval_ret);
+  jerry_value_free(e);
+
+  jerry_value_t e_result = jerry_module_link(e, module_resolve_callback, handler);
+  if (jerry_value_is_exception(e_result)) {
+    jerryx_print_unhandled_exception(e_result);
+    goto fail_result;
+  }
+  jerry_value_free(e_result);
+
+  e_result = jerry_module_evaluate(e);
+  if (jerry_value_is_exception(e_result)) {
+    jerryx_print_unhandled_exception(e_result);
+    goto fail_result;
+  }
+
+  ret = 0;
+
+fail_result:
+  jerry_value_free(e_result);
+fail:
+  jerry_value_free(e);
+  jerry_value_free(parse_options.source_name);
 
   __unlock_context();
   return ret;

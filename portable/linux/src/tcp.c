@@ -48,6 +48,16 @@ int isere_tcp_socket_new()
   return fd;
 }
 
+int isere_tcp_socket_set_reuse(int fd)
+{
+  int yes = 1;
+  if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) != 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
 void isere_tcp_close(int fd)
 {
   close(fd);

@@ -47,6 +47,7 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 - [ ] Project Template
 - [ ] Low-power mode
 - [x] Benchmark
+- [ ] Doxygen
 - [ ] Port
   - [x] Raspberry Pi Pico 2 (RP2350)
   - [ ] ESP32?

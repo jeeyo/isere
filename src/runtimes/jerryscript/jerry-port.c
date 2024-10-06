@@ -43,10 +43,7 @@ void jerry_port_log(const char *message_p)
 jerry_char_t *jerry_port_path_normalize(const jerry_char_t *path_p, /**< input path */
                                         jerry_size_t path_size) /**< size of the path */
 {
-  (void) path_size;
-  jerry_char_t *path = (jerry_char_t *)pvPortMalloc(8);
-  strncpy((char *)path, "handler", 8);
-  return path;
+  return strdup(path_p);
 }
 
 jerry_size_t jerry_port_path_base(const jerry_char_t *path_p)
@@ -63,18 +60,24 @@ void jerry_port_path_free(jerry_char_t *path_p)
 jerry_char_t *jerry_port_source_read(const char *file_name_p, /**< file name */
                                     jerry_size_t *out_size_p) /**< [out] read bytes */
 {
-  if (strcmp(file_name_p, "handler") != 0) {
-    return NULL;
-  }
-
-  // *out_size_p = (jerry_size_t) bytes_read;
-  // return buffer_p;
-
   return NULL;
 }
 
 void jerry_port_source_free(uint8_t *buffer_p) /**< buffer to free */
 {
-  // we store handler code in static memory, so don't have to free() it
-  // vPortFree(buffer_p);
+  vPortFree(buffer_p);
+}
+
+void jerry_port_print_byte (jerry_char_t byte) /**< the character to print */
+{
+  putchar(byte);
+}
+
+void jerry_port_print_buffer (const jerry_char_t *buffer_p, /**< string buffer */
+                              jerry_size_t buffer_size) /**< string size*/
+{
+  for (jerry_size_t i = 0; i < buffer_size; i++)
+  {
+    jerry_port_print_byte(buffer_p[i]);
+  }
 }

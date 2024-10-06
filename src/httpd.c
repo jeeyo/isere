@@ -394,6 +394,10 @@ static void __httpd_task(void *param)
     goto exit;
   }
 
+  if (isere_tcp_socket_set_reuse(__httpd->serverfd) < 0) {
+    goto exit;
+  }
+
   if (isere_tcp_listen(__httpd->serverfd, ISERE_HTTPD_PORT) < 0) {
     goto exit;
   }
