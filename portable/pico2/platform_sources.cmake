@@ -1,10 +1,10 @@
 # initialize the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-set(PICO_TINYUSB_PATH 3rdparty/pico-sdk/lib/tinyusb)
+set(PICO_SDK_PATH 3rdparty/pico-sdk)
 set(TINYUSB_LIBNETWORKING_SOURCES
-  ${PICO_TINYUSB_PATH}/lib/networking/dhserver.c
-  ${PICO_TINYUSB_PATH}/lib/networking/rndis_reports.c
+  ${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dhserver.c
+  ${PICO_SDK_PATH}/lib/tinyusb/lib/networking/rndis_reports.c
 )
 
 list(APPEND SOURCES

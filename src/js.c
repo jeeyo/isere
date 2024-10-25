@@ -64,8 +64,8 @@ int isere_js_eval(
     method,
     path,
     query,
-    request_header_names,
-    request_header_values,
+    (const char **)request_header_names,
+    (const char **)request_header_values,
     request_headers_len,
     body) < 0) {
     // TODO: error goes to logger

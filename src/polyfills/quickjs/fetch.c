@@ -18,22 +18,6 @@ static JSValue __polyfill_fetch_internal(JSContext *ctx, JSValueConst this_val, 
 
 void isere_js_polyfill_fetch_init(isere_js_context_t *ctx)
 {
-  /*
-    Resource object
-    (https://developer.mozilla.org/en-US/docs/Web/API/Request)
-    ```
-    {
-      "url": "https://example.com",
-      "method": "GET",
-      "headers": {
-        "header1Name": "header1Value",
-        "header2Name": "header2Value",
-      },
-      "body": "...",
-    }
-    ```
-  */
-
   JSValue global_obj = JS_GetGlobalObject(ctx->context);
   JS_SetPropertyStr(ctx->context, global_obj, "__fetch", JS_NewCFunction(ctx->context, __polyfill_fetch_internal, "__fetch", 1));
   JS_FreeValue(ctx->context, global_obj);

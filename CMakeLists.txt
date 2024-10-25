@@ -4,7 +4,7 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 # build configuration
 option(DEBUG "Debug mode" OFF)
-set(JS_RUNTIME "quickjs" CACHE STRING "JavaScript runtime") # quickjs (default)
+set(JS_RUNTIME "quickjs" CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
 
 # platform-specific configuration
 option(WITH_LWIP "Include LwIP" OFF)
@@ -17,6 +17,7 @@ project(isere C CXX ASM)
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
 set(FREERTOS_POSIX_DIR ./3rdparty/FreeRTOS-Plus-POSIX)
 set(QUICKJS_DIR ./3rdparty/quickjs)
+set(JERRYSCRIPT_DIR ./3rdparty/jerryscript)
 set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
@@ -24,6 +25,7 @@ set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
 set(JS_DIR ./js)
 
 set(SOURCES )
+set(LIBS )
 
 list(APPEND SOURCES
   ./src/hooks.c
@@ -57,20 +59,6 @@ list(APPEND SOURCES
   ${CAPNPROTO_DIR}/lib/capn.c
 )
 
-if(JS_RUNTIME STREQUAL "quickjs")
-  list(APPEND SOURCES
-    ${QUICKJS_DIR}/quickjs.c
-    ${QUICKJS_DIR}/libbf.c
-    ${QUICKJS_DIR}/libregexp.c
-    ${QUICKJS_DIR}/libunicode.c
-    ${QUICKJS_DIR}/cutils.c
-    ./src/runtimes/quickjs/quickjs.c
-    ./src/runtimes/quickjs/quickjs-libc.c
-    ./src/polyfills/quickjs/fetch.c
-    ./src/polyfills/quickjs/timer.c
-  )
-endif()
-
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
 
 if(WITH_LWIP)
@@ -92,6 +80,27 @@ else()
   )
 endif()
 
+if(JS_RUNTIME STREQUAL "quickjs")
+  list(APPEND SOURCES
+    ${QUICKJS_DIR}/quickjs.c
+    ${QUICKJS_DIR}/libbf.c
+    ${QUICKJS_DIR}/libregexp.c
+    ${QUICKJS_DIR}/libunicode.c
+    ${QUICKJS_DIR}/cutils.c
+    ./src/runtimes/quickjs/quickjs.c
+    ./src/runtimes/quickjs/quickjs-libc.c
+    ./src/polyfills/quickjs/fetch.c
+    ./src/polyfills/quickjs/timer.c
+  )
+elseif(JS_RUNTIME STREQUAL "jerryscript")
+  list(APPEND SOURCES
+    ./src/runtimes/jerryscript/jerryscript.c
+    ./src/runtimes/jerryscript/jerry-common.c
+    ./src/runtimes/jerryscript/jerry-port.c
+    ./src/polyfills/jerryscript/timer.c
+  )
+endif()
+
 add_custom_command(
   OUTPUT handler.c
   COMMAND xxd -i ../${JS_DIR}/handler.js handler.c
@@ -104,6 +113,28 @@ add_custom_command(
 
 add_executable(isere ${SOURCES} ./src/main.c)
 
+if(JS_RUNTIME STREQUAL "quickjs")
+  target_compile_definitions(isere PRIVATE ISERE_RUNTIME_QUICKJS)
+elseif(JS_RUNTIME STREQUAL "jerryscript")
+  SET(JERRY_EXTERNAL_CONTEXT ON CACHE BOOL "")
+  SET(JERRY_PROMISE_CALLBACK ON CACHE BOOL "")
+  SET(JERRY_ERROR_MESSAGES ON CACHE BOOL "")
+  SET(JERRY_MEM_STATS ON CACHE BOOL "")
+
+  add_custom_target(amalgam)
+  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
+  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-ext)
+  list(APPEND LIBS
+    jerry-core
+    jerry-ext
+  )
+  target_compile_definitions(isere PRIVATE ISERE_RUNTIME_JERRYSCRIPT)
+  target_include_directories(isere PRIVATE
+    ${JERRYSCRIPT_DIR}/jerry-core/include
+    ${JERRYSCRIPT_DIR}/jerry-ext/include
+  )
+endif()
+
 if(SUPPORT_DYNLINK)
   target_compile_definitions(isere PRIVATE ISERE_USE_DYNLINK)
 endif()
@@ -114,6 +145,8 @@ target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CO
 
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
+  target_compile_options(jerry-core PRIVATE -O0 -g)
+  target_compile_options(jerry-ext PRIVATE -O0 -g)
 
   # enable profiling on Linux
   if(TARGET_PLATFORM STREQUAL "linux")
@@ -141,9 +174,14 @@ if(WITH_LWIP)
   target_include_directories(isere PRIVATE
     ${LWIP_DIR}/src/include
   )
-  target_link_libraries(isere lwipallapps lwipcore)
+  list(APPEND LIBS
+    lwipallapps
+    lwipcore
+  )
   target_compile_definitions(isere PRIVATE ISERE_WITH_LWIP)
 endif()
+
+target_link_libraries(isere PRIVATE ${LIBS})
 
 add_custom_command(
   OUTPUT ${CAPNPROTO_DIR}/build/capnpc-c/config.capnp.c
@@ -155,6 +193,7 @@ add_custom_command(
   VERBATIM
 )
 
-if(TARGET_PLATFORM STREQUAL "linux")
-  include(./tests/CMakeLists.txt)
-endif()
+# TODO: make isere a library for unittests
+# if(TARGET_PLATFORM STREQUAL "linux")
+#   include(./tests/CMakeLists.txt)
+# endif()

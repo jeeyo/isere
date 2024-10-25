@@ -13,8 +13,15 @@ extern "C" {
 
 #include "FreeRTOS.h"
 #include "timers.h"
+#include "semphr.h"
 
+#ifdef ISERE_RUNTIME_QUICKJS
 #include "quickjs.h"
+#endif /* ISERE_RUNTIME_QUICKJS */
+
+#ifdef ISERE_RUNTIME_JERRYSCRIPT
+#include "jerryscript.h"
+#endif /* ISERE_RUNTIME_JERRYSCRIPT */
 
 #include "libuv/uv.h"
 
@@ -62,15 +69,22 @@ typedef struct {
 
 typedef struct {
   TimerHandle_t timer;
+#ifdef ISERE_RUNTIME_QUICKJS
   JSContext *ctx;
   JSValue func;
+#endif /* ISERE_RUNTIME_QUICKJS */
 } polyfill_timer_t;
 
 typedef struct {
   uint8_t initialized;
+#ifdef ISERE_RUNTIME_QUICKJS
   JSRuntime *runtime;
   JSContext *context;
   JSValue future;
+#endif /* ISERE_RUNTIME_QUICKJS */
+#ifdef ISERE_RUNTIME_JERRYSCRIPT
+  jerry_context_t *context;
+#endif /* ISERE_RUNTIME_JERRYSCRIPT */
   polyfill_timer_t timers[ISERE_JS_POLYFILLS_MAX_TIMERS];
   void *opaque;
 } isere_js_context_t;

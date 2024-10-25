@@ -12,6 +12,8 @@
                 "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/Posix",
                 "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/Posix/utils",
                 "${workspaceFolder}/3rdparty/quickjs",
+                "${workspaceFolder}/3rdparty/jerryscript/jerry-core/include",
+                "${workspaceFolder}/3rdparty/jerryscript/jerry-ext/include",
                 "${workspaceFolder}/3rdparty/llhttp/include",
                 "${workspaceFolder}/3rdparty/libyuarel",
                 "${workspaceFolder}/3rdparty/c-capnproto/lib"
@@ -39,6 +41,8 @@
                 "${workspaceFolder}/3rdparty/FreeRTOS/include",
                 "${workspaceFolder}/3rdparty/FreeRTOS/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure",
                 "${workspaceFolder}/3rdparty/quickjs",
+                "${workspaceFolder}/3rdparty/jerryscript/jerry-core/include",
+                "${workspaceFolder}/3rdparty/jerryscript/jerry-ext/include",
                 "${workspaceFolder}/3rdparty/llhttp/include",
                 "${workspaceFolder}/3rdparty/libyuarel",
                 "${workspaceFolder}/3rdparty/c-capnproto/lib",
@@ -47,6 +51,7 @@
                 "${workspaceFolder}/3rdparty/pico-sdk/src/rp2350/hardware_structs/include",
                 "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_base/include",
                 "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_sync/include",
+                "${workspaceFolder}/3rdparty/pico-sdk/src/rp2_common/hardware_sync_spin_lock/include",
                 "${workspaceFolder}/3rdparty/pico-sdk/src/boards/include/boards"
             ],
             "cStandard": "c99",

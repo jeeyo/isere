@@ -1,5 +1,6 @@
 #include "httpd.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
 
@@ -373,6 +374,13 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
   // cleanup client socket
   uv__io_stop(&__httpd->loop, &conn->w, UV_POLLIN);
   isere_tcp_close(conn->fd);
+
+  // TODO: prepare memory in advance instead of strdup()/malloc() from runtime port
+  for (int i = 0; i < conn->response.num_header_fields; i++) {
+    vPortFree(conn->response.header_names[i]);
+    vPortFree(conn->response.header_values[i]);
+  }
+  vPortFree(conn->response.body);
   vPortFree(conn);
 }
 
@@ -383,6 +391,10 @@ static void __httpd_task(void *param)
   }
 
   if ((__httpd->serverfd = isere_tcp_socket_new()) < 0) {
+    goto exit;
+  }
+
+  if (isere_tcp_socket_set_reuse(__httpd->serverfd) < 0) {
     goto exit;
   }
 
@@ -484,8 +496,11 @@ static void __httpd_writeback(httpd_conn_t *conn)
   }
 
   // TODO: `Date`
+  // TODO: check for duplicated headers from users
   const char *server_header = "Server: isere\r\n";
   isere_tcp_write(conn->fd, server_header, strlen(server_header));
+  const char *connection_header = "Connection: close\r\n";
+  isere_tcp_write(conn->fd, connection_header, strlen(connection_header));
   isere_tcp_write(conn->fd, "\r\n", 2);
 
   // send HTTP response body
