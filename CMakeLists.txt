@@ -95,7 +95,9 @@ if(JS_RUNTIME STREQUAL "quickjs")
 elseif(JS_RUNTIME STREQUAL "jerryscript")
   list(APPEND SOURCES
     ./src/runtimes/jerryscript/jerryscript.c
+    ./src/runtimes/jerryscript/jerry-common.c
     ./src/runtimes/jerryscript/jerry-port.c
+    ./src/polyfills/jerryscript/timer.c
   )
 endif()
 

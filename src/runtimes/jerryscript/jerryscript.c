@@ -21,9 +21,9 @@ static inline int32_t MAX(int32_t a, int32_t b) { return((a) > (b) ? a : b); }
 static inline int32_t MIN(int32_t a, int32_t b) { return((a) < (b) ? a : b); }
 #endif /* MIN */
 
-static SemaphoreHandle_t __ctx_mut = NULL;
-static isere_js_context_t *__current_isere_js_context = NULL;
-static jerry_context_t *__current_context_p = NULL;
+extern SemaphoreHandle_t __ctx_mut;
+extern isere_js_context_t *__current_isere_js_context;
+extern jerry_context_t *__current_context_p;
 
 static jerry_value_t __handler_cb(const jerry_call_info_t *call_info_p, const jerry_value_t arguments[], const jerry_length_t argument_count);
 static jerry_value_t __console_log(const jerry_call_info_t *call_info_p, const jerry_value_t arguments[], const jerry_length_t argument_count);
