@@ -31,6 +31,7 @@ list(APPEND SOURCES
   ./src/hooks.c
   ./src/http_handler.c
   ./src/httpd.c
+  ./src/otel.c
   ./src/ini.c
   ./src/js.c
   ./src/polyfills/pvPortRealloc.c
@@ -145,8 +146,11 @@ target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CO
 
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
-  target_compile_options(jerry-core PRIVATE -O0 -g)
-  target_compile_options(jerry-ext PRIVATE -O0 -g)
+
+  if(JS_RUNTIME STREQUAL "jerryscript")
+    target_compile_options(jerry-core PRIVATE -O0 -g)
+    target_compile_options(jerry-ext PRIVATE -O0 -g)
+  endif()
 
   # enable profiling on Linux
   if(TARGET_PLATFORM STREQUAL "linux")

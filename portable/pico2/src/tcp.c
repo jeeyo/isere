@@ -64,6 +64,15 @@ int isere_tcp_socket_set_reuse(int fd)
   return 0;
 }
 
+int isere_tcp_socket_set_nonblock(int fd)
+{
+  if (lwip_fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) != 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
 void isere_tcp_close(int fd)
 {
   close(fd);

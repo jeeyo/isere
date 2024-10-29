@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 
@@ -58,10 +59,43 @@ int isere_tcp_socket_set_reuse(int fd)
   return 0;
 }
 
+int isere_tcp_socket_set_nonblock(int fd)
+{
+  if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) != 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
 void isere_tcp_close(int fd)
 {
   close(fd);
   __num_of_tcp_conns--;
+}
+
+int isere_tcp_connect(int fd, const char *ipaddr, uint16_t port)
+{
+  struct sockaddr_in dest_addr;
+  bzero(&dest_addr, sizeof(dest_addr));
+  dest_addr.sin_family = AF_INET;
+  dest_addr.sin_port = htons(port);
+
+  int err = inet_pton(AF_INET, ipaddr, &dest_addr.sin_addr);
+  if (err <= 0) {
+    return -1;
+  }
+
+  err = connect(fd, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+  if (err != 0) {
+    if (errno == EAGAIN || errno == EINPROGRESS) {
+      return -2;
+    }
+
+    return -1;
+  }
+
+  return 0;
 }
 
 int isere_tcp_listen(int fd, uint16_t port)

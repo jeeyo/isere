@@ -13,6 +13,7 @@
 #include "loader.h"
 #include "logger.h"
 #include "js.h"
+#include "otel.h"
 #include "httpd.h"
 #include "tcp.h"
 
@@ -102,6 +103,15 @@ int main(void)
     return EXIT_FAILURE;
   }
   isere.tcp = &tcp;
+
+  // initialize otel module
+  isere_otel_t otel;
+  memset(&otel, 0, sizeof(isere_otel_t));
+  if (isere_otel_init(&isere, &otel) < 0) {
+    logger.error(ISERE_LOG_TAG, "Unable to initialize otel module");
+    return EXIT_FAILURE;
+  }
+  isere.otel = &otel;
 
   // initialize web server module
   isere_httpd_t httpd;

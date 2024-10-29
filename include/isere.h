@@ -99,6 +99,13 @@ typedef struct {
   struct uv__queue js_queue;
 } isere_httpd_t;
 
+typedef struct {
+  TaskHandle_t tsk;
+  int fd;
+  uv__io_t w;
+  uv_loop_t loop;
+} isere_otel_t;
+
 typedef void * isere_tcp_t;
 
 typedef void * isere_fs_t;
@@ -113,6 +120,7 @@ struct isere_s {
   isere_loader_t *loader;
   isere_js_t *js;
   isere_tcp_t *tcp;
+  isere_otel_t *otel;
   isere_httpd_t *httpd;
   isere_fs_t *fs;
   // isere_ini_t *ini;

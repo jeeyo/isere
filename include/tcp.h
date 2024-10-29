@@ -24,7 +24,9 @@ int isere_tcp_deinit(isere_tcp_t *tcp);
 
 int isere_tcp_socket_new();
 int isere_tcp_socket_set_reuse(int fd);
+int isere_tcp_socket_set_nonblock(int fd);
 void isere_tcp_close(int fd);
+int isere_tcp_connect(int fd, const char *ipaddr, uint16_t port);
 int isere_tcp_listen(int fd, uint16_t port);
 int isere_tcp_accept(int fd, char *ip_addr);
 ssize_t isere_tcp_recv(int fd, char *buf, size_t len);
