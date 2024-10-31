@@ -38,6 +38,10 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
   - [ ] fetch
   - [ ] base64
   - [x] setTimeout / clearTimeout (FreeRTOS Timer)
+- [ ] OpenTelemetry
+  - [ ] Metrics
+    - [ ] Sum (Counter)
+    - [ ] Gauge
 - [ ] Memory Leak Check
 - [ ] Valgrind
 - [ ] Optimization

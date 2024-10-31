@@ -196,8 +196,3 @@ add_custom_command(
   MAIN_DEPENDENCY ./schemas/config.capnp
   VERBATIM
 )
-
-# TODO: make isere a library for unittests
-# if(TARGET_PLATFORM STREQUAL "linux")
-#   include(./tests/CMakeLists.txt)
-# endif()
