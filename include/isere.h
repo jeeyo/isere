@@ -102,6 +102,7 @@ typedef struct {
 typedef struct {
   TaskHandle_t tsk;
   int fd;
+  uint64_t last_connect_attempt;  // last time we call connect() (0 = not connecting)
   uv__io_t w;
   uv_loop_t loop;
 } isere_otel_t;

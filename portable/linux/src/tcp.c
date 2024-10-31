@@ -68,6 +68,18 @@ int isere_tcp_socket_set_nonblock(int fd)
   return 0;
 }
 
+int isere_tcp_socket_last_error(int fd)
+{
+  int myerrno = 0;
+  socklen_t size = sizeof(myerrno);
+
+  if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &myerrno, &size) != 0) {
+    return errno;
+  }
+
+  return myerrno;
+}
+
 void isere_tcp_close(int fd)
 {
   close(fd);

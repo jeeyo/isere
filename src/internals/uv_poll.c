@@ -167,7 +167,7 @@ static void maybe_resize(uv_loop_t* loop, unsigned int len) {
 }
 
 void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
-  assert(0 == (events & ~(UV_POLLIN | UV_POLLOUT | UV_POLLERR)));
+  assert(0 == (events & ~(UV_POLLIN | UV_POLLOUT)));
   assert(0 != events);
   assert(w->fd >= 0);
   assert(w->fd < INT_MAX);
@@ -185,7 +185,7 @@ void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
 }
 
 void uv__io_stop(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
-  assert(0 == (events & ~(UV_POLLIN | UV_POLLOUT | UV_POLLERR)));
+  assert(0 == (events & ~(UV_POLLIN | UV_POLLOUT)));
   assert(0 != events);
 
   if (w->fd == -1)
@@ -276,8 +276,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout)
     /* Filter out events that user has not requested us to watch
       * (e.g. POLLNVAL).
       */
-    // pe->revents &= w->pevents | POLLERR | POLLHUP;
-    pe->revents &= w->pevents;
+    pe->revents &= w->pevents | POLLERR | POLLHUP;
 
     if (pe->revents != 0) {
       w->cb(loop, w, pe->revents);

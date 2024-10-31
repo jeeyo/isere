@@ -61,7 +61,6 @@ typedef struct {
 } httpd_response_object_t;
 
 typedef struct {
-
   int fd;
   char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
   int linebuflen;
