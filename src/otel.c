@@ -15,6 +15,7 @@
 static isere_t *__isere = NULL;
 static isere_otel_t *__otel = NULL;
 
+static char __tx_buf[ISERE_OTEL_TX_BUF_LEN] = {0};
 static otel_metrics_counter_t *__counters_head = NULL;
 
 static int connect_to_otel();
@@ -28,24 +29,19 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
 
   __isere->logger->info(ISERE_OTEL_LOG_TAG, "Connected to OpenTelemetry Collector");
   __otel->last_connect_attempt = 0;
+  __otel->last_sent = xTaskGetTickCount();
 }
 
-#define OTEL_RESOURCE_OBJ "\"resource\":{\
-\"attribute\":[\
-{\"key\":\"service.name\",\"value\":{\"stringValue\":\"%s\"}},\
-{\"key\":\"service.version\",\"value\":{\"stringValue\":\"%s\"}},\
-{\"key\":\"runtime.name\",\"value\":{\"stringValue\":\"%s\"}}\
-]\
-}"
+#define OTEL_RESOURCE_ATTR "{\"key\":\"%.*s\",\"value\":{\"stringValue\":\"%.*s\"}}"
 
 // TODO: Only support Cumulative Counter for now
 // See "AggregationTemporality" in https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/metrics/v1/metrics.proto
 #define OTEL_METRIC_COUNTER_OBJ "{\
-\"name\":\"%s\",\
-\"unit\":\"%s\",\
-\"description\":\"%s\",\
+\"name\":\"%.*s\",\
+\"unit\":\"%.*s\",\
+\"description\":\"%.*s\",\
 \"sum\":{\
-\"aggregationTemporality\":2,\
+\"aggregationTemporality\":%d,\
 \"isMonotonic\":true,\
 \"dataPoints\":[\
 {\"asInt\":%d,\"startTimeUnixNano\":\"1544712660300000000\",\"timeUnixNano\":\"1544712660300000000\",\"attributes\":[]}\
@@ -62,27 +58,6 @@ static int connect_to_otel()
   if (isere_tcp_socket_set_nonblock(__otel->fd) < 0) {
     return -1;
   }
-
-  printf(
-    "{"
-      "\"resourceMetrics\": ["
-        "{"
-          OTEL_RESOURCE_OBJ
-          ","
-          "\"scopeMetrics\": ["
-            "{"
-              "\"scope\": {"
-              "},"
-              "\"metrics\": ["
-                OTEL_METRIC_COUNTER_OBJ
-              "]"
-            "}"
-          "]"
-        "}"
-      "]"
-    "}",
-  ISERE_APP_NAME, ISERE_APP_VERSION, "jerryscript",
-  "my.counter", "1", "my.counter", 25);
 
   __isere->logger->info(ISERE_OTEL_LOG_TAG, "Connecting to OpenTelemetry Collector %s:%d", ISERE_OTEL_HOST, ISERE_OTEL_PORT);
   __otel->last_connect_attempt = xTaskGetTickCount();
@@ -184,7 +159,8 @@ static void __otel_task(void *param)
 
   while (!__isere->should_exit)
   {
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    // poll sockets to see if there's any new events
+    uv__io_poll(&__otel->loop, 0);
 
     // retry when connecting takes too long
     if (__otel->last_connect_attempt != 0 &&
@@ -193,7 +169,149 @@ static void __otel_task(void *param)
       __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Connection to OpenTelemetry Collector timed out, retrying...");
       disconnect_from_otel();
       connect_to_otel();
+      continue;
     }
+
+    if (__otel->last_connect_attempt == 0 &&
+        xTaskGetTickCount() - __otel->last_sent > pdMS_TO_TICKS(3000))
+    {
+      __otel->last_sent = xTaskGetTickCount();
+
+      int ret = -1;
+      int tx_len = 0;
+      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+        "POST /v1/metrics HTTP/1.1\r\n"
+        "Host: %s:%d\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: 746\r\n" // TODO: Content-Length
+        "Connection: keep-alive\r\n"
+        "User-Agent: %s/%s\r\n"
+        "\r\n",
+        ISERE_OTEL_HOST, ISERE_OTEL_PORT,
+        ISERE_APP_NAME, ISERE_APP_VERSION
+      );
+      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+      if (ret < 0)
+      {
+        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 1", errno, strerror(errno));
+        disconnect_from_otel();
+        connect_to_otel();
+        continue;
+      }
+
+      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+        "{"
+          "\"resourceMetrics\": ["
+            "{"
+              "\"resource\":{"
+                "\"attribute\":["
+      );
+      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+      if (ret < 0)
+      {
+        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 2", errno, strerror(errno));
+        disconnect_from_otel();
+        connect_to_otel();
+        continue;
+      }
+
+      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+        OTEL_RESOURCE_ATTR","
+        OTEL_RESOURCE_ATTR","
+        OTEL_RESOURCE_ATTR,
+        16, "service.name", 16, ISERE_APP_NAME,
+        16, "service.version", 16, ISERE_APP_VERSION,
+        16, "runtime.name", 16, ISERE_RUNTIME_NAME
+      );
+      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+      if (ret < 0)
+      {
+        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 3", errno, strerror(errno));
+        disconnect_from_otel();
+        connect_to_otel();
+        continue;
+      }
+
+      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+          "]"
+        "},"
+        "\"scopeMetrics\": ["
+          "{"
+            "\"scope\": {"
+            "},"
+            "\"metrics\": ["
+      );
+      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+      if (ret < 0)
+      {
+        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 4", errno, strerror(errno));
+        disconnect_from_otel();
+        connect_to_otel();
+        continue;
+      }
+
+      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+        OTEL_METRIC_COUNTER_OBJ","
+        OTEL_METRIC_COUNTER_OBJ,
+        16, "my.counter", 16, "1", 16, "my.counter", DELTA, 25,
+        16, "my.counter2", 16, "1", 16, "my.counter2", CUMULATIVE, 55
+      );
+      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+      if (ret < 0)
+      {
+        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 5", errno, strerror(errno));
+        disconnect_from_otel();
+        connect_to_otel();
+        continue;
+      }
+
+      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+                  "]"
+                "}"
+              "]"
+            "}"
+          "]"
+        "}"
+      );
+      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+      if (ret < 0)
+      {
+        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 6", errno, strerror(errno));
+        disconnect_from_otel();
+        connect_to_otel();
+        continue;
+      }
+    }
+
+    // printf(
+    //   "{"
+    //     "\"resourceMetrics\": ["
+    //       "{"
+    //         "\"resource\":{"
+    //           "\"attribute\":["
+    //             OTEL_RESOURCE_ATTR","
+    //             OTEL_RESOURCE_ATTR","
+    //             OTEL_RESOURCE_ATTR
+    //           "]"
+    //         "},"
+    //         "\"scopeMetrics\": ["
+    //           "{"
+    //             "\"scope\": {"
+    //             "},"
+    //             "\"metrics\": ["
+    //               OTEL_METRIC_COUNTER_OBJ","
+    //               OTEL_METRIC_COUNTER_OBJ
+    //             "]"
+    //           "}"
+    //         "]"
+    //       "}"
+    //     "]"
+    //   "}",
+    // 16, "service.name", 16, ISERE_APP_NAME,
+    // 16, "service.version", 16, ISERE_APP_VERSION,
+    // 16, "runtime.name", 16, ISERE_RUNTIME_NAME,
+    // 16, "my.counter", 16, "1", 16, "my.counter", DELTA, 25,
+    // 16, "my.counter2", 16, "1", 16, "my.counter2", CUMULATIVE, 55);
   }
 
 exit:

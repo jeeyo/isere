@@ -18,8 +18,13 @@ extern "C" {
 
 #define ISERE_OTEL_LOG_TAG "otel"
 
+#ifndef ISERE_OTEL_HOST
 #define ISERE_OTEL_HOST "127.0.0.1"
+#endif /* ISERE_OTEL_HOST */
+
+#ifndef ISERE_OTEL_PORT
 #define ISERE_OTEL_PORT 4318
+#endif /* ISERE_OTEL_PORT */
 
 #define ISERE_OTEL_CONNECT_TIMEOUT_MS 5000
 
@@ -30,12 +35,19 @@ extern "C" {
 int isere_otel_init(isere_t *isere, isere_otel_t *otel);
 int isere_otel_deinit(isere_otel_t *otel);
 
+#define ISERE_OTEL_TX_BUF_LEN 512
+
 #define ISERE_OTEL_METRIC_MAX_NAME_LEN 64
 #define ISERE_OTEL_METRIC_MAX_UNIT_LEN 8
 
 enum otel_metrics_type_t {
   COUNTER,
   GAUGE
+};
+
+enum otel_metrics_counter_AggregationTemporality_t {
+  DELTA = 1,
+  CUMULATIVE = 2
 };
 
 typedef struct otel_metrics_counter_s otel_metrics_counter_t;

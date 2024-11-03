@@ -4,7 +4,11 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 # build configuration
 option(DEBUG "Debug mode" OFF)
-set(JS_RUNTIME "quickjs" CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
+set(JS_RUNTIME quickjs CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
+
+option(WITH_OTEL "OpenTelemetry Exporter enabled" ON)
+set(OTEL_HOST "127.0.0.1" CACHE STRING "OpenTelemetry Collector OTLP/HTTP host")
+set(OTEL_PORT 4318 CACHE STRING "OpenTelemetry Collector OTLP/HTTP port")
 
 # platform-specific configuration
 option(WITH_LWIP "Include LwIP" OFF)
@@ -81,7 +85,7 @@ else()
   )
 endif()
 
-if(JS_RUNTIME STREQUAL "quickjs")
+if(JS_RUNTIME STREQUAL quickjs)
   list(APPEND SOURCES
     ${QUICKJS_DIR}/quickjs.c
     ${QUICKJS_DIR}/libbf.c
@@ -93,7 +97,7 @@ if(JS_RUNTIME STREQUAL "quickjs")
     ./src/polyfills/quickjs/fetch.c
     ./src/polyfills/quickjs/timer.c
   )
-elseif(JS_RUNTIME STREQUAL "jerryscript")
+elseif(JS_RUNTIME STREQUAL jerryscript)
   list(APPEND SOURCES
     ./src/runtimes/jerryscript/jerryscript.c
     ./src/runtimes/jerryscript/jerry-common.c
@@ -114,9 +118,21 @@ add_custom_command(
 
 add_executable(isere ${SOURCES} ./src/main.c)
 
-if(JS_RUNTIME STREQUAL "quickjs")
+target_compile_definitions(isere PRIVATE
+  ISERE_RUNTIME_NAME="${JS_RUNTIME}"
+  ISERE_OTEL_HOST="${OTEL_HOST}"
+  ISERE_OTEL_PORT=${OTEL_PORT})
+
+if(WITH_OTEL)
+  target_compile_definitions(isere PRIVATE
+    ISERE_WITH_OTEL
+    ISERE_OTEL_HOST="${OTEL_HOST}"
+    ISERE_OTEL_PORT=${OTEL_PORT})
+endif()
+
+if(JS_RUNTIME STREQUAL quickjs)
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_QUICKJS)
-elseif(JS_RUNTIME STREQUAL "jerryscript")
+elseif(JS_RUNTIME STREQUAL jerryscript)
   SET(JERRY_EXTERNAL_CONTEXT ON CACHE BOOL "")
   SET(JERRY_PROMISE_CALLBACK ON CACHE BOOL "")
   SET(JERRY_ERROR_MESSAGES ON CACHE BOOL "")
@@ -147,13 +163,13 @@ target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CO
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
 
-  if(JS_RUNTIME STREQUAL "jerryscript")
+  if(JS_RUNTIME STREQUAL jerryscript)
     target_compile_options(jerry-core PRIVATE -O0 -g)
     target_compile_options(jerry-ext PRIVATE -O0 -g)
   endif()
 
   # enable profiling on Linux
-  if(TARGET_PLATFORM STREQUAL "linux")
+  if(TARGET_PLATFORM STREQUAL linux)
     # target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
     target_compile_options(isere PRIVATE -pg)
     target_link_options(isere PRIVATE -pg)
