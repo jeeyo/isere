@@ -1,6 +1,7 @@
 #include "otel.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <sys/param.h>
 #include <errno.h>
@@ -18,8 +19,8 @@ static isere_otel_t *__otel = NULL;
 static char __tx_buf[ISERE_OTEL_TX_BUF_LEN] = {0};
 static otel_metrics_counter_t *__counters_head = NULL;
 
-static int connect_to_otel();
-static inline void disconnect_from_otel();
+static int __connect_to_otel();
+static inline void __disconnect_from_otel();
 
 static void __otel_task(void *param);
 
@@ -49,7 +50,7 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
 }\
 }"
 
-static int connect_to_otel()
+static int __connect_to_otel()
 {
   if ((__otel->fd = isere_tcp_socket_new()) < 0) {
     return -1;
@@ -80,7 +81,7 @@ static int connect_to_otel()
   return 0;
 }
 
-static inline void disconnect_from_otel()
+static inline void __disconnect_from_otel()
 {
   __otel->last_connect_attempt = 0;
   uv__io_stop(&__otel->loop, &__otel->w, UV_POLLOUT);
@@ -149,13 +150,47 @@ int isere_otel_counter_add(otel_metrics_counter_t *counter, uint32_t increment)
   return 0;
 }
 
+static int __send_chunk(const char *fmt, ...)
+{
+  va_list vargs;
+  va_start(vargs, fmt);
+
+  int ret = -1;
+  int tx_len = 0;
+
+  char chunklen[8] = {0};
+  int chunklen_len = 0;
+
+  tx_len = vsnprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN, fmt, vargs);
+
+  va_end(vargs);
+
+  chunklen_len = snprintf(chunklen, 8, "%d\r\n", tx_len);
+  ret = isere_tcp_write(__otel->fd, chunklen, chunklen_len);
+  if (ret < 0) {
+    return -1;
+  }
+
+  ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+  if (ret < 0) {
+    return -1;
+  }
+
+  ret = isere_tcp_write(__otel->fd, "\r\n", 2);
+  if (ret < 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
 static void __otel_task(void *param)
 {
   while (!isere_tcp_is_initialized()) {
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 
-  connect_to_otel();
+  __connect_to_otel();
 
   while (!__isere->should_exit)
   {
@@ -167,8 +202,8 @@ static void __otel_task(void *param)
         xTaskGetTickCount() - __otel->last_connect_attempt > pdMS_TO_TICKS(ISERE_OTEL_CONNECT_TIMEOUT_MS))
     {
       __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Connection to OpenTelemetry Collector timed out, retrying...");
-      disconnect_from_otel();
-      connect_to_otel();
+      __disconnect_from_otel();
+      __connect_to_otel();
       continue;
     }
 
@@ -179,11 +214,15 @@ static void __otel_task(void *param)
 
       int ret = -1;
       int tx_len = 0;
+
+      char chunklen[8] = {0};
+      int chunklen_len = 0;
+
       tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
         "POST /v1/metrics HTTP/1.1\r\n"
         "Host: %s:%d\r\n"
         "Content-Type: application/json\r\n"
-        "Content-Length: 746\r\n" // TODO: Content-Length
+        "Transfer-Encoding: chunked\r\n"
         "Connection: keep-alive\r\n"
         "User-Agent: %s/%s\r\n"
         "\r\n",
@@ -193,125 +232,87 @@ static void __otel_task(void *param)
       ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
       if (ret < 0)
       {
-        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 1", errno, strerror(errno));
-        disconnect_from_otel();
-        connect_to_otel();
+        __disconnect_from_otel();
+        __connect_to_otel();
         continue;
       }
 
-      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+      ret = __send_chunk(
         "{"
-          "\"resourceMetrics\": ["
-            "{"
-              "\"resource\":{"
-                "\"attribute\":["
-      );
-      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+        "\"resourceMetrics\": ["
+          "{"
+            "\"resource\":{"
+              "\"attribute\":[");
       if (ret < 0)
       {
-        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 2", errno, strerror(errno));
-        disconnect_from_otel();
-        connect_to_otel();
+        __disconnect_from_otel();
+        __connect_to_otel();
         continue;
       }
 
-      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+      ret = __send_chunk(
         OTEL_RESOURCE_ATTR","
         OTEL_RESOURCE_ATTR","
         OTEL_RESOURCE_ATTR,
         16, "service.name", 16, ISERE_APP_NAME,
         16, "service.version", 16, ISERE_APP_VERSION,
-        16, "runtime.name", 16, ISERE_RUNTIME_NAME
-      );
-      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+        16, "runtime.name", 16, ISERE_RUNTIME_NAME);
       if (ret < 0)
       {
-        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 3", errno, strerror(errno));
-        disconnect_from_otel();
-        connect_to_otel();
+        __disconnect_from_otel();
+        __connect_to_otel();
         continue;
       }
 
-      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+      ret = __send_chunk(
           "]"
         "},"
         "\"scopeMetrics\": ["
           "{"
             "\"scope\": {"
             "},"
-            "\"metrics\": ["
-      );
-      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+            "\"metrics\": [");
       if (ret < 0)
       {
-        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 4", errno, strerror(errno));
-        disconnect_from_otel();
-        connect_to_otel();
+        __disconnect_from_otel();
+        __connect_to_otel();
         continue;
       }
 
-      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+      ret = __send_chunk(
         OTEL_METRIC_COUNTER_OBJ","
         OTEL_METRIC_COUNTER_OBJ,
         16, "my.counter", 16, "1", 16, "my.counter", DELTA, 25,
-        16, "my.counter2", 16, "1", 16, "my.counter2", CUMULATIVE, 55
-      );
-      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+        16, "my.counter2", 16, "1", 16, "my.counter2", CUMULATIVE, 55);
       if (ret < 0)
       {
-        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 5", errno, strerror(errno));
-        disconnect_from_otel();
-        connect_to_otel();
+        __disconnect_from_otel();
+        __connect_to_otel();
         continue;
       }
 
-      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+      ret = __send_chunk(
                   "]"
                 "}"
               "]"
             "}"
           "]"
-        "}"
-      );
-      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+        "}");
       if (ret < 0)
       {
-        __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Disconnected from OpenTelemetry Collector, %d %s reconnecting... 6", errno, strerror(errno));
-        disconnect_from_otel();
-        connect_to_otel();
+        __disconnect_from_otel();
+        __connect_to_otel();
+        continue;
+      }
+
+      ret = isere_tcp_write(__otel->fd, "\r\n", 2);
+      if (ret < 0)
+      {
+        __disconnect_from_otel();
+        __connect_to_otel();
         continue;
       }
     }
-
-    // printf(
-    //   "{"
-    //     "\"resourceMetrics\": ["
-    //       "{"
-    //         "\"resource\":{"
-    //           "\"attribute\":["
-    //             OTEL_RESOURCE_ATTR","
-    //             OTEL_RESOURCE_ATTR","
-    //             OTEL_RESOURCE_ATTR
-    //           "]"
-    //         "},"
-    //         "\"scopeMetrics\": ["
-    //           "{"
-    //             "\"scope\": {"
-    //             "},"
-    //             "\"metrics\": ["
-    //               OTEL_METRIC_COUNTER_OBJ","
-    //               OTEL_METRIC_COUNTER_OBJ
-    //             "]"
-    //           "}"
-    //         "]"
-    //       "}"
-    //     "]"
-    //   "}",
-    // 16, "service.name", 16, ISERE_APP_NAME,
-    // 16, "service.version", 16, ISERE_APP_VERSION,
-    // 16, "runtime.name", 16, ISERE_RUNTIME_NAME,
-    // 16, "my.counter", 16, "1", 16, "my.counter", DELTA, 25,
-    // 16, "my.counter2", 16, "1", 16, "my.counter2", CUMULATIVE, 55);
   }
 
 exit:
