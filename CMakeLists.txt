@@ -26,6 +26,8 @@ set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
 set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
+set(NANOPB_DIR ./3rdparty/nanopb)
+set(OTELPROTO_DIR ./3rdparty/opentelemetry-proto)
 set(JS_DIR ./js)
 
 set(SOURCES )
@@ -159,6 +161,15 @@ endif()
 find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
 target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/${NANOPB_DIR}/extra)
+find_package(Nanopb REQUIRED)
+set(PROTOC_OPTIONS --experimental_allow_proto3_optional)
+nanopb_generate_cpp(TARGET otelproto RELPATH ${OTELPROTO_DIR}
+  ${OTELPROTO_DIR}/opentelemetry/proto/metrics/v1/metrics.proto
+  ${OTELPROTO_DIR}/opentelemetry/proto/common/v1/common.proto
+  ${OTELPROTO_DIR}/opentelemetry/proto/resource/v1/resource.proto)
+target_link_libraries(isere PRIVATE otelproto)
 
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
