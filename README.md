@@ -75,8 +75,8 @@ Prerequisites:
 - xxd
 - [protoc](https://grpc.io/docs/protoc-installation/)
 - python3
-  - protobuf package
-  - grpcio-tools package
+  - [protobuf package](https://pypi.org/project/protobuf/)
+  - [grpcio-tools package](https://pypi.org/project/grpcio-tools/)
 - ninja (optional for building c-capnproto)
 
 ### Install dependencies
