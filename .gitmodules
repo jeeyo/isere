@@ -24,3 +24,6 @@
 [submodule "3rdparty/jerryscript"]
 	path = 3rdparty/jerryscript
 	url = https://github.com/jerryscript-project/jerryscript.git
+[submodule "3rdparty/nanopb"]
+	path = 3rdparty/nanopb
+	url = https://github.com/nanopb/nanopb.git
