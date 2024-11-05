@@ -27,3 +27,6 @@
 [submodule "3rdparty/nanopb"]
 	path = 3rdparty/nanopb
 	url = https://github.com/nanopb/nanopb.git
+[submodule "3rdparty/opentelemetry-proto"]
+	path = 3rdparty/opentelemetry-proto
+	url = https://github.com/open-telemetry/opentelemetry-proto.git
