@@ -84,7 +84,7 @@ Prerequisites:
 #### macOS
 
 ```zsh
-brew install gcc cmake make libtool ninja
+brew install gcc cmake make libtool protobuf ninja
 ```
 
 If you want to build unit tests, you also need to install CppUTest
@@ -97,7 +97,7 @@ export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
 #### Debian-based Linux
 
 ```bash
-sudo apt-get install -y build-essential make cmake xxd ninja-build
+sudo apt-get install -y build-essential make cmake xxd protobuf-compiler ninja-build
 ```
 
 For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk and gcc](https://cpputest.github.io/) section on CppUTest website.
@@ -106,7 +106,7 @@ For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk an
 
 ```sh
 git clone https://github.com/jeeyo/isere.git
-git submodule update --init
+git submodule update --init --recursive
 
 mkdir build
 cd build
@@ -121,7 +121,7 @@ make -j
 |TARGET_PLATFORM|Target platform to build isère executable for|linux, pico2|linux|
 |DEBUG|Whether to build isère executable with debug symbol|off, on|off|
 |JS_RUNTIME|JavaScript runtime to execute handler function|quickjs, jerryscript|quickjs|
-|WITH_OTEL|Whether to send metrics to OpenTelemetry|off, on|on|
+|WITH_OTEL|Whether to send metrics to OpenTelemetry Collector|off, on|on|
 |OTEL_HOST|OpenTelemetry Collector OLTP/HTTP Host||"127.0.0.1"|
 |OTEL_PORT|OpenTelemetry Collector OLTP/HTTP Port||4318|
 
