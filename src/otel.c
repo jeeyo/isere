@@ -8,6 +8,9 @@
 
 #include "libuv/uv.h"
 
+#include "pb_encode.h"
+#include "opentelemetry/proto/metrics/v1/metrics.pb.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -32,23 +35,6 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
   __otel->last_connect_attempt = 0;
   __otel->last_sent = xTaskGetTickCount();
 }
-
-#define OTEL_RESOURCE_ATTR "{\"key\":\"%.*s\",\"value\":{\"stringValue\":\"%.*s\"}}"
-
-// TODO: Only support Cumulative Counter for now
-// See "AggregationTemporality" in https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/metrics/v1/metrics.proto
-#define OTEL_METRIC_COUNTER_OBJ "{\
-\"name\":\"%.*s\",\
-\"unit\":\"%.*s\",\
-\"description\":\"%.*s\",\
-\"sum\":{\
-\"aggregationTemporality\":%d,\
-\"isMonotonic\":true,\
-\"dataPoints\":[\
-{\"asInt\":%d,\"startTimeUnixNano\":\"1544712660300000000\",\"timeUnixNano\":\"1544712660300000000\",\"attributes\":[]}\
-]\
-}\
-}"
 
 static int __connect_to_otel()
 {
@@ -184,6 +170,114 @@ static int __send_chunk(const char *fmt, ...)
   return 0;
 }
 
+static bool encode_string(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
+{
+  if (!pb_encode_tag_for_field(stream, field))
+    return false;
+
+  return pb_encode_string(stream, (uint8_t *)(*arg), strlen(*arg));
+}
+
+static bool encode_key_values(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
+{
+  opentelemetry_proto_common_v1_KeyValue kv = {};
+  kv.key.funcs.encode = &encode_string;
+  kv.key.arg = "service.name";
+
+  kv.has_value = true;
+  kv.value.which_value = opentelemetry_proto_common_v1_AnyValue_string_value_tag;
+  kv.value.value.string_value.funcs.encode = &encode_string;
+  kv.value.value.string_value.arg = ISERE_APP_NAME;
+
+  if (!pb_encode_tag_for_field(stream, field))
+    return false;
+
+  if (!pb_encode_submessage(stream, opentelemetry_proto_common_v1_KeyValue_fields, &kv))
+    return false;
+
+  return true;
+}
+
+static bool encode_key_values2(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
+{
+  opentelemetry_proto_common_v1_KeyValue kv = {};
+  kv.key.funcs.encode = &encode_string;
+  kv.key.arg = "my.counter.attr";
+
+  kv.has_value = true;
+  kv.value.which_value = opentelemetry_proto_common_v1_AnyValue_string_value_tag;
+  kv.value.value.string_value.funcs.encode = &encode_string;
+  kv.value.value.string_value.arg = "bro";
+
+  if (!pb_encode_tag_for_field(stream, field))
+    return false;
+
+  if (!pb_encode_submessage(stream, opentelemetry_proto_common_v1_KeyValue_fields, &kv))
+    return false;
+
+  return true;
+}
+
+// TODO: Update to handle multiple data points.
+static bool encode_number_data_point(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
+{
+  opentelemetry_proto_metrics_v1_NumberDataPoint data_point = {};
+  data_point.which_value = opentelemetry_proto_metrics_v1_NumberDataPoint_as_int_tag;
+  data_point.value.as_int = 50;
+  data_point.time_unix_nano = xTaskGetTickCount();
+  data_point.attributes.funcs.encode = &encode_key_values2;
+
+  if (!pb_encode_tag_for_field(stream, field))
+    return false;
+
+  return pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_NumberDataPoint_fields, &data_point);
+}
+
+static bool encode_metric(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
+{
+  opentelemetry_proto_metrics_v1_Metric metric = {};
+  metric.which_data = opentelemetry_proto_metrics_v1_Metric_sum_tag;
+  metric.data.sum.data_points.funcs.encode = &encode_number_data_point;
+  metric.data.sum.data_points.arg = NULL;
+  metric.data.sum.is_monotonic = true;
+  metric.data.sum.aggregation_temporality =
+    opentelemetry_proto_metrics_v1_AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE;
+
+  if (!pb_encode_tag_for_field(stream, field))
+    return false;
+
+  if (!pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_Metric_fields, &metric))
+    return false;
+
+  return true;
+}
+
+static bool encode_scope_metrics(pb_ostream_t *stream,
+                                 const pb_field_t *field,
+                                 void *const *arg) {
+        opentelemetry_proto_metrics_v1_ScopeMetrics *scope_metrics =
+            (opentelemetry_proto_metrics_v1_ScopeMetrics *)*arg;
+        if (!pb_encode_tag_for_field(stream, field))
+                return false;
+
+        return pb_encode_submessage(
+            stream, opentelemetry_proto_metrics_v1_ScopeMetrics_fields,
+            scope_metrics);
+}
+
+static bool encode_resource_metrics(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
+{
+  opentelemetry_proto_metrics_v1_ResourceMetrics *resource_metrics =
+      (opentelemetry_proto_metrics_v1_ResourceMetrics *)*arg;
+
+  if (!pb_encode_tag_for_field(stream, field))
+    return false;
+
+  return pb_encode_submessage(
+    stream, opentelemetry_proto_metrics_v1_ResourceMetrics_fields,
+    resource_metrics);
+}
+
 static void __otel_task(void *param)
 {
   while (!isere_tcp_is_initialized()) {
@@ -215,21 +309,59 @@ static void __otel_task(void *param)
       int ret = -1;
       int tx_len = 0;
 
+      pb_ostream_t stream = pb_ostream_from_buffer(__tx_buf, ISERE_OTEL_TX_BUF_LEN);
+
+      opentelemetry_proto_metrics_v1_MetricsData metrics_data =
+        opentelemetry_proto_metrics_v1_MetricsData_init_zero;
+      opentelemetry_proto_metrics_v1_ResourceMetrics resource_metrics =
+        opentelemetry_proto_metrics_v1_ResourceMetrics_init_zero;
+      opentelemetry_proto_metrics_v1_ScopeMetrics scope_metrics =
+          opentelemetry_proto_metrics_v1_ScopeMetrics_init_zero;
+
+      opentelemetry_proto_metrics_v1_Metric **metrics;
+      opentelemetry_proto_common_v1_KeyValue *
+          *resource_attributes_key_values = NULL;
+
+      resource_metrics.has_resource = true;
+      resource_metrics.resource.attributes.funcs.encode = &encode_key_values;
+
+      // if (__counters_head != NULL) {
+      resource_metrics.scope_metrics.funcs.encode = &encode_scope_metrics;
+      resource_metrics.scope_metrics.arg = &scope_metrics;
+
+      metrics_data.resource_metrics.funcs.encode = &encode_resource_metrics;
+      metrics_data.resource_metrics.arg = &resource_metrics;
+      // }
+
+      if (!pb_encode_delimited(&stream, opentelemetry_proto_metrics_v1_MetricsData_fields, &metrics_data)) {
+        __isere->logger->error(ISERE_OTEL_LOG_TAG, "Encoding failed: %s\n", PB_GET_ERROR(&stream));
+        continue;
+      }
+
+      printf("buf (%lu): ", stream.bytes_written);
+      for (int i = 0; i < stream.bytes_written; i++) {
+        printf("0x%x ", __tx_buf[0]);
+      }
+      printf("\r\n");
+
       char chunklen[8] = {0};
       int chunklen_len = 0;
 
-      tx_len = snprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN,
+      char buf[ISERE_OTEL_TX_BUF_LEN];
+
+      tx_len = snprintf(buf, ISERE_OTEL_TX_BUF_LEN,
         "POST /v1/metrics HTTP/1.1\r\n"
         "Host: %s:%d\r\n"
-        "Content-Type: application/json\r\n"
-        "Transfer-Encoding: chunked\r\n"
+        "Content-Type: application/x-protobuf\r\n"
+        "Content-Length: %lu\r\n"
         "Connection: keep-alive\r\n"
         "User-Agent: %s/%s\r\n"
         "\r\n",
         ISERE_OTEL_HOST, ISERE_OTEL_PORT,
+        stream.bytes_written,
         ISERE_APP_NAME, ISERE_APP_VERSION
       );
-      ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
+      ret = isere_tcp_write(__otel->fd, buf, tx_len);
       if (ret < 0)
       {
         __disconnect_from_otel();
@@ -237,75 +369,7 @@ static void __otel_task(void *param)
         continue;
       }
 
-      ret = __send_chunk(
-        "{"
-        "\"resourceMetrics\": ["
-          "{"
-            "\"resource\":{"
-              "\"attribute\":[");
-      if (ret < 0)
-      {
-        __disconnect_from_otel();
-        __connect_to_otel();
-        continue;
-      }
-
-      ret = __send_chunk(
-        OTEL_RESOURCE_ATTR","
-        OTEL_RESOURCE_ATTR","
-        OTEL_RESOURCE_ATTR,
-        16, "service.name", 16, ISERE_APP_NAME,
-        16, "service.version", 16, ISERE_APP_VERSION,
-        16, "runtime.name", 16, ISERE_RUNTIME_NAME);
-      if (ret < 0)
-      {
-        __disconnect_from_otel();
-        __connect_to_otel();
-        continue;
-      }
-
-      ret = __send_chunk(
-          "]"
-        "},"
-        "\"scopeMetrics\": ["
-          "{"
-            "\"scope\": {"
-            "},"
-            "\"metrics\": [");
-      if (ret < 0)
-      {
-        __disconnect_from_otel();
-        __connect_to_otel();
-        continue;
-      }
-
-      ret = __send_chunk(
-        OTEL_METRIC_COUNTER_OBJ","
-        OTEL_METRIC_COUNTER_OBJ,
-        16, "my.counter", 16, "1", 16, "my.counter", DELTA, 25,
-        16, "my.counter2", 16, "1", 16, "my.counter2", CUMULATIVE, 55);
-      if (ret < 0)
-      {
-        __disconnect_from_otel();
-        __connect_to_otel();
-        continue;
-      }
-
-      ret = __send_chunk(
-                  "]"
-                "}"
-              "]"
-            "}"
-          "]"
-        "}");
-      if (ret < 0)
-      {
-        __disconnect_from_otel();
-        __connect_to_otel();
-        continue;
-      }
-
-      ret = isere_tcp_write(__otel->fd, "\r\n", 2);
+      ret = isere_tcp_write(__otel->fd, __tx_buf, stream.bytes_written);
       if (ret < 0)
       {
         __disconnect_from_otel();
