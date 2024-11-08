@@ -236,6 +236,13 @@ static bool encode_number_data_point(pb_ostream_t *stream, const pb_field_t *fie
 static bool encode_metric(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
 {
   opentelemetry_proto_metrics_v1_Metric metric = {};
+  metric.name.funcs.encode = &encode_string;
+  metric.name.arg = "my.counter";
+  metric.description.funcs.encode = &encode_string;
+  metric.description.arg = "my.counter";
+  metric.unit.funcs.encode = &encode_string;
+  metric.unit.arg = "1";
+
   metric.which_data = opentelemetry_proto_metrics_v1_Metric_sum_tag;
   metric.data.sum.data_points.funcs.encode = &encode_number_data_point;
   metric.data.sum.data_points.arg = NULL;
@@ -252,17 +259,16 @@ static bool encode_metric(pb_ostream_t *stream, const pb_field_t *field, void *c
   return true;
 }
 
-static bool encode_scope_metrics(pb_ostream_t *stream,
-                                 const pb_field_t *field,
-                                 void *const *arg) {
-        opentelemetry_proto_metrics_v1_ScopeMetrics *scope_metrics =
-            (opentelemetry_proto_metrics_v1_ScopeMetrics *)*arg;
-        if (!pb_encode_tag_for_field(stream, field))
-                return false;
+static bool encode_scope_metrics(pb_ostream_t *stream, const pb_field_t *field, void *const *arg) {
+  opentelemetry_proto_metrics_v1_ScopeMetrics scope_metrics = {};
+  scope_metrics.has_scope = false;
+  scope_metrics.metrics.arg = NULL;
+  scope_metrics.metrics.funcs.encode = &encode_metric;
 
-        return pb_encode_submessage(
-            stream, opentelemetry_proto_metrics_v1_ScopeMetrics_fields,
-            scope_metrics);
+  if (!pb_encode_tag_for_field(stream, field))
+    return false;
+
+  return pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_ScopeMetrics_fields, &scope_metrics);
 }
 
 static bool encode_resource_metrics(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
@@ -333,19 +339,10 @@ static void __otel_task(void *param)
       metrics_data.resource_metrics.arg = &resource_metrics;
       // }
 
-      if (!pb_encode_delimited(&stream, opentelemetry_proto_metrics_v1_MetricsData_fields, &metrics_data)) {
+      if (!pb_encode(&stream, opentelemetry_proto_metrics_v1_MetricsData_fields, &metrics_data)) {
         __isere->logger->error(ISERE_OTEL_LOG_TAG, "Encoding failed: %s\n", PB_GET_ERROR(&stream));
         continue;
       }
-
-      printf("buf (%lu): ", stream.bytes_written);
-      for (int i = 0; i < stream.bytes_written; i++) {
-        printf("0x%x ", __tx_buf[0]);
-      }
-      printf("\r\n");
-
-      char chunklen[8] = {0};
-      int chunklen_len = 0;
 
       char buf[ISERE_OTEL_TX_BUF_LEN];
 
@@ -370,6 +367,14 @@ static void __otel_task(void *param)
       }
 
       ret = isere_tcp_write(__otel->fd, __tx_buf, stream.bytes_written);
+      if (ret < 0)
+      {
+        __disconnect_from_otel();
+        __connect_to_otel();
+        continue;
+      }
+
+      ret = isere_tcp_write(__otel->fd, "\r\n", 2);
       if (ret < 0)
       {
         __disconnect_from_otel();

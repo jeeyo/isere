@@ -94,7 +94,7 @@ brew install cpputest
 export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
 ```
 
-#### Debian-based Linux
+#### Debian / Ubuntu
 
 ```bash
 sudo apt-get install -y build-essential make cmake xxd protobuf-compiler ninja-build
@@ -149,3 +149,4 @@ Special thanks to
 
 - [maxnet](https://github.com/maxnet/pico-webserver/) for tinyusb RNDIS to LwIP glue for Raspberry Pi Pico
 - [libuv](https://github.com/libuv/libuv) for [src/internals/uv_poll.c](src/internals/uv_poll.c)
+- [librdkafka](https://github.com/confluentinc/librdkafka) for OpenTelemetry nanopb encoding
