@@ -13,9 +13,12 @@
 
 #include "queue.h"
 
-static isere_t *__isere = NULL;
+#include "loader.h"
+#include "logger.h"
+#include "js.h"
+#include "otel.h"
+
 static isere_httpd_t *__httpd = NULL;
-static httpd_handler_t *__httpd_handler = NULL;
 
 static void __httpd_task(void *params);
 
@@ -194,20 +197,20 @@ static int __on_message_complete(llhttp_t *parser)
     return 0;
   }
 
-  if (__httpd_handler == NULL) {
+  if (__httpd->http_handler == NULL) {
     const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
     isere_tcp_write(conn->fd, buf, strlen(buf));
     __httpd_cleanup_conn(conn);
     return 0;
   }
 
-  isere_js_new_context(__isere->js, &conn->js);
+  isere_js_new_context(__httpd->js, &conn->js);
   conn->js.opaque = conn;
   uv__queue_init(&conn->js_queue);
   conn->js.initialized = 1;
 
   uint32_t nbr_of_headers = MIN(conn->num_header_fields, conn->num_header_values);
-  __httpd_handler(__isere, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
+  __httpd->http_handler(__httpd->loader, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
 
   uv__queue_insert_tail(&__httpd->js_queue, &conn->js_queue);
   return 0;
@@ -236,7 +239,7 @@ static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int e
   }
 
   if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
-    __isere->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
+    __httpd->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
 
     const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
     isere_tcp_write(conn->fd, buf, strlen(buf));
@@ -248,7 +251,7 @@ static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int e
   // pass the new data to http parser
   enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
   if (err != HPE_OK) {
-    __isere->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
+    __httpd->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
     __httpd_cleanup_conn(conn);
     return;
   }
@@ -267,7 +270,7 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
     return;
   }
 
-  // __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Received connection from %s", ipaddr);
+  // __httpd->logger->info(ISERE_HTTPD_LOG_TAG, "Received connection from %s", ipaddr);
 
   httpd_conn_t *conn = (httpd_conn_t *)pvPortMalloc(sizeof(httpd_conn_t));
   if (conn == NULL) {
@@ -313,15 +316,20 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
   uv__io_start(&__httpd->loop, sw, UV_POLLIN);
 }
 
-int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *handler)
+int isere_httpd_init(isere_httpd_t *httpd,
+  isere_loader_t *loader,
+  isere_logger_t *logger,
+  isere_js_t *js,
+  httpd_handler_t *handler)
 {
-  __isere = isere;
-  __httpd = httpd;
-  __httpd_handler = handler;
+  httpd->loader = loader;
+  httpd->logger = logger;
+  httpd->http_handler = handler;
+  httpd->js = js;
 
-  if (isere->logger == NULL) {
-    return -1;
-  }
+  httpd->should_exit = 0;
+
+  __httpd = httpd;
 
   uv__platform_loop_init(&httpd->loop);
   httpd->loop.nfds = 0;
@@ -332,7 +340,7 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
 
   // start httpd task
   if (xTaskCreate(__httpd_task, "httpd", ISERE_HTTPD_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &httpd->tsk) != pdPASS) {
-    isere->logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
+    logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
     return -1;
   }
 
@@ -341,17 +349,8 @@ int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *hand
 
 int isere_httpd_deinit(isere_httpd_t *httpd)
 {
-  if (__isere) {
-    __isere->should_exit = 1;
-    __isere = NULL;
-  }
-
   if (__httpd) {
     __httpd = NULL;
-  }
-
-  if (__httpd_handler) {
-    __httpd_handler = NULL;
   }
 
   uv__platform_loop_delete(&httpd->loop);
@@ -367,7 +366,7 @@ static void __httpd_cleanup_conn(httpd_conn_t *conn)
 
   if (conn->js.initialized) {
     uv__queue_remove(&conn->js_queue);
-    isere_js_free_context(__isere->js, &conn->js);
+    isere_js_free_context(__httpd->js, &conn->js);
     conn->js.initialized = 0;
   }
 
@@ -411,14 +410,17 @@ static void __httpd_task(void *param)
 
   uv__io_start(&__httpd->loop, w, UV_POLLIN);
 
-  __isere->logger->info(ISERE_HTTPD_LOG_TAG, "Listening on port %d", ISERE_HTTPD_PORT);
+  otel_metrics_counter_t *newcounter;
+  isere_otel_create_counter("newcounter", "a new counter", "1", CUMULATIVE, &newcounter);
 
-  while (!__isere->should_exit)
+  __httpd->logger->info(ISERE_HTTPD_LOG_TAG, "Listening on port %d", ISERE_HTTPD_PORT);
+
+  while (!__httpd->should_exit)
   {
     // poll sockets to see if there's any new events
-    uv__io_poll(&__httpd->loop, 0);
+    uv__io_poll(&__httpd->loop, 5);
 
-    if (__httpd_handler == NULL) {
+    if (__httpd->http_handler == NULL) {
       continue;
     }
 
@@ -462,9 +464,9 @@ fail:
   }
 
 exit:
-  __isere->logger->error(ISERE_HTTPD_LOG_TAG, "httpd task was unexpectedly closed");
+  __httpd->logger->error(ISERE_HTTPD_LOG_TAG, "httpd task was unexpectedly closed");
   uv__io_stop(&__httpd->loop, &__httpd->w, UV_POLLIN);
-  __isere->should_exit = 1;
+  __httpd->should_exit = 1;
   vTaskDelete(NULL);
 }
 

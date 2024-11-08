@@ -1,8 +1,7 @@
 #ifndef ISERE_RTC_H_
 #define ISERE_RTC_H_
 
-#include "isere.h"
-
+#include <stdint.h>
 #include <time.h>
 
 #ifdef __cplusplus
@@ -10,6 +9,8 @@ extern "C" {
 #endif
 
 #define ISERE_RTC_LOG_TAG "rtc"
+
+typedef void * isere_rtc_t;
 
 typedef struct {
   int16_t year;    ///< 0..4095
@@ -21,7 +22,7 @@ typedef struct {
   int8_t sec;      ///< 0..59
 } rtc_datetime_t;
 
-int isere_rtc_init(isere_t *isere, isere_rtc_t *rtc);
+int isere_rtc_init(isere_rtc_t *rtc);
 int isere_rtc_set_datetime(isere_rtc_t *rtc, const rtc_datetime_t *datetime);
 uint64_t isere_rtc_get_unix_timestamp(isere_rtc_t *rtc);
 int isere_rtc_unix_to_datetime(isere_rtc_t *rtc, uint64_t unixtimestamp, rtc_datetime_t *datetime);

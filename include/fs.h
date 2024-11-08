@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "isere.h"
+#include "logger.h"
 
 #define ISERE_FS_LOG_TAG "fs"
 
@@ -13,7 +13,11 @@ extern "C" {
 
 typedef int fs_file_t;
 
-int fs_init(isere_t *isere, isere_fs_t *fs);
+typedef struct {
+  isere_logger_t *logger;
+} isere_fs_t;
+
+int fs_init(isere_fs_t *fs, isere_logger_t *logger);
 void fs_deinit(isere_fs_t *fs);
 
 int fs_open(isere_fs_t *fs, fs_file_t *file, const char *path, int flags);

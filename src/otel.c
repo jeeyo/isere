@@ -16,11 +16,12 @@
 
 #include "queue.h"
 
-#include "rtc.h"
+#include "isere.h"
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
-static isere_t *__isere = NULL;
 static isere_otel_t *__otel = NULL;
 
 static char __tx_buf[ISERE_OTEL_TX_BUF_LEN] = {0};
@@ -35,7 +36,7 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
 {
   uv__io_stop(&__otel->loop, w, UV_POLLOUT);
 
-  __isere->logger->info(ISERE_OTEL_LOG_TAG, "Connected to OpenTelemetry Collector");
+  __otel->logger->info(ISERE_OTEL_LOG_TAG, "Connected to OpenTelemetry Collector");
   __otel->last_connect_attempt = 0;
   __otel->last_sent = xTaskGetTickCount();
 }
@@ -50,12 +51,12 @@ static int __connect_to_otel()
     return -1;
   }
 
-  __isere->logger->info(ISERE_OTEL_LOG_TAG, "Connecting to OpenTelemetry Collector %s:%d", ISERE_OTEL_HOST, ISERE_OTEL_PORT);
+  __otel->logger->info(ISERE_OTEL_LOG_TAG, "Connecting to OpenTelemetry Collector %s:%d", ISERE_OTEL_HOST, ISERE_OTEL_PORT);
   __otel->last_connect_attempt = xTaskGetTickCount();
 
   int ret = isere_tcp_connect(__otel->fd, ISERE_OTEL_HOST, ISERE_OTEL_PORT);
   if (ret < 0 && ret != -2) {
-    __isere->logger->error(ISERE_OTEL_LOG_TAG, "Unable to connect to OpenTelemetry Collector", ISERE_OTEL_HOST, ISERE_OTEL_PORT);
+    __otel->logger->error(ISERE_OTEL_LOG_TAG, "Unable to connect to OpenTelemetry Collector", ISERE_OTEL_HOST, ISERE_OTEL_PORT);
     return -1;
   }
 
@@ -78,16 +79,14 @@ static inline void __disconnect_from_otel()
   isere_tcp_close(__otel->fd);
 }
 
-int isere_otel_init(isere_t *isere, isere_otel_t *otel)
+int isere_otel_init(isere_otel_t *otel, isere_logger_t *logger, isere_rtc_t *rtc)
 {
-  __isere = isere;
-  __otel = otel;
-
-  if (isere->logger == NULL) {
-    return -1;
-  }
-
+  otel->logger = logger;
+  otel->rtc = rtc;
+  otel->should_exit = 0;
   otel->fd = -1;
+
+  __otel = otel;
 
   uv__platform_loop_init(&otel->loop);
   otel->loop.nfds = 0;
@@ -97,7 +96,7 @@ int isere_otel_init(isere_t *isere, isere_otel_t *otel)
 
   // start otel task
   if (xTaskCreate(__otel_task, "otel", ISERE_OTEL_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &otel->tsk) != pdPASS) {
-    isere->logger->error(ISERE_OTEL_LOG_TAG, "Unable to create otel task");
+    logger->error(ISERE_OTEL_LOG_TAG, "Unable to create otel task");
     return -1;
   }
 
@@ -106,11 +105,6 @@ int isere_otel_init(isere_t *isere, isere_otel_t *otel)
 
 int isere_otel_deinit(isere_otel_t *otel)
 {
-  if (__isere) {
-    __isere->should_exit = 1;
-    __isere = NULL;
-  }
-
   if (__otel) {
     __otel = NULL;
   }
@@ -244,7 +238,9 @@ static bool encode_number_data_point(pb_ostream_t *stream, const pb_field_t *fie
   data_point.which_value = opentelemetry_proto_metrics_v1_NumberDataPoint_as_int_tag;
   data_point.value.as_int = *int_value;
 
-  uint64_t timestamp = isere_rtc_get_unix_timestamp(__isere->rtc);
+  data_point.start_time_unix_nano = __otel->start_time_unix_nano * 1000 * 1000 * 1000;
+
+  uint64_t timestamp = isere_rtc_get_unix_timestamp(__otel->rtc);
   data_point.time_unix_nano = timestamp * 1000 * 1000 * 1000;
 
   if (!pb_encode_tag_for_field(stream, field))
@@ -282,9 +278,9 @@ static bool encode_metrics(pb_ostream_t *stream, const pb_field_t *field, void *
     if (!pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_Metric_fields, &metric))
       return false;
     
-    if (current_counter->aggregation == DELTA) {
-      current_counter->count = 0;
-    }
+    // if (current_counter->aggregation == DELTA) {
+    //   current_counter->count = 0;
+    // }
 
     current_counter = current_counter->next;
   }
@@ -325,23 +321,31 @@ static void __otel_task(void *param)
 
   __connect_to_otel();
 
-  while (!__isere->should_exit)
-  {
-    // poll sockets to see if there's any new events
-    uv__io_poll(&__otel->loop, 0);
+  __otel->start_time_unix_nano = isere_rtc_get_unix_timestamp(__otel->rtc);
 
-    // retry when connecting takes too long
-    if (__otel->last_connect_attempt != 0 &&
-        xTaskGetTickCount() - __otel->last_connect_attempt > pdMS_TO_TICKS(ISERE_OTEL_CONNECT_TIMEOUT_MS))
+  while (!__otel->should_exit)
+  {
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    // connecting
+    if (__otel->last_connect_attempt != 0)
     {
-      __isere->logger->warning(ISERE_OTEL_LOG_TAG, "Connection to OpenTelemetry Collector timed out, retrying...");
-      __disconnect_from_otel();
-      __connect_to_otel();
+      // poll sockets to see if there's any new events
+      uv__io_poll(&__otel->loop, 0);
+
+      // retry when connecting takes too long
+      if (xTaskGetTickCount() - __otel->last_connect_attempt > pdMS_TO_TICKS(ISERE_OTEL_CONNECT_TIMEOUT_MS))
+      {
+        __otel->logger->warning(ISERE_OTEL_LOG_TAG, "Connection to OpenTelemetry Collector timed out, retrying...");
+        __disconnect_from_otel();
+        __connect_to_otel();
+      }
+
       continue;
     }
 
-    if (__otel->last_connect_attempt == 0 &&
-        xTaskGetTickCount() - __otel->last_sent > pdMS_TO_TICKS(3000))
+    // send on interval
+    if (xTaskGetTickCount() - __otel->last_sent > pdMS_TO_TICKS(ISERE_OTEL_SEND_INTERVAL_MS))
     {
       __otel->last_sent = xTaskGetTickCount();
 
@@ -373,25 +377,39 @@ static void __otel_task(void *param)
       // }
 
       if (!pb_encode(&stream, opentelemetry_proto_metrics_v1_MetricsData_fields, &metrics_data)) {
-        __isere->logger->error(ISERE_OTEL_LOG_TAG, "Encoding failed: %s\n", PB_GET_ERROR(&stream));
+        __otel->logger->error(ISERE_OTEL_LOG_TAG, "Encoding failed: %s\n", PB_GET_ERROR(&stream));
         continue;
       }
 
-      char buf[ISERE_OTEL_TX_BUF_LEN];
-
-      tx_len = snprintf(buf, ISERE_OTEL_TX_BUF_LEN,
+      const char *metrics_http_header1 = 
         "POST /v1/metrics HTTP/1.1\r\n"
-        "Host: %s:%d\r\n"
+        "Host: "ISERE_OTEL_HOST":"STR(ISERE_OTEL_PORT)"\r\n"
         "Content-Type: application/x-protobuf\r\n"
-        "Content-Length: %lu\r\n"
+        "Content-Length: ";
+      ret = isere_tcp_write(__otel->fd, metrics_http_header1, strlen(metrics_http_header1));
+      if (ret < 0)
+      {
+        __disconnect_from_otel();
+        __connect_to_otel();
+        continue;
+      }
+
+      char content_length[8];
+      ret = snprintf(content_length, 8, "%lu", stream.bytes_written);
+      ret = isere_tcp_write(__otel->fd, content_length, ret);
+      if (ret < 0)
+      {
+        __disconnect_from_otel();
+        __connect_to_otel();
+        continue;
+      }
+
+      const char *metrics_http_header2 =
+        "\r\n"
         "Connection: keep-alive\r\n"
-        "User-Agent: %s/%s\r\n"
-        "\r\n",
-        ISERE_OTEL_HOST, ISERE_OTEL_PORT,
-        stream.bytes_written,
-        ISERE_APP_NAME, ISERE_APP_VERSION
-      );
-      ret = isere_tcp_write(__otel->fd, buf, tx_len);
+        "User-Agent: "ISERE_APP_NAME"/"ISERE_APP_VERSION"\r\n"
+        "\r\n";
+      ret = isere_tcp_write(__otel->fd, metrics_http_header2, strlen(metrics_http_header2));
       if (ret < 0)
       {
         __disconnect_from_otel();
@@ -418,8 +436,8 @@ static void __otel_task(void *param)
   }
 
 exit:
-  __isere->logger->error(ISERE_OTEL_LOG_TAG, "otel task was unexpectedly closed");
+  __otel->logger->error(ISERE_OTEL_LOG_TAG, "otel task was unexpectedly closed");
   uv__io_stop(&__otel->loop, &__otel->w, UV_POLLOUT);
-  __isere->should_exit = 1;
+  __otel->should_exit = 1;
   vTaskDelete(NULL);
 }

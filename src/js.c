@@ -7,11 +7,8 @@
 
 #include <string.h>
 
-static isere_t *__isere = NULL;
-
-int isere_js_init(isere_t *isere, isere_js_t *js)
+int isere_js_init(isere_js_t *js)
 {
-  __isere = isere;
   return js_runtime_init(js);
 }
 

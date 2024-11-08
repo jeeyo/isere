@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "isere.h"
+#include "js.h"
 
 void isere_js_polyfill_timer_init(isere_js_context_t *ctx);
 void isere_js_polyfill_timer_deinit(isere_js_context_t *ctx);

@@ -2,24 +2,16 @@
 
 #include <string.h>
 
-static isere_t *__isere = NULL;
-
 static uint8_t *loader_get_fn(isere_loader_t *loader, uint32_t *size)
 {
   *size = handler_len;
   return handler;
 }
 
-int isere_loader_init(isere_t *isere, isere_loader_t *loader)
+int isere_loader_init(isere_loader_t *loader, isere_logger_t *logger)
 {
-  __isere = isere;
-
-  if (isere->logger == NULL) {
-    return -1;
-  }
-
   if (loader->fn != NULL) {
-    __isere->logger->error(ISERE_LOADER_LOG_TAG, "loader already initialized");
+    logger->error(ISERE_LOADER_LOG_TAG, "loader already initialized");
     return -1;
   }
 
@@ -31,9 +23,5 @@ int isere_loader_init(isere_t *isere, isere_loader_t *loader)
 
 int isere_loader_deinit(isere_loader_t *loader)
 {
-  if (__isere) {
-    __isere = NULL;
-  }
-
   return 0;
 }

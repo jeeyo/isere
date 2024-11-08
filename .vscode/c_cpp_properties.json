@@ -16,7 +16,9 @@
                 "${workspaceFolder}/3rdparty/jerryscript/jerry-ext/include",
                 "${workspaceFolder}/3rdparty/llhttp/include",
                 "${workspaceFolder}/3rdparty/libyuarel",
-                "${workspaceFolder}/3rdparty/c-capnproto/lib"
+                "${workspaceFolder}/3rdparty/c-capnproto/lib",
+                "${workspaceFolder}/3rdparty/nanopb",
+                "${workspaceFolder}/build"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c99",
@@ -46,6 +48,8 @@
                 "${workspaceFolder}/3rdparty/llhttp/include",
                 "${workspaceFolder}/3rdparty/libyuarel",
                 "${workspaceFolder}/3rdparty/c-capnproto/lib",
+                "${workspaceFolder}/3rdparty/nanopb",
+                "${workspaceFolder}/build",
                 "${workspaceFolder}/3rdparty/pico-sdk/lib/lwip/src/include",
                 "${workspaceFolder}/3rdparty/pico-sdk/src/rp2350/hardware_regs/include",
                 "${workspaceFolder}/3rdparty/pico-sdk/src/rp2350/hardware_structs/include",

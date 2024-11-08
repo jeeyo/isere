@@ -5,8 +5,9 @@
 extern "C" {
 #endif
 
-#include "isere.h"
 #include "tcp.h"
+#include "logger.h"
+#include "rtc.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -26,13 +27,28 @@ extern "C" {
 #define ISERE_OTEL_PORT 4318
 #endif /* ISERE_OTEL_PORT */
 
-#define ISERE_OTEL_CONNECT_TIMEOUT_MS 5000
-
 #ifndef ISERE_OTEL_TASK_STACK_SIZE
 #define ISERE_OTEL_TASK_STACK_SIZE  configMINIMAL_STACK_SIZE
 #endif /* ISERE_OTEL_TASK_STACK_SIZE */
 
-int isere_otel_init(isere_t *isere, isere_otel_t *otel);
+#define ISERE_OTEL_CONNECT_TIMEOUT_MS 5000
+#define ISERE_OTEL_SEND_INTERVAL_MS 5000
+
+typedef struct {
+  uint8_t should_exit;
+  TaskHandle_t tsk;
+  int fd;
+  uint64_t start_time_unix_nano;
+  uint64_t last_connect_attempt;  // last time we call connect() (0 = not connecting)
+  uint64_t last_sent;
+  uv__io_t w;
+  uv_loop_t loop;
+
+  isere_logger_t *logger;
+  isere_rtc_t *rtc;
+} isere_otel_t;
+
+int isere_otel_init(isere_otel_t *otel, isere_logger_t *logger, isere_rtc_t *rtc);
 int isere_otel_deinit(isere_otel_t *otel);
 
 #define ISERE_OTEL_TX_BUF_LEN 512

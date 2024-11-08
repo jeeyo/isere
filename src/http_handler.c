@@ -1,12 +1,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "isere.h"
 #include "httpd.h"
-#include "tcp.h"
+#include "loader.h"
 
 int __http_handler(
-  isere_t *isere,
+  isere_loader_t *loader,
   httpd_conn_t *conn,
   const char *method,
   const char *path,
@@ -29,8 +28,8 @@ int __http_handler(
   // TODO: make this async
   int ret = isere_js_eval(
     ctx,
-    isere->loader->fn,
-    isere->loader->fn_size,
+    loader->fn,
+    loader->fn_size,
     method,
     path,
     query,

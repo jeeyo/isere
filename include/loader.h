@@ -5,8 +5,7 @@
 extern "C" {
 #endif
 
-#include "isere.h"
-#include "quickjs.h"
+#include "logger.h"
 
 #define ISERE_LOADER_LOG_TAG "loader"
 
@@ -19,7 +18,15 @@ extern unsigned char handler[];
 extern unsigned int handler_len;
 #endif /* ISERE_USE_DYNLINK */
 
-int isere_loader_init(isere_t *isere, isere_loader_t *loader);
+typedef struct {
+#ifdef ISERE_USE_DYNLINK
+  void *dll;
+#endif /* ISERE_USE_DYNLINK */
+  uint8_t *fn;
+  uint32_t fn_size;
+} isere_loader_t;
+
+int isere_loader_init(isere_loader_t *loader, isere_logger_t *logger);
 int isere_loader_deinit(isere_loader_t *loader);
 
 #ifdef __cplusplus

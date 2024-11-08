@@ -5,7 +5,8 @@
 extern "C" {
 #endif
 
-#include "isere.h"
+#include <stdlib.h>
+#include <stdint.h>
 
 #if defined(__linux__)
 #include <poll.h>
@@ -15,7 +16,9 @@ extern "C" {
 
 #define ISERE_TCP_LOG_TAG "tcp"
 
-int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp);
+typedef void * isere_tcp_t;
+
+int isere_tcp_init(isere_tcp_t *tcp);
 int isere_tcp_deinit(isere_tcp_t *tcp);
 
 #ifndef ISERE_TCP_MAX_CONNECTIONS

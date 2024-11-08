@@ -16,18 +16,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-static isere_t *__isere = NULL;
-
 static uint32_t __num_of_tcp_conns = 0;
 
-int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
+int isere_tcp_init(isere_tcp_t *tcp)
 {
-  __isere = isere;
-
-  if (isere->logger == NULL) {
-    return -1;
-  }
-
   // catch SIGPIPE on EPIPE
   signal(SIGPIPE, SIG_IGN);
 
@@ -36,10 +28,6 @@ int isere_tcp_init(isere_t *isere, isere_tcp_t *tcp)
 
 int isere_tcp_deinit(isere_tcp_t *tcp)
 {
-  if (__isere) {
-    __isere = NULL;
-  }
-
   return 0;
 }
 
