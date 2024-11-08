@@ -25,7 +25,6 @@ set(JERRYSCRIPT_DIR ./3rdparty/jerryscript)
 set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
-set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
 set(NANOPB_DIR ./3rdparty/nanopb)
 set(OTELPROTO_DIR ./3rdparty/opentelemetry-proto)
 set(JS_DIR ./js)
@@ -38,7 +37,6 @@ list(APPEND SOURCES
   ./src/http_handler.c
   ./src/httpd.c
   ./src/otel.c
-  ./src/ini.c
   ./src/js.c
   ./src/polyfills/pvPortRealloc.c
   ./src/internals/uv_poll.c
@@ -48,7 +46,6 @@ list(APPEND SOURCES
   ./portable/${TARGET_PLATFORM}/src/rtc.c
   ./portable/${TARGET_PLATFORM}/src/tcp.c
   ./portable/${TARGET_PLATFORM}/src/platform.c
-  ./schemas/config.capnp.c
   ${FREERTOS_DIR}/croutine.c
   ${FREERTOS_DIR}/event_groups.c
   ${FREERTOS_DIR}/list.c
@@ -61,9 +58,6 @@ list(APPEND SOURCES
   ${LLHTTP_DIR}/src/http.c
   ${LLHTTP_DIR}/src/llhttp.c
   ${LIBYUAREL_DIR}/yuarel.c
-  ${CAPNPROTO_DIR}/lib/capn-malloc.c
-  ${CAPNPROTO_DIR}/lib/capn-stream.c
-  ${CAPNPROTO_DIR}/lib/capn.c
 )
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
@@ -198,7 +192,6 @@ target_include_directories(isere PRIVATE
   ${QUICKJS_DIR}
   ${LLHTTP_DIR}/include
   ${LIBYUAREL_DIR}
-  ${CAPNPROTO_DIR}/lib
 )
 
 if(WITH_LWIP)
