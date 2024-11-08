@@ -1,6 +1,5 @@
 build/
 3rdparty/
-!3rdparty/c-capnproto
 !3rdparty/FreeRTOS
 !3rdparty/libyuarel
 !3rdparty/llhttp
