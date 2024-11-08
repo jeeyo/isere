@@ -213,13 +213,3 @@ if(WITH_LWIP)
 endif()
 
 target_link_libraries(isere PRIVATE ${LIBS})
-
-add_custom_command(
-  OUTPUT ${CAPNPROTO_DIR}/build/capnpc-c/config.capnp.c
-  COMMAND capnp compile -o ${CAPNPROTO_DIR}/build/capnpc-c ./schemas/config.capnp
-  DEPENDS schemas/config.capnp
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  COMMENT "Compiling Cap'n Proto schema"
-  MAIN_DEPENDENCY ./schemas/config.capnp
-  VERBATIM
-)
