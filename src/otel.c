@@ -16,6 +16,10 @@
 
 #include "queue.h"
 
+#include "rtc.h"
+
+#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+
 static isere_t *__isere = NULL;
 static isere_otel_t *__otel = NULL;
 
@@ -118,14 +122,24 @@ int isere_otel_deinit(isere_otel_t *otel)
   return 0;
 }
 
-int isere_otel_create_counter(otel_metrics_counter_t *counter, const char *name, const char *unit)
+int isere_otel_create_counter(
+  const char *name,
+  const char *description,
+  const char *unit,
+  enum otel_metrics_counter_aggregation_temporality_t aggregation,
+  otel_metrics_counter_t **counter)
 {
-  counter = (otel_metrics_counter_t *)pvPortMalloc(sizeof(otel_metrics_counter_t));
-  strncpy(counter->name, name, ISERE_OTEL_METRIC_MAX_NAME_LEN);
-  strncpy(counter->unit, unit, ISERE_OTEL_METRIC_MAX_UNIT_LEN);
-  counter->count = 0;
-  counter->next = __counters_head;
-  __counters_head = counter;
+  otel_metrics_counter_t *c = (otel_metrics_counter_t *)pvPortMalloc(sizeof(otel_metrics_counter_t));
+
+  strncpy(c->name, name, ISERE_OTEL_METRIC_MAX_NAME_LEN);
+  strncpy(c->description, description, ISERE_OTEL_METRIC_MAX_DESCRIPTION_LEN);
+  strncpy(c->unit, unit, ISERE_OTEL_METRIC_MAX_UNIT_LEN);
+  c->count = 0;
+  c->aggregation = aggregation;
+  c->next = __counters_head;
+  __counters_head = c;
+
+  *counter = c;
 
   return 0;
 }
@@ -178,54 +192,60 @@ static bool encode_string(pb_ostream_t *stream, const pb_field_t *field, void *c
   return pb_encode_string(stream, (uint8_t *)(*arg), strlen(*arg));
 }
 
-static bool encode_key_values(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
+struct otel_kv_t {
+  const char *key;
+  const char *value;
+};
+
+static bool encode_resource_attributes_kv(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
 {
+  struct otel_kv_t otel_resource_attrs[] = {
+    {"service.name", ISERE_APP_NAME},
+    {"service.version", ISERE_APP_VERSION},
+    {"runtime.name", ISERE_RUNTIME_NAME},
+  };
+
   opentelemetry_proto_common_v1_KeyValue kv = {};
-  kv.key.funcs.encode = &encode_string;
-  kv.key.arg = "service.name";
 
-  kv.has_value = true;
-  kv.value.which_value = opentelemetry_proto_common_v1_AnyValue_string_value_tag;
-  kv.value.value.string_value.funcs.encode = &encode_string;
-  kv.value.value.string_value.arg = ISERE_APP_NAME;
+  for (int i = 0; i < COUNT_OF(otel_resource_attrs); i++)
+  {
+    char *key = strdup(otel_resource_attrs[i].key);
+    char *value = strdup(otel_resource_attrs[i].value);
 
-  if (!pb_encode_tag_for_field(stream, field))
-    return false;
+    kv.key.funcs.encode = &encode_string;
+    kv.key.arg = key;
 
-  if (!pb_encode_submessage(stream, opentelemetry_proto_common_v1_KeyValue_fields, &kv))
-    return false;
+    kv.has_value = true;
+    kv.value.which_value = opentelemetry_proto_common_v1_AnyValue_string_value_tag;
+    kv.value.value.string_value.funcs.encode = &encode_string;
+    kv.value.value.string_value.arg = value;
+
+    if (!pb_encode_tag_for_field(stream, field)) {
+      vPortFree(key);
+      vPortFree(value);
+      return false;
+    }
+
+    if (!pb_encode_submessage(stream, opentelemetry_proto_common_v1_KeyValue_fields, &kv)) {
+      vPortFree(key);
+      vPortFree(value);
+      return false;
+    }
+  }
 
   return true;
 }
 
-static bool encode_key_values2(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
-{
-  opentelemetry_proto_common_v1_KeyValue kv = {};
-  kv.key.funcs.encode = &encode_string;
-  kv.key.arg = "my.counter.attr";
-
-  kv.has_value = true;
-  kv.value.which_value = opentelemetry_proto_common_v1_AnyValue_string_value_tag;
-  kv.value.value.string_value.funcs.encode = &encode_string;
-  kv.value.value.string_value.arg = "bro";
-
-  if (!pb_encode_tag_for_field(stream, field))
-    return false;
-
-  if (!pb_encode_submessage(stream, opentelemetry_proto_common_v1_KeyValue_fields, &kv))
-    return false;
-
-  return true;
-}
-
-// TODO: Update to handle multiple data points.
 static bool encode_number_data_point(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
 {
+  int *int_value = (int *)*arg;
+
   opentelemetry_proto_metrics_v1_NumberDataPoint data_point = {};
   data_point.which_value = opentelemetry_proto_metrics_v1_NumberDataPoint_as_int_tag;
-  data_point.value.as_int = 50;
-  data_point.time_unix_nano = xTaskGetTickCount();
-  data_point.attributes.funcs.encode = &encode_key_values2;
+  data_point.value.as_int = *int_value;
+
+  uint64_t timestamp = isere_rtc_get_unix_timestamp(__isere->rtc);
+  data_point.time_unix_nano = timestamp * 1000 * 1000 * 1000;
 
   if (!pb_encode_tag_for_field(stream, field))
     return false;
@@ -233,28 +253,41 @@ static bool encode_number_data_point(pb_ostream_t *stream, const pb_field_t *fie
   return pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_NumberDataPoint_fields, &data_point);
 }
 
-static bool encode_metric(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
+static bool encode_metrics(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
 {
-  opentelemetry_proto_metrics_v1_Metric metric = {};
-  metric.name.funcs.encode = &encode_string;
-  metric.name.arg = "my.counter";
-  metric.description.funcs.encode = &encode_string;
-  metric.description.arg = "my.counter";
-  metric.unit.funcs.encode = &encode_string;
-  metric.unit.arg = "1";
+  otel_metrics_counter_t *current_counter = __counters_head;
 
-  metric.which_data = opentelemetry_proto_metrics_v1_Metric_sum_tag;
-  metric.data.sum.data_points.funcs.encode = &encode_number_data_point;
-  metric.data.sum.data_points.arg = NULL;
-  metric.data.sum.is_monotonic = true;
-  metric.data.sum.aggregation_temporality =
-    opentelemetry_proto_metrics_v1_AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE;
+  while (current_counter != NULL)
+  {
+    opentelemetry_proto_metrics_v1_Metric metric = {};
+    metric.name.funcs.encode = &encode_string;
+    metric.name.arg = current_counter->name;
+    metric.description.funcs.encode = &encode_string;
+    metric.description.arg = current_counter->description;
+    metric.unit.funcs.encode = &encode_string;
+    metric.unit.arg = current_counter->unit;
 
-  if (!pb_encode_tag_for_field(stream, field))
-    return false;
+    metric.which_data = opentelemetry_proto_metrics_v1_Metric_sum_tag;
+    metric.data.sum.data_points.funcs.encode = &encode_number_data_point;
+    metric.data.sum.data_points.arg = &current_counter->count;
+    metric.data.sum.is_monotonic = true;
+    metric.data.sum.aggregation_temporality =
+      current_counter->aggregation == DELTA
+      ? opentelemetry_proto_metrics_v1_AggregationTemporality_AGGREGATION_TEMPORALITY_DELTA
+      : opentelemetry_proto_metrics_v1_AggregationTemporality_AGGREGATION_TEMPORALITY_CUMULATIVE;
 
-  if (!pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_Metric_fields, &metric))
-    return false;
+    if (!pb_encode_tag_for_field(stream, field))
+      return false;
+
+    if (!pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_Metric_fields, &metric))
+      return false;
+    
+    if (current_counter->aggregation == DELTA) {
+      current_counter->count = 0;
+    }
+
+    current_counter = current_counter->next;
+  }
 
   return true;
 }
@@ -263,7 +296,7 @@ static bool encode_scope_metrics(pb_ostream_t *stream, const pb_field_t *field, 
   opentelemetry_proto_metrics_v1_ScopeMetrics scope_metrics = {};
   scope_metrics.has_scope = false;
   scope_metrics.metrics.arg = NULL;
-  scope_metrics.metrics.funcs.encode = &encode_metric;
+  scope_metrics.metrics.funcs.encode = &encode_metrics;
 
   if (!pb_encode_tag_for_field(stream, field))
     return false;
@@ -329,7 +362,7 @@ static void __otel_task(void *param)
           *resource_attributes_key_values = NULL;
 
       resource_metrics.has_resource = true;
-      resource_metrics.resource.attributes.funcs.encode = &encode_key_values;
+      resource_metrics.resource.attributes.funcs.encode = &encode_resource_attributes_kv;
 
       // if (__counters_head != NULL) {
       resource_metrics.scope_metrics.funcs.encode = &encode_scope_metrics;

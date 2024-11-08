@@ -38,6 +38,7 @@ int isere_otel_deinit(isere_otel_t *otel);
 #define ISERE_OTEL_TX_BUF_LEN 512
 
 #define ISERE_OTEL_METRIC_MAX_NAME_LEN 64
+#define ISERE_OTEL_METRIC_MAX_DESCRIPTION_LEN 64
 #define ISERE_OTEL_METRIC_MAX_UNIT_LEN 8
 
 enum otel_metrics_type_t {
@@ -45,7 +46,7 @@ enum otel_metrics_type_t {
   GAUGE
 };
 
-enum otel_metrics_counter_AggregationTemporality_t {
+enum otel_metrics_counter_aggregation_temporality_t {
   DELTA = 1,
   CUMULATIVE = 2
 };
@@ -53,8 +54,10 @@ enum otel_metrics_counter_AggregationTemporality_t {
 typedef struct otel_metrics_counter_s otel_metrics_counter_t;
 struct otel_metrics_counter_s {
   char name[ISERE_OTEL_METRIC_MAX_NAME_LEN];
+  char description[ISERE_OTEL_METRIC_MAX_DESCRIPTION_LEN];
   char unit[ISERE_OTEL_METRIC_MAX_UNIT_LEN];
-  uint32_t count;
+  int count;
+  enum otel_metrics_counter_aggregation_temporality_t aggregation;
   otel_metrics_counter_t *next;
 };
 
@@ -63,7 +66,12 @@ typedef struct {
   void *instrument;
 } otel_metrics_t;
 
-int isere_otel_create_counter(otel_metrics_counter_t *counter, const char *name, const char *unit);
+int isere_otel_create_counter(
+  const char *name,
+  const char *description,
+  const char *unit,
+  enum otel_metrics_counter_aggregation_temporality_t aggregation,
+  otel_metrics_counter_t **counter);
 // int isere_otel_delete_counter(otel_metrics_counter_t *counter);
 int isere_otel_counter_add(otel_metrics_counter_t *counter, uint32_t increment);
 

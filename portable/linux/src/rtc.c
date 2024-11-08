@@ -24,13 +24,11 @@ void isere_rtc_deinit(isere_rtc_t *rtc)
   return;
 }
 
-int isere_rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
+int isere_rtc_unix_to_datetime(isere_rtc_t *rtc, uint64_t unixtimestamp, rtc_datetime_t *datetime)
 {
-  time_t rawtime;
   struct tm *timeinfo;
 
-  time(&rawtime);
-  timeinfo = localtime(&rawtime);
+  timeinfo = localtime(&unixtimestamp);
 
   datetime->year = timeinfo->tm_year + 1900;
   datetime->month = timeinfo->tm_mon + 1;
@@ -42,7 +40,14 @@ int isere_rtc_get_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
   return 0;
 }
 
-int isere_rtc_set_datetime(isere_rtc_t *rtc, rtc_datetime_t *datetime)
+uint64_t isere_rtc_get_unix_timestamp(isere_rtc_t *rtc)
+{
+  time_t rawtime;
+  time(&rawtime);
+  return rawtime;
+}
+
+int isere_rtc_set_datetime(isere_rtc_t *rtc, const rtc_datetime_t *datetime)
 {
   __isere->logger->warning(ISERE_RTC_LOG_TAG, "rtc_set_datetime() is not implemented");
   return 0;
