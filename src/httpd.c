@@ -270,6 +270,7 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
     return;
   }
 
+  isere_otel_counter_add(__httpd->connections_counter, 1);
   // __httpd->logger->info(ISERE_HTTPD_LOG_TAG, "Received connection from %s", ipaddr);
 
   httpd_conn_t *conn = (httpd_conn_t *)pvPortMalloc(sizeof(httpd_conn_t));
@@ -410,8 +411,7 @@ static void __httpd_task(void *param)
 
   uv__io_start(&__httpd->loop, w, UV_POLLIN);
 
-  otel_metrics_counter_t *newcounter;
-  isere_otel_create_counter("newcounter", "a new counter", "1", CUMULATIVE, &newcounter);
+  isere_otel_create_counter("isere_accepted_connections", "number of accepted connections", "", CUMULATIVE, &__httpd->connections_counter);
 
   __httpd->logger->info(ISERE_HTTPD_LOG_TAG, "Listening on port %d", ISERE_HTTPD_PORT);
 

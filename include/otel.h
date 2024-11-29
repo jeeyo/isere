@@ -72,7 +72,7 @@ struct otel_metrics_counter_s {
   char name[ISERE_OTEL_METRIC_MAX_NAME_LEN];
   char description[ISERE_OTEL_METRIC_MAX_DESCRIPTION_LEN];
   char unit[ISERE_OTEL_METRIC_MAX_UNIT_LEN];
-  int count;
+  int64_t count;
   enum otel_metrics_counter_aggregation_temporality_t aggregation;
   otel_metrics_counter_t *next;
 };

@@ -8,6 +8,7 @@ extern "C" {
 #include "loader.h"
 #include "tcp.h"
 #include "js.h"
+#include "otel.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -106,6 +107,8 @@ typedef struct {
   uv__io_t w;
   uv_loop_t loop;
   struct uv__queue js_queue;
+
+  otel_metrics_counter_t *connections_counter;
 
   isere_logger_t *logger;
   isere_loader_t *loader;
