@@ -26,6 +26,7 @@ static isere_otel_t *__otel = NULL;
 
 static char __tx_buf[ISERE_OTEL_TX_BUF_LEN] = {0};
 static otel_metrics_counter_t *__counters_head = NULL;
+static otel_metrics_gauge_t *__gauges_head = NULL;
 
 static int __connect_to_otel();
 static inline void __disconnect_from_otel();
@@ -138,9 +139,35 @@ int isere_otel_create_counter(
   return 0;
 }
 
-int isere_otel_counter_add(otel_metrics_counter_t *counter, uint32_t increment)
+int isere_otel_counter_add(otel_metrics_counter_t *counter, int64_t increment)
 {
   counter->count += increment;
+  return 0;
+}
+
+int isere_otel_create_gauge(
+  const char *name,
+  const char *description,
+  const char *unit,
+  otel_metrics_gauge_t **gauge)
+{
+  otel_metrics_gauge_t *c = (otel_metrics_gauge_t *)pvPortMalloc(sizeof(otel_metrics_gauge_t));
+
+  strncpy(c->name, name, ISERE_OTEL_METRIC_MAX_NAME_LEN);
+  strncpy(c->description, description, ISERE_OTEL_METRIC_MAX_DESCRIPTION_LEN);
+  strncpy(c->unit, unit, ISERE_OTEL_METRIC_MAX_UNIT_LEN);
+  c->value = 0;
+  c->next = __gauges_head;
+  __gauges_head = c;
+
+  *gauge = c;
+
+  return 0;
+}
+
+int isere_otel_gauge_set(otel_metrics_gauge_t *gauge, int64_t value)
+{
+  gauge->value = value;
   return 0;
 }
 
@@ -232,13 +259,13 @@ static bool encode_resource_attributes_kv(pb_ostream_t *stream, const pb_field_t
 
 static bool encode_number_data_point(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
 {
-  otel_metrics_counter_t *counter = (otel_metrics_counter_t *)*arg;
+  int64_t *int_value = (int64_t *)*arg;
 
   opentelemetry_proto_metrics_v1_NumberDataPoint data_point = {};
   data_point.which_value = opentelemetry_proto_metrics_v1_NumberDataPoint_as_int_tag;
-  data_point.value.as_int = counter->count;
+  data_point.value.as_int = *int_value;
 
-  data_point.start_time_unix_nano = __otel->start_time * 1000 * 1000 * 1000;
+  data_point.start_time_unix_nano = __otel->start_time_unix * 1000 * 1000 * 1000;
 
   uint64_t timestamp = isere_rtc_get_unix_timestamp(__otel->rtc);
   data_point.time_unix_nano = timestamp * 1000 * 1000 * 1000;
@@ -252,7 +279,6 @@ static bool encode_number_data_point(pb_ostream_t *stream, const pb_field_t *fie
 static bool encode_metrics(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
 {
   otel_metrics_counter_t *current_counter = __counters_head;
-
   while (current_counter != NULL)
   {
     opentelemetry_proto_metrics_v1_Metric metric = {};
@@ -265,7 +291,7 @@ static bool encode_metrics(pb_ostream_t *stream, const pb_field_t *field, void *
 
     metric.which_data = opentelemetry_proto_metrics_v1_Metric_sum_tag;
     metric.data.sum.data_points.funcs.encode = &encode_number_data_point;
-    metric.data.sum.data_points.arg = current_counter;
+    metric.data.sum.data_points.arg = &current_counter->count;
     metric.data.sum.is_monotonic = true;
     metric.data.sum.aggregation_temporality =
       current_counter->aggregation == DELTA
@@ -278,8 +304,31 @@ static bool encode_metrics(pb_ostream_t *stream, const pb_field_t *field, void *
     if (!pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_Metric_fields, &metric))
       return false;
 
-next:
     current_counter = current_counter->next;
+  }
+
+  otel_metrics_gauge_t *current_gauge = __gauges_head;
+  while (current_gauge != NULL)
+  {
+    opentelemetry_proto_metrics_v1_Metric metric = {};
+    metric.name.funcs.encode = &encode_string;
+    metric.name.arg = current_gauge->name;
+    metric.description.funcs.encode = &encode_string;
+    metric.description.arg = current_gauge->description;
+    metric.unit.funcs.encode = &encode_string;
+    metric.unit.arg = current_gauge->unit;
+
+    metric.which_data = opentelemetry_proto_metrics_v1_Metric_gauge_tag;
+    metric.data.gauge.data_points.funcs.encode = &encode_number_data_point;
+    metric.data.gauge.data_points.arg = &current_gauge->value;
+
+    if (!pb_encode_tag_for_field(stream, field))
+      return false;
+
+    if (!pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_Metric_fields, &metric))
+      return false;
+
+    current_gauge = current_gauge->next;
   }
 
   return true;
@@ -318,7 +367,7 @@ static void __otel_task(void *param)
 
   __connect_to_otel();
 
-  __otel->start_time = isere_rtc_get_unix_timestamp(__otel->rtc);
+  __otel->start_time_unix = isere_rtc_get_unix_timestamp(__otel->rtc);
 
   while (!__otel->should_exit)
   {

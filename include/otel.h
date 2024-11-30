@@ -32,13 +32,13 @@ extern "C" {
 #endif /* ISERE_OTEL_TASK_STACK_SIZE */
 
 #define ISERE_OTEL_CONNECT_TIMEOUT_MS 5000
-#define ISERE_OTEL_SEND_INTERVAL_MS 60000
+#define ISERE_OTEL_SEND_INTERVAL_MS 15000
 
 typedef struct {
   uint8_t should_exit;
   TaskHandle_t tsk;
   int fd;
-  uint64_t start_time;
+  uint64_t start_time_unix;
   uint64_t last_connect_attempt;  // last time we call connect() (0 = not connecting)
   uint64_t last_sent;
   uv__io_t w;
@@ -62,6 +62,11 @@ enum otel_metrics_type_t {
   GAUGE
 };
 
+typedef struct {
+  enum otel_metrics_type_t type;
+  void *instrument;
+} otel_metrics_t;
+
 enum otel_metrics_counter_aggregation_temporality_t {
   DELTA = 1,
   CUMULATIVE = 2
@@ -77,11 +82,6 @@ struct otel_metrics_counter_s {
   otel_metrics_counter_t *next;
 };
 
-typedef struct {
-  enum otel_metrics_type_t type;
-  void *instrument;
-} otel_metrics_t;
-
 int isere_otel_create_counter(
   const char *name,
   const char *description,
@@ -89,7 +89,24 @@ int isere_otel_create_counter(
   enum otel_metrics_counter_aggregation_temporality_t aggregation,
   otel_metrics_counter_t **counter);
 // int isere_otel_delete_counter(otel_metrics_counter_t *counter);
-int isere_otel_counter_add(otel_metrics_counter_t *counter, uint32_t increment);
+int isere_otel_counter_add(otel_metrics_counter_t *counter, int64_t increment);
+
+typedef struct otel_metrics_gauge_s otel_metrics_gauge_t;
+struct otel_metrics_gauge_s {
+  char name[ISERE_OTEL_METRIC_MAX_NAME_LEN];
+  char description[ISERE_OTEL_METRIC_MAX_DESCRIPTION_LEN];
+  char unit[ISERE_OTEL_METRIC_MAX_UNIT_LEN];
+  int64_t value;
+  otel_metrics_gauge_t *next;
+};
+
+int isere_otel_create_gauge(
+  const char *name,
+  const char *description,
+  const char *unit,
+  otel_metrics_gauge_t **gauge);
+// int isere_otel_delete_gauge(otel_metrics_gauge_t *gauge);
+int isere_otel_gauge_set(otel_metrics_gauge_t *gauge, int64_t value);
 
 #ifdef __cplusplus
 }

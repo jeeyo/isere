@@ -43,14 +43,12 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
     - [x] Sum (Counter)
       - [x] Cumulative
       - [ ] ~~Delta~~
-    - [ ] Gauge
+    - [x] Gauge
   - [ ] Logs
 - [ ] Memory Leak Check
 - [ ] Valgrind
 - [ ] Optimization
   - [ ] less libc usage + buffered printf()
-  - [ ] use another data structure for httpd and tcp sockets
-  - [ ] construct pollfd with less loops
 - [ ] Project Template
 - [ ] Low-power mode
 - [x] Benchmark
