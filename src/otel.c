@@ -238,11 +238,7 @@ static bool encode_number_data_point(pb_ostream_t *stream, const pb_field_t *fie
   data_point.which_value = opentelemetry_proto_metrics_v1_NumberDataPoint_as_int_tag;
   data_point.value.as_int = counter->count;
 
-  // data_point.start_time_unix_nano =
-  //   (counter->aggregation == DELTA
-  //     ? __otel->last_sent
-  //     : __otel->start_time_unix_nano) * 1000 * 1000 * 1000;
-  data_point.start_time_unix_nano = __otel->start_time_unix_nano * 1000 * 1000 * 1000;
+  data_point.start_time_unix_nano = __otel->start_time * 1000 * 1000 * 1000;
 
   uint64_t timestamp = isere_rtc_get_unix_timestamp(__otel->rtc);
   data_point.time_unix_nano = timestamp * 1000 * 1000 * 1000;
@@ -259,11 +255,6 @@ static bool encode_metrics(pb_ostream_t *stream, const pb_field_t *field, void *
 
   while (current_counter != NULL)
   {
-    // // skip 0 delta counters
-    // if (current_counter->aggregation == DELTA && current_counter->count == 0) {
-    //   goto next;
-    // }
-
     opentelemetry_proto_metrics_v1_Metric metric = {};
     metric.name.funcs.encode = &encode_string;
     metric.name.arg = current_counter->name;
@@ -286,10 +277,6 @@ static bool encode_metrics(pb_ostream_t *stream, const pb_field_t *field, void *
 
     if (!pb_encode_submessage(stream, opentelemetry_proto_metrics_v1_Metric_fields, &metric))
       return false;
-
-    // if (current_counter->aggregation == DELTA) {
-    //   current_counter->count = 0;
-    // }
 
 next:
     current_counter = current_counter->next;
@@ -331,7 +318,7 @@ static void __otel_task(void *param)
 
   __connect_to_otel();
 
-  __otel->start_time_unix_nano = isere_rtc_get_unix_timestamp(__otel->rtc);
+  __otel->start_time = isere_rtc_get_unix_timestamp(__otel->rtc);
 
   while (!__otel->should_exit)
   {

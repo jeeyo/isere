@@ -38,12 +38,13 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
   - [ ] fetch
   - [ ] base64
   - [x] setTimeout / clearTimeout (FreeRTOS Timer)
-- [ ] OpenTelemetry
-  - [ ] Metrics
+- [ ] OpenTelemetry (for [Prometheus](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/))
+  - [x] Metrics
     - [x] Sum (Counter)
       - [x] Cumulative
-      - [ ] Delta
+      - [ ] ~~Delta~~
     - [ ] Gauge
+  - [ ] Logs
 - [ ] Memory Leak Check
 - [ ] Valgrind
 - [ ] Optimization

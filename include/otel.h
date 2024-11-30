@@ -32,13 +32,13 @@ extern "C" {
 #endif /* ISERE_OTEL_TASK_STACK_SIZE */
 
 #define ISERE_OTEL_CONNECT_TIMEOUT_MS 5000
-#define ISERE_OTEL_SEND_INTERVAL_MS 5000
+#define ISERE_OTEL_SEND_INTERVAL_MS 60000
 
 typedef struct {
   uint8_t should_exit;
   TaskHandle_t tsk;
   int fd;
-  uint64_t start_time_unix_nano;
+  uint64_t start_time;
   uint64_t last_connect_attempt;  // last time we call connect() (0 = not connecting)
   uint64_t last_sent;
   uv__io_t w;
