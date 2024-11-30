@@ -5,9 +5,10 @@
 extern "C" {
 #endif
 
-#include "isere.h"
+#include "loader.h"
 #include "tcp.h"
 #include "js.h"
+#include "otel.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -61,7 +62,6 @@ typedef struct {
 } httpd_response_object_t;
 
 typedef struct {
-
   int fd;
   char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
   int linebuflen;
@@ -91,7 +91,7 @@ typedef struct {
 } httpd_conn_t;
 
 typedef int (httpd_handler_t)(
-  isere_t *isere,
+  isere_loader_t *loader,
   httpd_conn_t *conn,
   const char *method,
   const char *path,
@@ -100,7 +100,27 @@ typedef int (httpd_handler_t)(
   uint32_t request_headers_len,
   const char *body);
 
-int isere_httpd_init(isere_t *isere, isere_httpd_t *httpd, httpd_handler_t *handler);
+typedef struct {
+  uint8_t should_exit;
+  TaskHandle_t tsk;
+  int serverfd;
+  uv__io_t w;
+  uv_loop_t loop;
+  struct uv__queue js_queue;
+
+  otel_metrics_counter_t *connections_counter;
+
+  isere_logger_t *logger;
+  isere_loader_t *loader;
+  httpd_handler_t *http_handler;
+  isere_js_t *js;
+} isere_httpd_t;
+
+int isere_httpd_init(isere_httpd_t *httpd,
+  isere_loader_t *loader,
+  isere_logger_t *logger,
+  isere_js_t *js,
+  httpd_handler_t *handler);
 int isere_httpd_deinit(isere_httpd_t *httpd);
 
 #ifdef __cplusplus

@@ -14,13 +14,15 @@
 [submodule "3rdparty/libyuarel"]
 	path = 3rdparty/libyuarel
 	url = https://github.com/jacketizer/libyuarel.git
-[submodule "3rdparty/c-capnproto"]
-	path = 3rdparty/c-capnproto
-	url = https://gitlab.com/dkml/ext/c-capnproto.git
-	ignore = dirty
 [submodule "3rdparty/pico-sdk"]
 	path = 3rdparty/pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git
 [submodule "3rdparty/jerryscript"]
 	path = 3rdparty/jerryscript
 	url = https://github.com/jerryscript-project/jerryscript.git
+[submodule "3rdparty/nanopb"]
+	path = 3rdparty/nanopb
+	url = https://github.com/nanopb/nanopb.git
+[submodule "3rdparty/opentelemetry-proto"]
+	path = 3rdparty/opentelemetry-proto
+	url = https://github.com/open-telemetry/opentelemetry-proto.git

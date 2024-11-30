@@ -33,8 +33,7 @@ extern "C" {
 #include <sys/types.h>
 
 #define UV_POLLIN     0x1
-#define UV_POLLOUT    0x2
-#define UV_POLLERR    0x4
+#define UV_POLLOUT    0x4
 
 typedef struct uv_loop_s uv_loop_t;
 typedef struct uv__io_s uv__io_t;

@@ -276,8 +276,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout)
     /* Filter out events that user has not requested us to watch
       * (e.g. POLLNVAL).
       */
-    // pe->revents &= w->pevents | POLLERR | POLLHUP;
-    pe->revents &= w->pevents;
+    pe->revents &= w->pevents | POLLERR | POLLHUP;
 
     if (pe->revents != 0) {
       w->cb(loop, w, pe->revents);

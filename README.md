@@ -38,12 +38,17 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
   - [ ] fetch
   - [ ] base64
   - [x] setTimeout / clearTimeout (FreeRTOS Timer)
+- [ ] OpenTelemetry (for [Prometheus](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/))
+  - [x] Metrics
+    - [x] Sum (Counter)
+      - [x] Cumulative
+      - [ ] ~~Delta~~
+    - [x] Gauge
+  - [ ] Logs
 - [ ] Memory Leak Check
 - [ ] Valgrind
 - [ ] Optimization
   - [ ] less libc usage + buffered printf()
-  - [ ] use another data structure for httpd and tcp sockets
-  - [ ] construct pollfd with less loops
 - [ ] Project Template
 - [ ] Low-power mode
 - [x] Benchmark
@@ -69,6 +74,10 @@ Prerequisites:
 - gcc
 - cpputest
 - xxd
+- [protoc](https://grpc.io/docs/protoc-installation/)
+- python3
+  - [protobuf package](https://pypi.org/project/protobuf/)
+  - [grpcio-tools package](https://pypi.org/project/grpcio-tools/)
 - ninja (optional for building c-capnproto)
 
 ### Install dependencies
@@ -76,7 +85,7 @@ Prerequisites:
 #### macOS
 
 ```zsh
-brew install gcc cmake make libtool ninja
+brew install gcc cmake make libtool protobuf ninja
 ```
 
 If you want to build unit tests, you also need to install CppUTest
@@ -86,10 +95,10 @@ brew install cpputest
 export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
 ```
 
-#### Debian-based Linux
+#### Debian / Ubuntu
 
 ```bash
-sudo apt-get install -y build-essential make cmake xxd ninja-build
+sudo apt-get install -y build-essential make cmake xxd protobuf-compiler ninja-build
 ```
 
 For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk and gcc](https://cpputest.github.io/) section on CppUTest website.
@@ -98,7 +107,7 @@ For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk an
 
 ```sh
 git clone https://github.com/jeeyo/isere.git
-git submodule update --init
+git submodule update --init --recursive
 
 mkdir build
 cd build
@@ -108,10 +117,14 @@ make -j
 
 #### Build configurations
 
-|Name|Description|Supported values|
-|-|-|-|
-|TARGET_PLATFORM|Target platform to build isère executable for|linux (default), pico2|
-|DEBUG|Whether to build isère executable with debug symbol|off (default), on|
+|Name|Description|Supported values|Default value|
+|-|-|-|-|
+|TARGET_PLATFORM|Target platform to build isère executable for|linux, pico2|linux|
+|DEBUG|Whether to build isère executable with debug symbol|off, on|off|
+|JS_RUNTIME|JavaScript runtime to execute handler function|quickjs, jerryscript|quickjs|
+|WITH_OTEL|Whether to send metrics to OpenTelemetry Collector|off, on|on|
+|OTEL_HOST|OpenTelemetry Collector OLTP/HTTP Host||"127.0.0.1"|
+|OTEL_PORT|OpenTelemetry Collector OLTP/HTTP Port||4318|
 
 ### Running
 
@@ -137,3 +150,4 @@ Special thanks to
 
 - [maxnet](https://github.com/maxnet/pico-webserver/) for tinyusb RNDIS to LwIP glue for Raspberry Pi Pico
 - [libuv](https://github.com/libuv/libuv) for [src/internals/uv_poll.c](src/internals/uv_poll.c)
+- [librdkafka](https://github.com/confluentinc/librdkafka) for OpenTelemetry nanopb encoding

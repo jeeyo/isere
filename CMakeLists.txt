@@ -4,7 +4,11 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 # build configuration
 option(DEBUG "Debug mode" OFF)
-set(JS_RUNTIME "quickjs" CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
+set(JS_RUNTIME quickjs CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
+
+option(WITH_OTEL "OpenTelemetry Exporter enabled" ON)
+set(OTEL_HOST "127.0.0.1" CACHE STRING "OpenTelemetry Collector OTLP/HTTP host")
+set(OTEL_PORT 4318 CACHE STRING "OpenTelemetry Collector OTLP/HTTP port")
 
 # platform-specific configuration
 option(WITH_LWIP "Include LwIP" OFF)
@@ -21,7 +25,8 @@ set(JERRYSCRIPT_DIR ./3rdparty/jerryscript)
 set(LWIP_DIR ./3rdparty/lwip)
 set(LLHTTP_DIR ./3rdparty/llhttp)
 set(LIBYUAREL_DIR ./3rdparty/libyuarel)
-set(CAPNPROTO_DIR ./3rdparty/c-capnproto)
+set(NANOPB_DIR ./3rdparty/nanopb)
+set(OTELPROTO_DIR ./3rdparty/opentelemetry-proto)
 set(JS_DIR ./js)
 
 set(SOURCES )
@@ -31,7 +36,7 @@ list(APPEND SOURCES
   ./src/hooks.c
   ./src/http_handler.c
   ./src/httpd.c
-  ./src/ini.c
+  ./src/otel.c
   ./src/js.c
   ./src/polyfills/pvPortRealloc.c
   ./src/internals/uv_poll.c
@@ -41,7 +46,6 @@ list(APPEND SOURCES
   ./portable/${TARGET_PLATFORM}/src/rtc.c
   ./portable/${TARGET_PLATFORM}/src/tcp.c
   ./portable/${TARGET_PLATFORM}/src/platform.c
-  ./schemas/config.capnp.c
   ${FREERTOS_DIR}/croutine.c
   ${FREERTOS_DIR}/event_groups.c
   ${FREERTOS_DIR}/list.c
@@ -54,9 +58,6 @@ list(APPEND SOURCES
   ${LLHTTP_DIR}/src/http.c
   ${LLHTTP_DIR}/src/llhttp.c
   ${LIBYUAREL_DIR}/yuarel.c
-  ${CAPNPROTO_DIR}/lib/capn-malloc.c
-  ${CAPNPROTO_DIR}/lib/capn-stream.c
-  ${CAPNPROTO_DIR}/lib/capn.c
 )
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
@@ -80,7 +81,7 @@ else()
   )
 endif()
 
-if(JS_RUNTIME STREQUAL "quickjs")
+if(JS_RUNTIME STREQUAL quickjs)
   list(APPEND SOURCES
     ${QUICKJS_DIR}/quickjs.c
     ${QUICKJS_DIR}/libbf.c
@@ -92,7 +93,7 @@ if(JS_RUNTIME STREQUAL "quickjs")
     ./src/polyfills/quickjs/fetch.c
     ./src/polyfills/quickjs/timer.c
   )
-elseif(JS_RUNTIME STREQUAL "jerryscript")
+elseif(JS_RUNTIME STREQUAL jerryscript)
   list(APPEND SOURCES
     ./src/runtimes/jerryscript/jerryscript.c
     ./src/runtimes/jerryscript/jerry-common.c
@@ -113,9 +114,21 @@ add_custom_command(
 
 add_executable(isere ${SOURCES} ./src/main.c)
 
-if(JS_RUNTIME STREQUAL "quickjs")
+target_compile_definitions(isere PRIVATE
+  ISERE_RUNTIME_NAME="${JS_RUNTIME}"
+  ISERE_OTEL_HOST="${OTEL_HOST}"
+  ISERE_OTEL_PORT=${OTEL_PORT})
+
+if(WITH_OTEL)
+  target_compile_definitions(isere PRIVATE
+    ISERE_WITH_OTEL
+    ISERE_OTEL_HOST="${OTEL_HOST}"
+    ISERE_OTEL_PORT=${OTEL_PORT})
+endif()
+
+if(JS_RUNTIME STREQUAL quickjs)
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_QUICKJS)
-elseif(JS_RUNTIME STREQUAL "jerryscript")
+elseif(JS_RUNTIME STREQUAL jerryscript)
   SET(JERRY_EXTERNAL_CONTEXT ON CACHE BOOL "")
   SET(JERRY_PROMISE_CALLBACK ON CACHE BOOL "")
   SET(JERRY_ERROR_MESSAGES ON CACHE BOOL "")
@@ -143,13 +156,25 @@ find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
 target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/${NANOPB_DIR}/extra)
+find_package(Nanopb REQUIRED)
+set(PROTOC_OPTIONS --experimental_allow_proto3_optional)
+nanopb_generate_cpp(TARGET otelproto RELPATH ${OTELPROTO_DIR}
+  ${OTELPROTO_DIR}/opentelemetry/proto/metrics/v1/metrics.proto
+  ${OTELPROTO_DIR}/opentelemetry/proto/common/v1/common.proto
+  ${OTELPROTO_DIR}/opentelemetry/proto/resource/v1/resource.proto)
+target_link_libraries(isere PRIVATE otelproto)
+
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
-  target_compile_options(jerry-core PRIVATE -O0 -g)
-  target_compile_options(jerry-ext PRIVATE -O0 -g)
+
+  if(JS_RUNTIME STREQUAL jerryscript)
+    target_compile_options(jerry-core PRIVATE -O0 -g)
+    target_compile_options(jerry-ext PRIVATE -O0 -g)
+  endif()
 
   # enable profiling on Linux
-  if(TARGET_PLATFORM STREQUAL "linux")
+  if(TARGET_PLATFORM STREQUAL linux)
     # target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
     target_compile_options(isere PRIVATE -pg)
     target_link_options(isere PRIVATE -pg)
@@ -167,7 +192,6 @@ target_include_directories(isere PRIVATE
   ${QUICKJS_DIR}
   ${LLHTTP_DIR}/include
   ${LIBYUAREL_DIR}
-  ${CAPNPROTO_DIR}/lib
 )
 
 if(WITH_LWIP)
@@ -182,18 +206,3 @@ if(WITH_LWIP)
 endif()
 
 target_link_libraries(isere PRIVATE ${LIBS})
-
-add_custom_command(
-  OUTPUT ${CAPNPROTO_DIR}/build/capnpc-c/config.capnp.c
-  COMMAND capnp compile -o ${CAPNPROTO_DIR}/build/capnpc-c ./schemas/config.capnp
-  DEPENDS schemas/config.capnp
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  COMMENT "Compiling Cap'n Proto schema"
-  MAIN_DEPENDENCY ./schemas/config.capnp
-  VERBATIM
-)
-
-# TODO: make isere a library for unittests
-# if(TARGET_PLATFORM STREQUAL "linux")
-#   include(./tests/CMakeLists.txt)
-# endif()

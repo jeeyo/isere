@@ -50,10 +50,8 @@ static void logger_debug(const char *tag, const char *fmt, ...)
   va_end(vargs);
 }
 
-int isere_logger_init(isere_t *isere, isere_logger_t *logger)
+int isere_logger_init(isere_logger_t *logger)
 {
-  (void)isere;
-
   if (_stdio_mut == NULL) {
     _stdio_mut = xSemaphoreCreateMutex();
   }
