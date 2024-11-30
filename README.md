@@ -17,8 +17,8 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
     - [x] Socket
     - [x] QuickJS
   - [ ] Static Files (?)
-- [x] Unit tests
-  - [x] loader
+- [ ] Unit tests
+  - [ ] loader
   - [ ] js
   - [ ] httpd
   - [ ] http handler
@@ -29,22 +29,24 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 - [ ] Watchdog timer
 - [ ] Integration tests
 - [ ] Integration tests on CI
-- [ ] APIs (ref. [Minimum Common Web Platform API](https://common-min-api.proposal.wintercg.org/))
-  - [ ] buffer
+- [ ] [Minimum Common Web Platform API](https://common-min-api.proposal.wintercg.org/) (on QuickJS)
   - [ ] crypto
   - [ ] events
-  - [ ] path (?)
-  - [ ] fs
   - [ ] fetch
-  - [ ] base64
+  - [ ] buffer
+  - [ ] stream
+  - [x] console (log, warn, error)
   - [x] setTimeout / clearTimeout (FreeRTOS Timer)
-- [ ] OpenTelemetry (for [Prometheus](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/))
+  - [ ] performance (?)
+  - [ ] ~~WebAssembly~~
+- [ ] OpenTelemetry
   - [x] Metrics
     - [x] Sum (Counter)
       - [x] Cumulative
-      - [ ] ~~Delta~~
+      - [ ] ~~Delta~~ (see [Prometheus and OpenMetrics Compatibility](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#sums))
     - [x] Gauge
-  - [ ] Logs
+  - [ ] Logs (?)
+  - [ ] Trace
 - [ ] Memory Leak Check
 - [ ] Valgrind
 - [ ] Optimization
