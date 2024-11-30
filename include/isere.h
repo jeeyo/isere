@@ -5,8 +5,6 @@
 extern "C" {
 #endif
 
-#include "isere_config.h"
-
 #include "platform.h"
 
 #define ISERE_APP_NAME "isere"

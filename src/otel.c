@@ -171,40 +171,6 @@ int isere_otel_gauge_set(otel_metrics_gauge_t *gauge, int64_t value)
   return 0;
 }
 
-static int __send_chunk(const char *fmt, ...)
-{
-  va_list vargs;
-  va_start(vargs, fmt);
-
-  int ret = -1;
-  int tx_len = 0;
-
-  char chunklen[8] = {0};
-  int chunklen_len = 0;
-
-  tx_len = vsnprintf(__tx_buf, ISERE_OTEL_TX_BUF_LEN, fmt, vargs);
-
-  va_end(vargs);
-
-  chunklen_len = snprintf(chunklen, 8, "%d\r\n", tx_len);
-  ret = isere_tcp_write(__otel->fd, chunklen, chunklen_len);
-  if (ret < 0) {
-    return -1;
-  }
-
-  ret = isere_tcp_write(__otel->fd, __tx_buf, tx_len);
-  if (ret < 0) {
-    return -1;
-  }
-
-  ret = isere_tcp_write(__otel->fd, "\r\n", 2);
-  if (ret < 0) {
-    return -1;
-  }
-
-  return 0;
-}
-
 static bool encode_string(pb_ostream_t *stream, const pb_field_t *field, void *const *arg)
 {
   if (!pb_encode_tag_for_field(stream, field))

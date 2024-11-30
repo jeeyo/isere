@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include "isere_config.h"
 #include "tcp.h"
 #include "logger.h"
 #include "rtc.h"

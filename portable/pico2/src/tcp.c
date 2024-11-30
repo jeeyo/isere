@@ -23,8 +23,8 @@ static void __isere_tusb_task(void *param);
 
 int isere_tcp_init(isere_tcp_t *tcp)
 {
-  if (xTaskCreate(__isere_tusb_task, "usb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle)) {
-    logger->error(ISERE_TCP_LOG_TAG, "Unable to create tusb task");
+  if (xTaskCreate(__isere_tusb_task, "usb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle) != pdPASS) {
+    return -1;
   }
 
   return 0;
@@ -37,23 +37,18 @@ int isere_tcp_deinit(isere_tcp_t *tcp)
 
 int isere_tcp_socket_new()
 {
-  int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  int fd = lwip_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
   return fd;
 }
 
 int isere_tcp_socket_set_reuse(int fd)
 {
-  int yes = 1;
-  if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) != 0) {
-    return -1;
-  }
-
   return 0;
 }
 
 int isere_tcp_socket_set_nonblock(int fd)
 {
-  if (lwip_fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) != 0) {
+  if (lwip_fcntl(fd, F_SETFL, lwip_fcntl(fd, F_GETFL, 0) | O_NONBLOCK) != 0) {
     return -1;
   }
 
@@ -64,6 +59,27 @@ void isere_tcp_close(int fd)
 {
   close(fd);
   __num_of_tcp_conns--;
+}
+
+int isere_tcp_connect(int fd, const char *ipaddr, uint16_t port)
+{
+  struct sockaddr_in dest_addr;
+  memset(&dest_addr, 0, sizeof(dest_addr));
+  dest_addr.sin_len = sizeof(dest_addr);
+  dest_addr.sin_family = AF_INET;
+  dest_addr.sin_port = PP_HTONS(port);
+  dest_addr.sin_addr.s_addr = inet_addr(ipaddr);
+
+  int err = lwip_connect(fd, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+  if (err != 0) {
+    if (errno == EAGAIN || errno == EINPROGRESS) {
+      return -2;
+    }
+
+    return -1;
+  }
+
+  return 0;
 }
 
 int isere_tcp_listen(int fd, uint16_t port)
@@ -104,7 +120,7 @@ int isere_tcp_accept(int fd, char *ip_addr)
 
   // disable tcp keepalive
   int keep_alive = 0;
-  setsockopt(newfd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
+  lwip_setsockopt(newfd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
 
   // copy ip address string
   strncpy(ip_addr, inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr), INET_ADDRSTRLEN);
@@ -150,11 +166,11 @@ static void __isere_tusb_task(void *param)
   dhcpd_init();
   initialized = 1;
 
-  while (!__isere->should_exit)
+  // TODO: should_exit
+  while (1)
   {
     tud_task();
   }
 
-  __isere->should_exit = 1;
   vTaskDelete(NULL);
 }

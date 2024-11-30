@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include "isere_config.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 
