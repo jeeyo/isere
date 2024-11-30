@@ -19,7 +19,6 @@ include(portable/${TARGET_PLATFORM}/platform_features.cmake)
 project(isere C CXX ASM)
 
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
-set(FREERTOS_POSIX_DIR ./3rdparty/FreeRTOS-Plus-POSIX)
 set(QUICKJS_DIR ./3rdparty/quickjs)
 set(JERRYSCRIPT_DIR ./3rdparty/jerryscript)
 set(LWIP_DIR ./3rdparty/lwip)
