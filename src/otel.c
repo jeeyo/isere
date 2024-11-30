@@ -39,7 +39,7 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
 
   __otel->logger->info(ISERE_OTEL_LOG_TAG, "Connected to OpenTelemetry Collector");
   __otel->last_connect_attempt = 0;
-  __otel->last_sent = xTaskGetTickCount();
+  __otel->last_sent = xTaskGetTickCount() - pdMS_TO_TICKS(ISERE_OTEL_SEND_INTERVAL_MS); // immediately send after connect
 }
 
 static int __connect_to_otel()
