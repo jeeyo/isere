@@ -45,12 +45,16 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
       - [x] Cumulative
       - [ ] ~~Delta~~ (see [Prometheus and OpenMetrics Compatibility](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#sums))
     - [x] Gauge
-  - [ ] Logs (?)
+  - [ ] ~~Logs~~
   - [ ] Trace
+- [ ] LogStash
+  - [ ] unbuffered printf()
+  - [ ] NDJSON logs
+  - [ ] Serial-to-LogStash integration
 - [ ] Memory Leak Check
 - [ ] Valgrind
 - [ ] Optimization
-  - [ ] less libc usage + buffered printf()
+  - [ ] less libc usage
 - [ ] Project Template
 - [ ] Low-power mode
 - [x] Benchmark
