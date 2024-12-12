@@ -29,12 +29,10 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 - [ ] Watchdog timer
 - [ ] Integration tests
 - [ ] Integration tests on CI
-- [ ] [Minimum Common Web Platform API](https://common-min-api.proposal.wintercg.org/) (on QuickJS)
+- [ ] [Cloudflare Workers API](https://developers.cloudflare.com/workers/runtime-apis/) (on QuickJS)
   - [ ] crypto
-  - [ ] events
   - [ ] fetch
-  - [ ] buffer
-  - [ ] stream
+  - [x] process (env)
   - [x] console (log, warn, error)
   - [x] setTimeout / clearTimeout (FreeRTOS Timer)
   - [ ] performance (?)
@@ -139,12 +137,6 @@ make -j
 ```
 
 A web server will start on port 8080 with the function defined in [js/handler.js](js/handler.js)
-
-### Running Tests
-
-```sh
-./unittests
-```
 
 ### Benchmark
 
