@@ -1,9 +1,14 @@
+# FROM espressif/idf:release-v5.4 AS esp-idf
+
 FROM ubuntu
 
 SHELL ["/bin/bash", "-c"]
 
 RUN apt update && \
-apt install -y git curl build-essential make cmake xxd protobuf-compiler ninja-build python3 python3-venv python3-pip
+apt install -y git curl build-essential make cmake xxd protobuf-compiler ninja-build python3 python3-venv python3-pip libusb-1.0-0
+
+# COPY --from=esp-idf /opt/esp/idf /opt/esp/idf
+# RUN /opt/esp/idf/install.sh esp32 && echo "source /opt/esp/idf/export.sh" >> /root/.bashrc
 
 WORKDIR /root
 RUN curl -L -o gcc-arm-none-eabi.tar.gz https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 && \
