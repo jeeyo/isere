@@ -1,4 +1,3 @@
-.isere/
 .DS_Store
 *.so
 build/
@@ -7,7 +6,6 @@ js/*.c.bak
 tests/js/*.c
 tests/js/*.c.bak
 isere
-unittest
 Makefile
 CMakeCache.txt
 cmake_install.cmake

@@ -126,7 +126,7 @@ make -j
 |TARGET_PLATFORM|Target platform to build isère executable for|linux, pico2|linux|
 |DEBUG|Whether to build isère executable with debug symbol|off, on|off|
 |JS_RUNTIME|JavaScript runtime to execute handler function|quickjs, jerryscript|quickjs|
-|WITH_OTEL|Whether to send metrics to OpenTelemetry Collector|off, on|on|
+|WITH_OTEL|Whether to send metrics to OpenTelemetry Collector|off, on|off|
 |OTEL_HOST|OpenTelemetry Collector OLTP/HTTP Host||"127.0.0.1"|
 |OTEL_PORT|OpenTelemetry Collector OLTP/HTTP Port||4318|
 

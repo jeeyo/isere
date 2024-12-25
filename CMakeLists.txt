@@ -6,7 +6,7 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 option(DEBUG "Debug mode" OFF)
 set(JS_RUNTIME quickjs CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
 
-option(WITH_OTEL "OpenTelemetry Exporter enabled" ON)
+option(WITH_OTEL "OpenTelemetry Exporter enabled" OFF)
 set(OTEL_HOST "127.0.0.1" CACHE STRING "OpenTelemetry Collector OTLP/HTTP host")
 set(OTEL_PORT 4318 CACHE STRING "OpenTelemetry Collector OTLP/HTTP port")
 
@@ -19,7 +19,6 @@ include(portable/${TARGET_PLATFORM}/platform_features.cmake)
 project(isere C CXX ASM)
 
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
-set(FREERTOS_POSIX_DIR ./3rdparty/FreeRTOS-Plus-POSIX)
 set(QUICKJS_DIR ./3rdparty/quickjs)
 set(JERRYSCRIPT_DIR ./3rdparty/jerryscript)
 set(LWIP_DIR ./3rdparty/lwip)
@@ -36,7 +35,6 @@ list(APPEND SOURCES
   ./src/hooks.c
   ./src/http_handler.c
   ./src/httpd.c
-  ./src/otel.c
   ./src/js.c
   ./src/polyfills/pvPortRealloc.c
   ./src/internals/uv_poll.c
@@ -116,14 +114,25 @@ add_executable(isere ${SOURCES} ./src/main.c)
 
 target_compile_definitions(isere PRIVATE
   ISERE_RUNTIME_NAME="${JS_RUNTIME}"
-  ISERE_OTEL_HOST="${OTEL_HOST}"
-  ISERE_OTEL_PORT=${OTEL_PORT})
+  __STDC_FORMAT_MACROS=1)
 
 if(WITH_OTEL)
+  list(APPEND SOURCES
+    ./src/otel.c
+  )
   target_compile_definitions(isere PRIVATE
     ISERE_WITH_OTEL
     ISERE_OTEL_HOST="${OTEL_HOST}"
     ISERE_OTEL_PORT=${OTEL_PORT})
+
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/${NANOPB_DIR}/extra)
+  find_package(Nanopb REQUIRED)
+  set(PROTOC_OPTIONS --experimental_allow_proto3_optional)
+  nanopb_generate_cpp(TARGET otelproto RELPATH ${OTELPROTO_DIR}
+    ${OTELPROTO_DIR}/opentelemetry/proto/metrics/v1/metrics.proto
+    ${OTELPROTO_DIR}/opentelemetry/proto/common/v1/common.proto
+    ${OTELPROTO_DIR}/opentelemetry/proto/resource/v1/resource.proto)
+  target_link_libraries(isere PRIVATE otelproto)
 endif()
 
 if(JS_RUNTIME STREQUAL quickjs)
@@ -155,15 +164,6 @@ endif()
 find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
 target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/${NANOPB_DIR}/extra)
-find_package(Nanopb REQUIRED)
-set(PROTOC_OPTIONS --experimental_allow_proto3_optional)
-nanopb_generate_cpp(TARGET otelproto RELPATH ${OTELPROTO_DIR}
-  ${OTELPROTO_DIR}/opentelemetry/proto/metrics/v1/metrics.proto
-  ${OTELPROTO_DIR}/opentelemetry/proto/common/v1/common.proto
-  ${OTELPROTO_DIR}/opentelemetry/proto/resource/v1/resource.proto)
-target_link_libraries(isere PRIVATE otelproto)
 
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)

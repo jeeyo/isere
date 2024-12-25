@@ -2,9 +2,6 @@
 #include "runtime.h"
 #include "polyfills.h"
 
-#include "quickjs.h"
-#include "quickjs-libc.h"
-
 #include <string.h>
 
 int isere_js_init(isere_js_t *js)
