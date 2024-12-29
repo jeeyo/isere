@@ -1,31 +1,21 @@
 #include "tcp.h"
 
-#include "pico/multicore.h"
-#include "hardware/watchdog.h"
-#include "hardware/structs/watchdog.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
+#include "esp_event.h"
+#include "esp_netif.h"
 
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
 
-#include "tusb_lwip_glue.h"
-
 static uint8_t initialized = 0;
-
-static TaskHandle_t __tusb_task_handle;
 
 static uint32_t __num_of_tcp_conns = 0;
 
-static void __isere_tusb_task(void *param);
-
 int isere_tcp_init(isere_tcp_t *tcp)
 {
-  if (xTaskCreate(__isere_tusb_task, "usb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle) != pdPASS) {
-    return -1;
-  }
+  esp_netif_init();
+  esp_event_loop_create_default();
+  // dhcpd_init();
+  initialized = 1;
 
   return 0;
 }
@@ -154,23 +144,5 @@ int isere_tcp_poll(struct pollfd *fds, unsigned int nfds, int timeout)
 
 int isere_tcp_is_initialized()
 {
-  return initialized;
-}
-
-static void __isere_tusb_task(void *param)
-{
-  rndis_tusb_init();
-
-  lwip_freertos_init();
-  wait_for_netif_is_up();
-  dhcpd_init();
-  initialized = 1;
-
-  // TODO: should_exit
-  while (1)
-  {
-    tud_task();
-  }
-
-  vTaskDelete(NULL);
+  return 1;
 }

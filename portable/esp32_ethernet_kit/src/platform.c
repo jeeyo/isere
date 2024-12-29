@@ -1,12 +1,6 @@
 #include "platform.h"
 
-#include "hardware/gpio.h"
-#include "hardware/watchdog.h"
-#include "pico/stdio_semihosting.h"
-
 void platform_init() {
-  stdio_semihosting_init();
-
   // if (watchdog_caused_reboot()) {
   //   // TODO: Log the watchdog reboot
   // }
@@ -22,8 +16,8 @@ void platform_init() {
   // }
 
 // #ifdef PICO_DEFAULT_LED_PIN
-  gpio_init(25);
-  gpio_set_dir(25, GPIO_OUT);
-  gpio_put(25, 1);
+  // gpio_init(25);
+  // gpio_set_dir(25, GPIO_OUT);
+  // gpio_put(25, 1);
 // #endif
 }

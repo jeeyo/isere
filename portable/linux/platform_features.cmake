@@ -1,4 +1,4 @@
-set(WITH_LWIP OFF)
+set(PLATFORM_SDK_HAS_LWIP ON) # trick for CMake not to include LwIP
 set(SUPPORT_DYNLINK ON)
 
 SET(JERRY_GLOBAL_HEAP_SIZE "(512)" CACHE STRING "")

@@ -1,16 +1,14 @@
-# # initialize the Raspberry Pi Pico SDK
-# pico_sdk_init()
+# Create idf::{target} and idf::freertos static libraries
+idf_build_process("esp32"
+  # try and trim the build; additional components
+  # will be included as needed based on dependency tree
+  #
+  # although esptool_py does not generate static library,
+  # processing the component is needed for flashing related
+  # targets and file generation
+  COMPONENTS freertos esp_event esp_netif lwip esptool_py
+  SDKCONFIG ${CMAKE_CURRENT_LIST_DIR}/sdkconfig
+  BUILD_DIR ${CMAKE_BINARY_DIR}
+)
 
-# set(ESPIDF_DIR 3rdparty/esp-idf)
-# set(TINYUSB_LIBNETWORKING_SOURCES
-#   ${PICO_SDK_PATH}/lib/tinyusb/lib/networking/dhserver.c
-#   ${PICO_SDK_PATH}/lib/tinyusb/lib/networking/rndis_reports.c
-# )
-
-# list(APPEND SOURCES
-#   portable/${TARGET_PLATFORM}/src/tusb_lwip_glue.c
-#   portable/${TARGET_PLATFORM}/src/usb_descriptor.c
-#   ${FREERTOS_DIR}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure/port.c
-#   ${FREERTOS_DIR}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure/portasm.c
-#   ${TINYUSB_LIBNETWORKING_SOURCES}
-# )
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

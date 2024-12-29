@@ -1,6 +1,20 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+void vAssertCalled(const char *const pcFileName,
+                   unsigned long ulLine)
+{
+  // static BaseType_t xPrinted = pdFALSE;
+  // volatile uint32_t ulSetToNonZeroInDebuggerToContinue = 0;
+
+  /* Called if an assertion passed to configASSERT() fails.  See
+   * https://www.FreeRTOS.org/a00110.html#configASSERT for more information. */
+
+  /* Parameters are not used. */
+  (void)ulLine;
+  (void)pcFileName;
+}
+
 void vApplicationMallocFailedHook(void)
 {
   /* vApplicationMallocFailedHook() will only be called if
@@ -60,20 +74,6 @@ void vApplicationDaemonTaskStartupHook(void)
    * execute    (sometimes called the timer task).  This is useful if the
    * application includes initialisation code that would benefit from executing
    * after the scheduler has been started. */
-}
-
-void vAssertCalled(const char *const pcFileName,
-                   unsigned long ulLine)
-{
-  // static BaseType_t xPrinted = pdFALSE;
-  // volatile uint32_t ulSetToNonZeroInDebuggerToContinue = 0;
-
-  /* Called if an assertion passed to configASSERT() fails.  See
-   * https://www.FreeRTOS.org/a00110.html#configASSERT for more information. */
-
-  /* Parameters are not used. */
-  (void)ulLine;
-  (void)pcFileName;
 }
 
 /* configUSE_STATIC_ALLOCATION is set to 1, so the application must provide an
