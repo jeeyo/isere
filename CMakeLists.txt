@@ -13,7 +13,8 @@ set(OTEL_PORT 4318 CACHE STRING "OpenTelemetry Collector OTLP/HTTP port")
 # platform-specific configuration
 option(PLATFORM_SDK_HAS_FREERTOS "Platform SDK contains FreeRTOS" OFF)
 option(PLATFORM_SDK_HAS_LWIP "Platform SDK contains LwIP" OFF)
-option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
+set(PLATFORM_ENTRYPOINT main CACHE STRING "Platform entrypoint function")
+option(PLATFORM_SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
 
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
 set(QUICKJS_DIR ./3rdparty/quickjs)
@@ -75,7 +76,7 @@ if(NOT PLATFORM_SDK_HAS_LWIP)
   include(${LWIP_DIR}/src/Filelists.cmake)
 endif()
 
-if(SUPPORT_DYNLINK)
+if(PLATFORM_SUPPORT_DYNLINK)
   add_executable(handler handler.c)
   set_target_properties(handler PROPERTIES PREFIX "")
   set_target_properties(handler PROPERTIES SUFFIX ".so")
@@ -120,6 +121,7 @@ add_custom_command(
 add_executable(isere ${SOURCES} ./src/main.c)
 
 target_compile_definitions(isere PRIVATE
+  ISERE_ENTRYPOINT_FUNCTION=${PLATFORM_ENTRYPOINT}
   ISERE_RUNTIME_NAME="${JS_RUNTIME}"
   __STDC_FORMAT_MACROS=1)
 
@@ -164,7 +166,7 @@ elseif(JS_RUNTIME STREQUAL jerryscript)
   )
 endif()
 
-if(SUPPORT_DYNLINK)
+if(PLATFORM_SUPPORT_DYNLINK)
   target_compile_definitions(isere PRIVATE ISERE_USE_DYNLINK)
 endif()
 

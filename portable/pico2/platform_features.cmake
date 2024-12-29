@@ -4,7 +4,7 @@ include(3rdparty/pico-sdk/pico_sdk_init.cmake)
 
 set(PLATFORM_SDK_HAS_FREERTOS OFF)
 set(PLATFORM_SDK_HAS_LWIP ON)  # pico-sdk has LwIP
-set(SUPPORT_DYNLINK OFF)
+set(PLATFORM_SUPPORT_DYNLINK OFF)
 
 if(WITH_OTEL)
   set(WITH_OTEL OFF)

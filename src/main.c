@@ -50,7 +50,7 @@ void sigint(int dummy) {
 }
 #endif
 
-int main(void)
+int ISERE_ENTRYPOINT_FUNCTION(void)
 {
   platform_init();
 
