@@ -1,5 +1,3 @@
-set(CONFIG_FREERTOS_SUPPORT_STATIC_ALLOCATION "n")
-
 # Create idf::{target} and idf::freertos static libraries
 idf_build_process("esp32"
   # try and trim the build; additional components
