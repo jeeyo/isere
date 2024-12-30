@@ -12,7 +12,9 @@ extern "C" {
 
 #if defined(__linux__)
 #include <poll.h>
-#elif defined(ISERE_WITH_LWIP)
+#endif
+
+#if !defined(__linux__)
 #include "lwip/sockets.h"
 #endif
 

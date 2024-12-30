@@ -1,6 +1,6 @@
 {
   "build": { "dockerfile": "./Dockerfile" },
-
+  "postStartCommand": "pip3 install -r 3rdparty/esp-idf/tools/requirements/requirements.core.txt",
   "customizations": {
     "vscode": {
       "extensions": ["ms-vscode.cpptools", "ms-vscode.cpptools-extension-pack", "ms-vscode.cpptools-themes", "ms-vscode.makefile-tools"]

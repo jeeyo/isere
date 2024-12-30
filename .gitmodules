@@ -26,3 +26,6 @@
 [submodule "3rdparty/opentelemetry-proto"]
 	path = 3rdparty/opentelemetry-proto
 	url = https://github.com/open-telemetry/opentelemetry-proto.git
+[submodule "3rdparty/esp-idf"]
+	path = 3rdparty/esp-idf
+	url = https://github.com/espressif/esp-idf.git

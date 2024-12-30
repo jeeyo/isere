@@ -112,9 +112,6 @@
 #define INCLUDE_xTaskAbortDelay                   1
 #define INCLUDE_xTaskGetCurrentTaskHandle         1
 
-extern void vAssertCalled( const char * const pcFileName,
-                           unsigned long ulLine );
-
 #include <assert.h>
 /* Define to trap errors during development. */
 #define configASSERT(x)                         assert(x)
