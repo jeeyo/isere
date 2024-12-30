@@ -4,7 +4,15 @@ target_include_directories(isere PRIVATE
 )
 
 # Link the static libraries to the executable
-list(APPEND LIBS idf::freertos idf::esp_event idf::esp_netif idf::lwip idf::spi_flash)
+list(APPEND LIBS
+  idf::freertos
+  idf::esp_driver_gpio
+  idf::esp_eth
+  idf::esp_event
+  idf::esp_netif
+  idf::lwip
+  idf::spi_flash
+)
 
 # Attach additional targets to the executable file for flashing,
 # linker script generation, partition_table generation, etc.
