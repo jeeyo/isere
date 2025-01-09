@@ -83,14 +83,13 @@ Prerequisites:
 - python3
   - [protobuf package](https://pypi.org/project/protobuf/)
   - [grpcio-tools package](https://pypi.org/project/grpcio-tools/)
-- ninja (optional for building c-capnproto)
 
 ### Install dependencies
 
 #### macOS
 
 ```zsh
-brew install gcc cmake make libtool protobuf ninja
+brew install gcc cmake make libtool protobuf
 ```
 
 If you want to build unit tests, you also need to install CppUTest
@@ -103,7 +102,7 @@ export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
 #### Debian / Ubuntu
 
 ```bash
-sudo apt-get install -y build-essential make cmake xxd protobuf-compiler ninja-build
+sudo apt-get install -y build-essential make cmake xxd protobuf-compiler
 ```
 
 For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk and gcc](https://cpputest.github.io/) section on CppUTest website.
