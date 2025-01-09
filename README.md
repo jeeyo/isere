@@ -51,15 +51,13 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
   - [ ] Serial-to-LogStash integration
 - [ ] Memory Leak Check
 - [ ] Valgrind
-- [ ] Optimization
-  - [ ] less libc usage
 - [ ] Project Template
 - [ ] Low-power mode
 - [x] Benchmark
 - [ ] Doxygen
 - [ ] Port
   - [x] Raspberry Pi Pico 2 (RP2350)
-  - [ ] ESP32?
+  - [ ] ESP32 Ethernet Kit (ESP32-WROVER-E) [Pull Request #28](https://github.com/jeeyo/isere/pull/28)
 - [ ] Monitoring
   - [ ] CPU Usage ([vTaskGetRunTimeStats](https://www.freertos.org/rtos-run-time-stats.html))
   - [ ] Memory Usage ([vPortGetHeapStats](https://www.freertos.org/a00111.html))
@@ -68,7 +66,10 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 
 - No Keep-Alive support
 - JavaScript handler function needs to be stored sequentially and addressible in a memory
-- File system is for storing static files and configuration files
+
+### Porting
+
+See [PORTING.md](PORTING.md)
 
 ### Building and Running
 
@@ -82,14 +83,13 @@ Prerequisites:
 - python3
   - [protobuf package](https://pypi.org/project/protobuf/)
   - [grpcio-tools package](https://pypi.org/project/grpcio-tools/)
-- ninja (optional for building c-capnproto)
 
 ### Install dependencies
 
 #### macOS
 
 ```zsh
-brew install gcc cmake make libtool protobuf ninja
+brew install gcc cmake make libtool protobuf
 ```
 
 If you want to build unit tests, you also need to install CppUTest
@@ -102,7 +102,7 @@ export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
 #### Debian / Ubuntu
 
 ```bash
-sudo apt-get install -y build-essential make cmake xxd protobuf-compiler ninja-build
+sudo apt-get install -y build-essential make cmake xxd protobuf-compiler
 ```
 
 For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk and gcc](https://cpputest.github.io/) section on CppUTest website.
@@ -125,7 +125,7 @@ make -j
 |-|-|-|-|
 |TARGET_PLATFORM|Target platform to build isère executable for|linux, pico2|linux|
 |DEBUG|Whether to build isère executable with debug symbol|off, on|off|
-|JS_RUNTIME|JavaScript runtime to execute handler function|jerryscript, quickjs|jerryscript|
+|JS_RUNTIME|JavaScript runtime to execute handler function|jerryscript, quickjs|quickjs|
 |WITH_OTEL|Whether to send metrics to OpenTelemetry Collector|off, on|off|
 |OTEL_HOST|OpenTelemetry Collector OLTP/HTTP Host||"127.0.0.1"|
 |OTEL_PORT|OpenTelemetry Collector OLTP/HTTP Port||4318|
