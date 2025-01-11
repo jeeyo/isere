@@ -343,7 +343,7 @@ int isere_httpd_init(isere_httpd_t *httpd,
   uv__queue_init(&httpd->js_queue);
 
   // start httpd task
-  if (xTaskCreate(__httpd_task, "httpd", ISERE_HTTPD_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &httpd->tsk) != pdPASS) {
+  if (xTaskCreate(__httpd_task, "httpd", ISERE_HTTPD_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, &httpd->tsk) != pdPASS) {
     logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
     return -1;
   }

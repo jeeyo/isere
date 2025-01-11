@@ -23,7 +23,7 @@ static void __isere_tusb_task(void *param);
 
 int isere_tcp_init(isere_tcp_t *tcp)
 {
-  if (xTaskCreate(__isere_tusb_task, "usb", 512, NULL, tskIDLE_PRIORITY + 3, &__tusb_task_handle) != pdPASS) {
+  if (xTaskCreate(__isere_tusb_task, "usb", 512, NULL, tskIDLE_PRIORITY + 6, &__tusb_task_handle) != pdPASS) {
     return -1;
   }
 

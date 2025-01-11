@@ -1,5 +1,3 @@
-# FROM espressif/idf:release-v5.4 AS esp-idf
-
 FROM ubuntu
 
 SHELL ["/bin/bash", "-c"]

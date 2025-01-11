@@ -119,8 +119,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#define TCPIP_THREAD_PRIO               (tskIDLE_PRIORITY + 4)
-#define DEFAULT_THREAD_PRIO             (tskIDLE_PRIORITY + 4)
+#define TCPIP_THREAD_PRIO               (tskIDLE_PRIORITY + 7)
+#define DEFAULT_THREAD_PRIO             (tskIDLE_PRIORITY + 7)
 
 #define LWIP_TCPIP_CORE_LOCKING         1
 #define LWIP_TCPIP_CORE_LOCKING_INPUT   1
