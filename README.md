@@ -66,6 +66,7 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 
 - No Keep-Alive support
 - JavaScript handler function needs to be stored sequentially and addressible in a memory
+- Pico 2 may act as DHCP Server, but it doesn't have any routing information, making it unable to connect to external OpenTelemetry Collector
 
 ### Porting
 
