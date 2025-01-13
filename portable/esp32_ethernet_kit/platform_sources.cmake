@@ -1,5 +1,5 @@
 list(APPEND SOURCES
-  portable/${TARGET_PLATFORM}/src/ethernet_init.c
+  portable/${TARGET_PLATFORM}/src/ethernet.c
 )
 
 # Create idf::{target} and idf::freertos static libraries

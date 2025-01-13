@@ -1,7 +1,9 @@
 #include "tcp.h"
+#include "ethernet.h"
 
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "ethernet.h"
 
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
@@ -12,6 +14,8 @@ static uint32_t __num_of_tcp_conns = 0;
 
 int isere_tcp_init(isere_tcp_t *tcp)
 {
+  ethernet_init();
+
   esp_netif_init();
   esp_event_loop_create_default();
   // dhcpd_init();
@@ -22,6 +26,9 @@ int isere_tcp_init(isere_tcp_t *tcp)
 
 int isere_tcp_deinit(isere_tcp_t *tcp)
 {
+  esp_event_loop_delete_default();
+  esp_netif_deinit();
+  ethernet_deinit();
   return 0;
 }
 

@@ -84,6 +84,7 @@
                 "${workspaceFolder}/3rdparty/nanopb",
                 "${workspaceFolder}/build/config",
                 "${workspaceFolder}/3rdparty/esp-idf/components/esp_common/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/esp_event/include",
                 "${workspaceFolder}/3rdparty/esp-idf/components/esp_partition/include",
                 "${workspaceFolder}/3rdparty/esp-idf/components/nvs_flash/include",
                 "${workspaceFolder}/3rdparty/esp-idf/components/newlib/platform_include",
