@@ -66,8 +66,8 @@ static esp_netif_t *eth_start(void)
   esp_netif_config.if_desc = EXAMPLE_NETIF_DESC_ETH;
   esp_netif_config.route_prio = 64;
   esp_netif_config_t netif_config = {
-      .base = &esp_netif_config,
-      .stack = ESP_NETIF_NETSTACK_DEFAULT_ETH
+    .base = &esp_netif_config,
+    .stack = ESP_NETIF_NETSTACK_DEFAULT_ETH
   };
   esp_netif_t *netif = esp_netif_new(&netif_config);
   assert(netif);
@@ -84,16 +84,28 @@ static esp_netif_t *eth_start(void)
   esp32_emac_config.smi_gpio.mdio_num = CONFIG_EXAMPLE_ETH_MDIO_GPIO;
   s_mac = esp_eth_mac_new_esp32(&esp32_emac_config, &mac_config);
 
+  // IP101GRI PHY
+  s_phy = esp_eth_phy_new_ip101(&phy_config);
+
   // Install Ethernet driver
   esp_eth_config_t config = ETH_DEFAULT_CONFIG(s_mac, s_phy);
-  ESP_ERROR_CHECK(esp_eth_driver_install(&config, &s_eth_handle));
+  if (esp_eth_driver_install(&config, &s_eth_handle) != ESP_OK) {
+    ESP_LOGE(TAG, "Ethernet driver install failed");
+    return NULL;
+  }
 
   // combine driver with netif
-  s_eth_glue = esp_eth_new_netif_glue(s_eth_handle);
+  if ((s_eth_glue = esp_eth_new_netif_glue(s_eth_handle)) == NULL) {
+    ESP_LOGE(TAG, "Failed to create netif glue");
+    return NULL;
+  }
   esp_netif_attach(netif, s_eth_glue);
 
   // Register user defined event handers
-  ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &eth_on_got_ip, NULL));
+  if (esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &eth_on_got_ip, NULL) != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to register IP_EVENT_ETH_GOT_IP event handler");
+    return NULL;
+  }
 
   esp_eth_start(s_eth_handle);
   return netif;
@@ -119,6 +131,14 @@ esp_err_t ethernet_init(void)
   if (s_semph_get_ip_addrs == NULL) {
     return ESP_ERR_NO_MEM;
   }
+
+  if (eth_start() == NULL) {
+    return ESP_FAIL;
+  }
+
+  ESP_LOGI(TAG, "Waiting for IP(s).");
+  xSemaphoreTake(s_semph_get_ip_addrs, portMAX_DELAY);
+
   return ESP_OK;
 }
 

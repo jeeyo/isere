@@ -3,6 +3,11 @@ set(PLATFORM_SDK_HAS_LWIP ON) # esp-idf has LwIP
 set(PLATFORM_ENTRYPOINT app_main)
 set(PLATFORM_SUPPORT_DYNLINK OFF)
 
+if(JS_RUNTIME STREQUAL quickjs)
+  set(JS_RUNTIME jerryscript)
+  message(WARNING "Target 'esp32_ethernet_kit' doesn't support QuickJS -- switching to JerryScript")
+endif()
+
 SET(JERRY_GLOBAL_HEAP_SIZE "(70)" CACHE STRING "")
 
 set(ESPIDF_DIR ./3rdparty/esp-idf)

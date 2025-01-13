@@ -2,6 +2,7 @@
 #include "ethernet.h"
 
 #include "esp_event.h"
+#include "esp_log.h"
 #include "esp_netif.h"
 #include "ethernet.h"
 
@@ -14,10 +15,15 @@ static uint32_t __num_of_tcp_conns = 0;
 
 int isere_tcp_init(isere_tcp_t *tcp)
 {
+  ESP_LOGI("tcp", "Initializing tcp module");
+
+  ESP_LOGI("tcp", "Initializing esp-netif");
+  esp_netif_init();
+  ESP_LOGI("tcp", "Creating default event loop");
+  esp_event_loop_create_default();
+  ESP_LOGI("tcp", "Initializing ethernet");
   ethernet_init();
 
-  esp_netif_init();
-  esp_event_loop_create_default();
   // dhcpd_init();
   initialized = 1;
 
@@ -26,9 +32,9 @@ int isere_tcp_init(isere_tcp_t *tcp)
 
 int isere_tcp_deinit(isere_tcp_t *tcp)
 {
+  ethernet_deinit();
   esp_event_loop_delete_default();
   esp_netif_deinit();
-  ethernet_deinit();
   return 0;
 }
 

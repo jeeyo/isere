@@ -4,7 +4,7 @@ set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
 # build configuration
 option(DEBUG "Debug mode" OFF)
-set(JS_RUNTIME jerryscript CACHE STRING "JavaScript runtime") # jerryscript (default), quickjs
+set(JS_RUNTIME quickjs CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
 
 option(WITH_OTEL "OpenTelemetry Exporter enabled" OFF)
 set(OTEL_HOST "127.0.0.1" CACHE STRING "OpenTelemetry Collector OTLP/HTTP host")
