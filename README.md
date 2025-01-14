@@ -15,7 +15,7 @@ A serverless platform aimed to be running on Microcontrollers, powered by FreeRT
 - [x] HTTP server
   - [x] Event Loop (no Keep-Alive support)
     - [x] Socket
-    - [x] QuickJS
+    - [x] JavaScript Runtime
   - [ ] Static Files (?)
 - [ ] Unit tests
   - [ ] loader
