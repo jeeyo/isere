@@ -96,7 +96,7 @@ int isere_otel_init(isere_otel_t *otel, isere_logger_t *logger, isere_rtc_t *rtc
   uv__queue_init(&otel->loop.watcher_queue);
 
   // start otel task
-  if (xTaskCreate(__otel_task, "otel", ISERE_OTEL_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 2, &otel->tsk) != pdPASS) {
+  if (xTaskCreate(__otel_task, "otel", ISERE_OTEL_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, &otel->tsk) != pdPASS) {
     logger->error(ISERE_OTEL_LOG_TAG, "Unable to create otel task");
     return -1;
   }

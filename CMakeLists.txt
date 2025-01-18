@@ -11,12 +11,10 @@ set(OTEL_HOST "127.0.0.1" CACHE STRING "OpenTelemetry Collector OTLP/HTTP host")
 set(OTEL_PORT 4318 CACHE STRING "OpenTelemetry Collector OTLP/HTTP port")
 
 # platform-specific configuration
-option(WITH_LWIP "Include LwIP" OFF)
-option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
-
-include(portable/${TARGET_PLATFORM}/platform_features.cmake)
-
-project(isere C CXX ASM)
+option(PLATFORM_SDK_HAS_FREERTOS "Platform SDK contains FreeRTOS" OFF)
+option(PLATFORM_SDK_HAS_LWIP "Platform SDK contains LwIP" OFF)
+set(PLATFORM_ENTRYPOINT main CACHE STRING "Platform entrypoint function")
+option(PLATFORM_SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
 
 set(FREERTOS_DIR ./3rdparty/FreeRTOS)
 set(QUICKJS_DIR ./3rdparty/quickjs)
@@ -27,6 +25,10 @@ set(LIBYUAREL_DIR ./3rdparty/libyuarel)
 set(NANOPB_DIR ./3rdparty/nanopb)
 set(OTELPROTO_DIR ./3rdparty/opentelemetry-proto)
 set(JS_DIR ./js)
+
+include(portable/${TARGET_PLATFORM}/platform_features.cmake)
+
+project(isere C CXX ASM)
 
 set(SOURCES )
 set(LIBS )
@@ -44,14 +46,6 @@ list(APPEND SOURCES
   ./portable/${TARGET_PLATFORM}/src/rtc.c
   ./portable/${TARGET_PLATFORM}/src/tcp.c
   ./portable/${TARGET_PLATFORM}/src/platform.c
-  ${FREERTOS_DIR}/croutine.c
-  ${FREERTOS_DIR}/event_groups.c
-  ${FREERTOS_DIR}/list.c
-  ${FREERTOS_DIR}/queue.c
-  ${FREERTOS_DIR}/stream_buffer.c
-  ${FREERTOS_DIR}/tasks.c
-  ${FREERTOS_DIR}/timers.c
-  ${FREERTOS_DIR}/portable/MemMang/heap_3.c
   ${LLHTTP_DIR}/src/api.c
   ${LLHTTP_DIR}/src/http.c
   ${LLHTTP_DIR}/src/llhttp.c
@@ -60,15 +54,29 @@ list(APPEND SOURCES
 
 include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
 
-if(WITH_LWIP)
+if(NOT PLATFORM_SDK_HAS_FREERTOS)
+  list(APPEND SOURCES  
+    ${FREERTOS_DIR}/croutine.c
+    ${FREERTOS_DIR}/event_groups.c
+    ${FREERTOS_DIR}/list.c
+    ${FREERTOS_DIR}/queue.c
+    ${FREERTOS_DIR}/stream_buffer.c
+    ${FREERTOS_DIR}/tasks.c
+    ${FREERTOS_DIR}/timers.c
+    ${FREERTOS_DIR}/portable/MemMang/heap_3.c
+  )
+endif()
+
+if(NOT PLATFORM_SDK_HAS_LWIP)
   set(LWIP_INCLUDE_DIRS
     ${LWIP_DIR}/src/include
     ./portable/${TARGET_PLATFORM}/include
+    ${FREERTOS_DIR}/include
   )
   include(${LWIP_DIR}/src/Filelists.cmake)
 endif()
 
-if(SUPPORT_DYNLINK)
+if(PLATFORM_SUPPORT_DYNLINK)
   add_executable(handler handler.c)
   set_target_properties(handler PROPERTIES PREFIX "")
   set_target_properties(handler PROPERTIES SUFFIX ".so")
@@ -113,6 +121,7 @@ add_custom_command(
 add_executable(isere ${SOURCES} ./src/main.c)
 
 target_compile_definitions(isere PRIVATE
+  ISERE_ENTRYPOINT_FUNCTION=${PLATFORM_ENTRYPOINT}
   ISERE_RUNTIME_NAME="${JS_RUNTIME}"
   __STDC_FORMAT_MACROS=1)
 
@@ -157,7 +166,7 @@ elseif(JS_RUNTIME STREQUAL jerryscript)
   )
 endif()
 
-if(SUPPORT_DYNLINK)
+if(PLATFORM_SUPPORT_DYNLINK)
   target_compile_definitions(isere PRIVATE ISERE_USE_DYNLINK)
 endif()
 
@@ -183,18 +192,23 @@ endif()
 
 include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)
 
+if(NOT PLATFORM_SDK_HAS_FREERTOS)
+  target_include_directories(isere PRIVATE
+    ${FREERTOS_DIR}/include
+  )
+endif()
+
 target_include_directories(isere PRIVATE
   ./include
   ./portable/include
   ./portable/${TARGET_PLATFORM}/include
   ./schemas
-  ${FREERTOS_DIR}/include
   ${QUICKJS_DIR}
   ${LLHTTP_DIR}/include
   ${LIBYUAREL_DIR}
 )
 
-if(WITH_LWIP)
+if(NOT PLATFORM_SDK_HAS_LWIP)
   target_include_directories(isere PRIVATE
     ${LWIP_DIR}/src/include
   )
@@ -202,7 +216,6 @@ if(WITH_LWIP)
     lwipallapps
     lwipcore
   )
-  target_compile_definitions(isere PRIVATE ISERE_WITH_LWIP)
 endif()
 
 target_link_libraries(isere PRIVATE ${LIBS})

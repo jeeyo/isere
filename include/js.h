@@ -6,7 +6,6 @@ extern "C" {
 #endif
 
 #include "FreeRTOS.h"
-#include "croutine.h"
 #include "timers.h"
 
 #ifdef ISERE_RUNTIME_QUICKJS

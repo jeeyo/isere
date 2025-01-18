@@ -64,6 +64,46 @@
                 "databaseFilename": ""
             },
             "configurationProvider": "ms-vscode.cpptools"
+        },
+        {
+            "name": "ESP32 Ethernet Kit",
+            "intelliSenseMode": "gcc-x64",
+            "includePath": [
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/portable/include",
+                "${workspaceFolder}/portable/esp32_ethernet_kit/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/freertos/FreeRTOS-Kernel-SMP/include/freertos",
+                "${workspaceFolder}/3rdparty/esp-idf/components/freertos/FreeRTOS-Kernel-SMP/portable/xtensa/include/freertos",
+                "${workspaceFolder}/3rdparty/esp-idf/components/freertos/config/include/freertos",
+                "${workspaceFolder}/3rdparty/esp-idf/components/freertos/config/xtensa/include",
+                "${workspaceFolder}/3rdparty/quickjs",
+                "${workspaceFolder}/3rdparty/jerryscript/jerry-core/include",
+                "${workspaceFolder}/3rdparty/jerryscript/jerry-ext/include",
+                "${workspaceFolder}/3rdparty/llhttp/include",
+                "${workspaceFolder}/3rdparty/libyuarel",
+                "${workspaceFolder}/3rdparty/nanopb",
+                "${workspaceFolder}/build/config",
+                "${workspaceFolder}/3rdparty/esp-idf/components/esp_common/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/esp_event/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/esp_partition/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/nvs_flash/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/newlib/platform_include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/xtensa/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/xtensa/esp32/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/log/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/esp_eth/include",
+                "${workspaceFolder}/3rdparty/esp-idf/components/esp_netif/include"
+            ],
+            "cStandard": "c99",
+            "cppStandard": "c++17",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
+            "configurationProvider": "ms-vscode.cpptools"
         }
     ],
     "version": 4

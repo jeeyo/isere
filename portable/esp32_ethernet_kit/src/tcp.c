@@ -1,37 +1,40 @@
 #include "tcp.h"
+#include "ethernet.h"
 
-#include "pico/multicore.h"
-#include "hardware/watchdog.h"
-#include "hardware/structs/watchdog.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
+#include "esp_event.h"
+#include "esp_log.h"
+#include "esp_netif.h"
+#include "ethernet.h"
 
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
 
-#include "tusb_lwip_glue.h"
-
 static uint8_t initialized = 0;
-
-static TaskHandle_t __tusb_task_handle;
 
 static uint32_t __num_of_tcp_conns = 0;
 
-static void __isere_tusb_task(void *param);
-
 int isere_tcp_init(isere_tcp_t *tcp)
 {
-  if (xTaskCreate(__isere_tusb_task, "usb", 512, NULL, tskIDLE_PRIORITY + 6, &__tusb_task_handle) != pdPASS) {
-    return -1;
-  }
+  ESP_LOGI("tcp", "Initializing tcp module");
+
+  ESP_LOGI("tcp", "Initializing esp-netif");
+  esp_netif_init();
+  ESP_LOGI("tcp", "Creating default event loop");
+  esp_event_loop_create_default();
+  ESP_LOGI("tcp", "Initializing ethernet");
+  ethernet_init();
+
+  // dhcpd_init();
+  initialized = 1;
 
   return 0;
 }
 
 int isere_tcp_deinit(isere_tcp_t *tcp)
 {
+  ethernet_deinit();
+  esp_event_loop_delete_default();
+  esp_netif_deinit();
   return 0;
 }
 
@@ -154,23 +157,5 @@ int isere_tcp_poll(struct pollfd *fds, unsigned int nfds, int timeout)
 
 int isere_tcp_is_initialized()
 {
-  return initialized;
-}
-
-static void __isere_tusb_task(void *param)
-{
-  rndis_tusb_init();
-
-  lwip_freertos_init();
-  wait_for_netif_is_up();
-  dhcpd_init();
-  initialized = 1;
-
-  // TODO: should_exit
-  while (1)
-  {
-    tud_task();
-  }
-
-  vTaskDelete(NULL);
+  return 1;
 }
