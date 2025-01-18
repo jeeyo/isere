@@ -10,6 +10,7 @@ list(APPEND LIBS
   idf::esp_eth
   idf::esp_event
   idf::esp_netif
+  idf::esp_psram
   idf::lwip
   idf::spi_flash
 )
