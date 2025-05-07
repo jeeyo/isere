@@ -40,7 +40,15 @@ int isere_tcp_deinit(isere_tcp_t *tcp)
 
 int isere_tcp_socket_new()
 {
+  if (__num_of_tcp_conns >= ISERE_TCP_MAX_CONNECTIONS) {
+    return -1;
+  }
+
   int fd = lwip_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  if (fd >= 0) {
+    __num_of_tcp_conns++;
+  }
+
   return fd;
 }
 
