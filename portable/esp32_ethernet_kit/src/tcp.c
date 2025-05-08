@@ -24,7 +24,6 @@ int isere_tcp_init(isere_tcp_t *tcp)
   ESP_LOGI("tcp", "Initializing ethernet");
   ethernet_init();
 
-  // dhcpd_init();
   initialized = 1;
 
   return 0;
