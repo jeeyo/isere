@@ -8,6 +8,8 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "freertos/idf_additions.h"
+#include "esp_log.h"
 
 #include "runtime.h"
 
@@ -239,7 +241,7 @@ static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int e
   }
 
   if ((conn->recvd + len) > ISERE_HTTPD_MAX_HTTP_REQUEST_LEN) {
-    __httpd->logger->warning(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
+    ESP_LOGW(ISERE_HTTPD_LOG_TAG, "Request too large: Got %d bytes", conn->recvd + len);
 
     const char *buf = "HTTP/1.1 413 Content Too Large\r\n\r\n";
     isere_tcp_write(conn->fd, buf, strlen(buf));
@@ -251,7 +253,7 @@ static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int e
   // pass the new data to http parser
   enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
   if (err != HPE_OK) {
-    __httpd->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
+    ESP_LOGE(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
     __httpd_cleanup_conn(conn);
     return;
   }
@@ -276,7 +278,8 @@ static void __on_connected(struct uv_loop_s* loop, struct uv__io_s* w, unsigned 
 
   // __httpd->logger->info(ISERE_HTTPD_LOG_TAG, "Received connection from %s", ipaddr);
 
-  httpd_conn_t *conn = (httpd_conn_t *)pvPortMalloc(sizeof(httpd_conn_t));
+  // httpd_conn_t *conn = (httpd_conn_t *)pvPortMalloc(sizeof(httpd_conn_t));
+  httpd_conn_t *conn = (httpd_conn_t *)heap_caps_malloc(sizeof(httpd_conn_t), MALLOC_CAP_SPIRAM);
   if (conn == NULL) {
     isere_tcp_close(newfd);
     return;
@@ -343,8 +346,8 @@ int isere_httpd_init(isere_httpd_t *httpd,
   uv__queue_init(&httpd->js_queue);
 
   // start httpd task
-  if (xTaskCreate(__httpd_task, "httpd", ISERE_HTTPD_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, &httpd->tsk) != pdPASS) {
-    logger->error(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
+  if (xTaskCreatePinnedToCore(__httpd_task, "httpd", ISERE_HTTPD_TASK_STACK_SIZE, NULL, tskIDLE_PRIORITY + 5, &httpd->tsk, 0) != pdPASS) {
+    ESP_LOGE(ISERE_HTTPD_LOG_TAG, "Unable to create httpd task");
     return -1;
   }
 
@@ -397,6 +400,10 @@ static void __httpd_task(void *param)
     goto exit;
   }
 
+  __httpd->should_exit = 0; // TODO: hack for `should_exit` magically become `48`
+
+  ESP_LOGI(ISERE_HTTPD_LOG_TAG, "3 __httpd->should_exit = %d", __httpd->should_exit);
+
   if (isere_tcp_socket_set_reuse(__httpd->serverfd) < 0) {
     goto exit;
   }
@@ -418,7 +425,7 @@ static void __httpd_task(void *param)
   isere_otel_create_counter("isere_accepted_connections", "number of accepted connections", "", CUMULATIVE, &__httpd->connections_counter);
 #endif /* ISERE_WITH_OTEL */
 
-  __httpd->logger->info(ISERE_HTTPD_LOG_TAG, "Listening on port %d", ISERE_HTTPD_PORT);
+  ESP_LOGI(ISERE_HTTPD_LOG_TAG, "Listening on port %d", ISERE_HTTPD_PORT);
 
   while (!__httpd->should_exit)
   {
@@ -469,7 +476,7 @@ fail:
   }
 
 exit:
-  __httpd->logger->error(ISERE_HTTPD_LOG_TAG, "httpd task was unexpectedly closed");
+  ESP_LOGE(ISERE_HTTPD_LOG_TAG, "httpd task was unexpectedly closed");
   uv__io_stop(&__httpd->loop, &__httpd->w, UV_POLLIN);
   __httpd->should_exit = 1;
   vTaskDelete(NULL);
