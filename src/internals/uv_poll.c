@@ -32,8 +32,7 @@
 
 #include "tcp.h"
 
-#include "FreeRTOS.h"
-#include "pvPortRealloc.h"
+#include "esp_heap_caps.h"
 
 /* Allocate or dynamically resize our poll fds array.  */
 static void uv__pollfds_maybe_resize(uv_loop_t* loop) {
@@ -45,7 +44,12 @@ static void uv__pollfds_maybe_resize(uv_loop_t* loop) {
     return;
 
   n = loop->poll_fds_size ? loop->poll_fds_size * 2 : 64;
-  p = pvPortRealloc(loop->poll_fds, n * sizeof(*loop->poll_fds));
+  // p = realloc(loop->poll_fds, n * sizeof(*loop->poll_fds));
+
+  if (loop->poll_fds == NULL)
+    p = heap_caps_malloc(n * sizeof(*loop->poll_fds), MALLOC_CAP_SPIRAM);
+  else
+    p = heap_caps_realloc(loop->poll_fds, n * sizeof(*loop->poll_fds), MALLOC_CAP_SPIRAM);
   if (p == NULL)
     abort();
 
@@ -152,8 +156,13 @@ static void maybe_resize(uv_loop_t* loop, unsigned int len) {
   }
 
   nwatchers = next_power_of_two(len + 2) - 2;
-  watchers = pvPortRealloc(loop->watchers,
-                          (nwatchers + 2) * sizeof(loop->watchers[0]));
+  // watchers = realloc(loop->watchers,
+  //                         (nwatchers + 2) * sizeof(loop->watchers[0]));
+  if (loop->watchers == NULL)
+    watchers = heap_caps_malloc((nwatchers + 2) * sizeof(loop->watchers[0]), MALLOC_CAP_SPIRAM);
+  else
+    watchers = heap_caps_realloc(loop->watchers,
+                            (nwatchers + 2) * sizeof(loop->watchers[0]), MALLOC_CAP_SPIRAM);
 
   if (watchers == NULL)
     abort();
@@ -171,6 +180,8 @@ void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
   assert(0 != events);
   assert(w->fd >= 0);
   assert(w->fd < INT_MAX);
+
+  // loop->watchers = NULL;
 
   w->pevents |= events;
   maybe_resize(loop, w->fd + 1);
