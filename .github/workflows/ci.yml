@@ -101,6 +101,11 @@ jobs:
             wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz
             tar xf toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz -C ${ZEPHYR_SDK_INSTALL_DIR}
             rm toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz
+            # x86_64-zephyr-elf is the host-native toolchain; Zephyr's FindHostTools
+            # requires it even when cross-compiling for ARM (used for DTS utilities etc.)
+            wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/toolchain_gnu_linux-x86_64_x86_64-zephyr-elf.tar.xz
+            tar xf toolchain_gnu_linux-x86_64_x86_64-zephyr-elf.tar.xz -C ${ZEPHYR_SDK_INSTALL_DIR}
+            rm toolchain_gnu_linux-x86_64_x86_64-zephyr-elf.tar.xz
           fi
 
       - name: Install Rust toolchain
