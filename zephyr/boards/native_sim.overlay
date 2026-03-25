@@ -1,0 +1,4 @@
+/*
+ * Device tree overlay for native_sim development target
+ * Uses host networking via TAP interface
+ */
