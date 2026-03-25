@@ -6,11 +6,11 @@
 #
 # Defaults:
 #   input:  js/handler.js
-#   output: zephyr/js/handler.bin
+#   output: js/handler.bin
 #
 # Prerequisites:
 #   - 32-bit libc dev package (e.g., apt install gcc-multilib)
-#   - QuickJS source in 3rdparty/quickjs/
+#   - QuickJS submodule initialized (git submodule update --init)
 
 set -e
 
@@ -18,9 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 INPUT="${1:-$ROOT_DIR/js/handler.js}"
-OUTPUT="${2:-$ROOT_DIR/zephyr/js/handler.bin}"
+OUTPUT="${2:-$ROOT_DIR/js/handler.bin}"
 
-QUICKJS_DIR="$ROOT_DIR/zephyr/c_libs/quickjs"
+QUICKJS_DIR="$ROOT_DIR/c_libs/quickjs"
 BUILD_DIR="$ROOT_DIR/build/bytecode_compiler"
 
 mkdir -p "$BUILD_DIR"

@@ -9,7 +9,7 @@
 //
 // To use bytecode mode:
 // 1. Build the `qjsc_compile` host tool (see scripts/compile_bytecode.sh)
-// 2. Run: qjsc_compile js/handler.js zephyr/js/handler.bin
+// 2. Run: ./scripts/compile_bytecode.sh
 // 3. Build with: -DHANDLER_BYTECODE=1 (or set the feature flag)
 
 /// The JavaScript handler source code, embedded at compile time.

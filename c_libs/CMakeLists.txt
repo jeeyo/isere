@@ -1,7 +1,7 @@
 # Build QuickJS as a Zephyr C library.
 #
-# QuickJS source files are expected in the quickjs/ subdirectory.
-# Either copy them from 3rdparty/quickjs or add as a git submodule.
+# QuickJS source is in the quickjs/ subdirectory (git submodule from
+# https://github.com/bellard/quickjs).
 #
 # This builds QuickJS with custom allocator hooks that bridge to
 # Zephyr's k_malloc/k_free.
