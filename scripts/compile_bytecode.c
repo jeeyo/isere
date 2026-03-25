@@ -9,15 +9,15 @@
  *   cc -o compile_bytecode scripts/compile_bytecode.c \
  *      c_libs/quickjs/quickjs.c c_libs/quickjs/libregexp.c \
  *      c_libs/quickjs/libunicode.c c_libs/quickjs/cutils.c \
- *      -Ic_libs/quickjs -DCONFIG_VERSION=\"0.1.0\" \
- *      -DCONFIG_BIGNUM -D_GNU_SOURCE -lm -lpthread
+ *      c_libs/quickjs/dtoa.c \
+ *      -Ic_libs/quickjs -DCONFIG_VERSION=\"2025-09-13\" -D_GNU_SOURCE -lm -lpthread
  *
  * For 32-bit bytecode (required for RP2350):
  *   cc -m32 -o compile_bytecode32 scripts/compile_bytecode.c \
  *      c_libs/quickjs/quickjs.c c_libs/quickjs/libregexp.c \
  *      c_libs/quickjs/libunicode.c c_libs/quickjs/cutils.c \
- *      -Ic_libs/quickjs -DCONFIG_VERSION=\"0.1.0\" \
- *      -DCONFIG_BIGNUM -D_GNU_SOURCE -lm -lpthread
+ *      c_libs/quickjs/dtoa.c \
+ *      -Ic_libs/quickjs -DCONFIG_VERSION=\"2025-09-13\" -D_GNU_SOURCE -lm -lpthread
  *
  * Usage:
  *   ./compile_bytecode js/handler.js js/handler.bin

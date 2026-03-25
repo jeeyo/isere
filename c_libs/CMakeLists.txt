@@ -14,6 +14,7 @@ zephyr_library_sources(
     quickjs/libregexp.c
     quickjs/libunicode.c
     quickjs/cutils.c
+    quickjs/dtoa.c
     quickjs_shim.c
 )
 
@@ -24,8 +25,7 @@ zephyr_library_include_directories(
 # QuickJS compile definitions for embedded use
 zephyr_library_compile_definitions(
     _GNU_SOURCE
-    CONFIG_BIGNUM
-    CONFIG_VERSION="0.1.0"
+    CONFIG_VERSION="2025-09-13"
     EMSCRIPTEN  # Disables OS-specific features in QuickJS
 )
 

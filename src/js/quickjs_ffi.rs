@@ -16,16 +16,67 @@ use core::ffi::{c_char, c_int, c_void};
 pub enum JSRuntime {}
 pub enum JSContext {}
 
-// JSValue is a tagged union in QuickJS. On 32-bit ARM it's typically 8 bytes.
-// The exact layout depends on QuickJS configuration. We use a repr(C) struct
-// matching the QuickJS NaN-boxing representation.
+// JSValue representation depends on the platform:
+//
+// - 32-bit (RP2350): JS_NAN_BOXING is enabled. JSValue = uint64_t.
+//   Tag is in the upper 32 bits, value/pointer in the lower 32 bits.
+//   Layout: (tag << 32) | value
+//
+// - 64-bit (native_sim): JSValue = struct { JSValueUnion u; int64_t tag; }
+//   A 16-byte struct with union + tag.
+//
+// We use conditional compilation to match the target platform.
+
+// JS value tags (same on both layouts)
+pub const JS_TAG_INT: i32 = 0;
+pub const JS_TAG_BOOL: i32 = 1;
+pub const JS_TAG_NULL: i32 = 2;
+pub const JS_TAG_UNDEFINED: i32 = 3;
+pub const JS_TAG_EXCEPTION: i32 = 6;
+pub const JS_TAG_FLOAT64: i32 = 8;
+pub const JS_TAG_OBJECT: i32 = -1;
+pub const JS_TAG_STRING: i32 = -7;
+
+// --- 32-bit targets: NaN-boxed JSValue = u64 ---
+#[cfg(target_pointer_width = "32")]
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct JSValue(pub u64);
+
+#[cfg(target_pointer_width = "32")]
+impl JSValue {
+    pub const UNDEFINED: Self = Self::from_tag_val(JS_TAG_UNDEFINED, 0);
+    pub const NULL: Self = Self::from_tag_val(JS_TAG_NULL, 0);
+    pub const FALSE: Self = Self::from_tag_val(JS_TAG_BOOL, 0);
+    pub const TRUE: Self = Self::from_tag_val(JS_TAG_BOOL, 1);
+
+    const fn from_tag_val(tag: i32, val: i32) -> Self {
+        Self(((tag as u32 as u64) << 32) | (val as u32 as u64))
+    }
+
+    pub fn tag(&self) -> i32 {
+        (self.0 >> 32) as i32
+    }
+
+    pub fn is_exception(&self) -> bool { self.tag() == JS_TAG_EXCEPTION }
+    pub fn is_object(&self) -> bool { self.tag() == JS_TAG_OBJECT }
+    pub fn is_string(&self) -> bool { self.tag() == JS_TAG_STRING }
+    pub fn is_number(&self) -> bool {
+        let tag = self.tag();
+        tag == JS_TAG_INT || tag == JS_TAG_FLOAT64
+    }
+}
+
+// --- 64-bit targets: struct { JSValueUnion u; int64_t tag; } ---
+#[cfg(target_pointer_width = "64")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct JSValue {
     pub u: JSValueUnion,
-    pub tag: i32,
+    pub tag: i64,
 }
 
+#[cfg(target_pointer_width = "64")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union JSValueUnion {
@@ -34,23 +85,42 @@ pub union JSValueUnion {
     pub ptr: *mut c_void,
 }
 
-// JS value tags
-pub const JS_TAG_INT: i32 = 0;
-pub const JS_TAG_BOOL: i32 = 1;
-pub const JS_TAG_NULL: i32 = 2;
-pub const JS_TAG_UNDEFINED: i32 = 3;
-pub const JS_TAG_EXCEPTION: i32 = 6;
-pub const JS_TAG_FLOAT64: i32 = 7;
-pub const JS_TAG_OBJECT: i32 = -1;
-pub const JS_TAG_STRING: i32 = -7;
+#[cfg(target_pointer_width = "64")]
+impl JSValue {
+    pub const UNDEFINED: Self = Self {
+        u: JSValueUnion { int32: 0 },
+        tag: JS_TAG_UNDEFINED as i64,
+    };
+    pub const NULL: Self = Self {
+        u: JSValueUnion { int32: 0 },
+        tag: JS_TAG_NULL as i64,
+    };
+    pub const FALSE: Self = Self {
+        u: JSValueUnion { int32: 0 },
+        tag: JS_TAG_BOOL as i64,
+    };
+    pub const TRUE: Self = Self {
+        u: JSValueUnion { int32: 1 },
+        tag: JS_TAG_BOOL as i64,
+    };
+
+    pub fn tag(&self) -> i32 {
+        self.tag as i32
+    }
+
+    pub fn is_exception(&self) -> bool { self.tag() == JS_TAG_EXCEPTION }
+    pub fn is_object(&self) -> bool { self.tag() == JS_TAG_OBJECT }
+    pub fn is_string(&self) -> bool { self.tag() == JS_TAG_STRING }
+    pub fn is_number(&self) -> bool {
+        let tag = self.tag();
+        tag == JS_TAG_INT || tag == JS_TAG_FLOAT64
+    }
+}
 
 // JS eval flags
-pub const JS_EVAL_TYPE_GLOBAL: c_int = 0;
 pub const JS_EVAL_TYPE_MODULE: c_int = 1;
-pub const JS_EVAL_FLAG_COMPILE_ONLY: c_int = 1 << 5;
 
-// JS bytecode serialization flags
-pub const JS_WRITE_OBJ_BYTECODE: c_int = 1 << 0;
+// JS bytecode deserialization flags
 pub const JS_READ_OBJ_BYTECODE: c_int = 1 << 0;
 pub const JS_READ_OBJ_ROM_DATA: c_int = 1 << 1;
 
@@ -206,14 +276,6 @@ extern "C" {
     // Job execution (promises, async)
     pub fn JS_ExecutePendingJob(rt: *mut JSRuntime, pctx: *mut *mut JSContext) -> c_int;
 
-    // Module support
-    pub fn js_module_set_import_meta(
-        ctx: *mut JSContext,
-        func_val: JSValue,
-        use_realpath: c_int,
-        is_main: c_int,
-    );
-
     // Value duplication — wraps the static inline JS_DupValue via C shim
     // (see c_libs/quickjs_shim.c)
     pub fn isere_JS_DupValue(ctx: *mut JSContext, v: JSValue) -> JSValue;
@@ -243,13 +305,7 @@ extern "C" {
     pub fn JS_NewAtom(ctx: *mut JSContext, str: *const c_char) -> u32;
     pub fn JS_DeleteProperty(ctx: *mut JSContext, this_obj: JSValue, prop: u32, flags: c_int) -> c_int;
 
-    // Bytecode serialization/deserialization
-    pub fn JS_WriteObject(
-        ctx: *mut JSContext,
-        psize: *mut usize,
-        obj: JSValue,
-        flags: c_int,
-    ) -> *mut u8;
+    // Bytecode deserialization
     pub fn JS_ReadObject(
         ctx: *mut JSContext,
         buf: *const u8,
@@ -260,41 +316,3 @@ extern "C" {
     pub fn JS_ResolveModule(ctx: *mut JSContext, obj: JSValue) -> c_int;
 }
 
-// Helper constants matching QuickJS
-impl JSValue {
-    pub const UNDEFINED: Self = Self {
-        u: JSValueUnion { int32: 0 },
-        tag: JS_TAG_UNDEFINED,
-    };
-
-    pub const NULL: Self = Self {
-        u: JSValueUnion { int32: 0 },
-        tag: JS_TAG_NULL,
-    };
-
-    pub const FALSE: Self = Self {
-        u: JSValueUnion { int32: 0 },
-        tag: JS_TAG_BOOL,
-    };
-
-    pub const TRUE: Self = Self {
-        u: JSValueUnion { int32: 1 },
-        tag: JS_TAG_BOOL,
-    };
-
-    pub fn is_exception(&self) -> bool {
-        self.tag == JS_TAG_EXCEPTION
-    }
-
-    pub fn is_object(&self) -> bool {
-        self.tag == JS_TAG_OBJECT
-    }
-
-    pub fn is_string(&self) -> bool {
-        self.tag == JS_TAG_STRING
-    }
-
-    pub fn is_number(&self) -> bool {
-        self.tag == JS_TAG_INT || self.tag == JS_TAG_FLOAT64
-    }
-}

@@ -66,9 +66,11 @@ src/
 
 4. **Cooperative timers**: setTimeout/clearTimeout use a poll-based model (not OS timers). `TimerState` tracks expiry timestamps and fires callbacks during the JS poll loop. A global `TIMER_STATE` pointer is set before eval (safe because single-threaded).
 
-5. **Bytecode compilation**: JS handlers can be pre-compiled to QuickJS bytecode on the host (`scripts/compile_bytecode.sh`), skipping the parser at runtime. The compiler must be built for 32-bit (`-m32`) to match RP2350's pointer size. Enabled via `--features bytecode` in Cargo.
+5. **Mandatory bytecode compilation**: JS handlers are always pre-compiled to QuickJS bytecode at build time (CMakeLists.txt runs `compile_bytecode` automatically). The device never parses JS source — only loads bytecode via `JS_ReadObject()` + `JS_EvalFunction()`. This saves ~30-50KB of parser code. The host compiler must be built for 32-bit (`-m32`) to match RP2350's pointer size.
 
-6. **Board-specific networking**: `prj.conf` has shared settings. Networking config is in `boards/*.conf` — Pico 2 uses USB CDC-ECM with DHCP server, native_sim uses TAP interface.
+6. **JSValue ABI is platform-dependent**: On 32-bit targets (RP2350), QuickJS uses NaN-boxing where `JSValue = uint64_t`. On 64-bit targets (native_sim), it's `struct { union u; int64_t tag; }`. The FFI bindings use `#[cfg(target_pointer_width)]` to match the correct layout.
+
+7. **Board-specific networking**: `prj.conf` has shared settings. Networking config is in `boards/*.conf` — Pico 2 uses USB CDC-ECM with DHCP server, native_sim uses TAP interface.
 
 ## Important notes
 

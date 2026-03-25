@@ -36,9 +36,9 @@ cc -m32 -O2 -o "$BUILD_DIR/compile_bytecode" \
     "$QUICKJS_DIR/libregexp.c" \
     "$QUICKJS_DIR/libunicode.c" \
     "$QUICKJS_DIR/cutils.c" \
+    "$QUICKJS_DIR/dtoa.c" \
     -I"$QUICKJS_DIR" \
-    -DCONFIG_VERSION=\"0.1.0\" \
-    -DCONFIG_BIGNUM \
+    -DCONFIG_VERSION=\"2025-09-13\" \
     -D_GNU_SOURCE \
     -lm -lpthread
 

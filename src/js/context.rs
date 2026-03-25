@@ -320,39 +320,11 @@ impl JsContext {
         }
     }
 
-    /// Evaluate the handler module from JavaScript source and set up the promise chain.
-    pub fn eval_handler(&mut self, handler_code: &[u8]) -> Result<(), ()> {
-        unsafe {
-            let ctx = self.context;
-
-            // Compile handler as module (parse JS source)
-            let h = qjs::JS_Eval(
-                ctx,
-                handler_code.as_ptr() as *const c_char,
-                handler_code.len(),
-                b"handler\0".as_ptr() as *const c_char,
-                qjs::JS_EVAL_TYPE_MODULE | qjs::JS_EVAL_FLAG_COMPILE_ONLY,
-            );
-            if h.is_exception() {
-                qjs::JS_FreeValue(ctx, h);
-                return Err(());
-            }
-
-            qjs::js_module_set_import_meta(ctx, h, 0, 0);
-            qjs::JS_FreeValue(ctx, h);
-
-            self.eval_handler_wrapper()
-        }
-    }
-
     /// Load and evaluate handler from pre-compiled QuickJS bytecode.
     ///
-    /// The bytecode must be produced by JS_WriteObject() with JS_WRITE_OBJ_BYTECODE
-    /// on the same QuickJS version, targeting the same pointer size (32-bit for RP2350).
-    ///
-    /// This skips the entire JS parser, resulting in faster startup per request
-    /// and reduced code size (parser code becomes dead code).
-    pub fn eval_handler_bytecode(&mut self, bytecode: &[u8]) -> Result<(), ()> {
+    /// The bytecode is produced at build time by compile_bytecode (see CMakeLists.txt)
+    /// from js/handler.js, targeting 32-bit to match the RP2350.
+    pub fn eval_handler(&mut self, bytecode: &[u8]) -> Result<(), ()> {
         unsafe {
             let ctx = self.context;
 
@@ -384,14 +356,14 @@ impl JsContext {
                 return Err(());
             }
             qjs::JS_FreeValue(ctx, result);
-
-            self.eval_handler_wrapper()
         }
+
+        // Set up the import + promise chain
+        self.eval_import_wrapper()
     }
 
-    /// Common wrapper that imports the handler and sets up the promise chain.
-    /// Called after the handler module has been loaded (from source or bytecode).
-    fn eval_handler_wrapper(&mut self) -> Result<(), ()> {
+    /// Import the handler export and wire up the promise chain.
+    fn eval_import_wrapper(&mut self) -> Result<(), ()> {
         unsafe {
             let ctx = self.context;
 
