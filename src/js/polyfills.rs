@@ -162,11 +162,11 @@ impl TimerState {
 }
 
 extern "C" {
-    fn k_uptime_get() -> i64;
+    fn isere_k_uptime_get() -> i64;
 }
 
 fn uptime_ms() -> i64 {
-    unsafe { k_uptime_get() }
+    unsafe { isere_k_uptime_get() }
 }
 
 /// Global timer state pointer — set by JsContext before eval, read by callbacks.

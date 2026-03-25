@@ -36,6 +36,18 @@ JSValue isere_JS_NewInt32(JSContext *ctx, int32_t val)
     return JS_NewInt32(ctx, val);
 }
 
+/* JS_NewString is static inline in quickjs.h (wraps JS_NewStringLen) */
+JSValue isere_JS_NewString(JSContext *ctx, const char *str)
+{
+    return JS_NewString(ctx, str);
+}
+
+/* JS_NewCFunction is static inline in quickjs.h (wraps JS_NewCFunction2) */
+JSValue isere_JS_NewCFunction(JSContext *ctx, JSCFunction *func, const char *name, int length)
+{
+    return JS_NewCFunction(ctx, func, name, length);
+}
+
 /* JS_ToCStringLen is static inline in quickjs.h (wraps JS_ToCStringLen2) */
 const char *isere_JS_ToCStringLen(JSContext *ctx, size_t *plen, JSValueConst val)
 {

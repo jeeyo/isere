@@ -52,5 +52,9 @@ add_custom_command(
 # Ensure bytecode is compiled before Rust build
 add_custom_target(handler_bytecode ALL DEPENDS ${HANDLER_BIN})
 
+# Zephyr API shims for Rust FFI (k_uptime_get and similar __syscall functions
+# expand to static inline in Zephyr — these thin wrappers provide linkable symbols)
+target_sources(app PRIVATE app_shim.c)
+
 # Build the Rust application (depends on bytecode being ready)
 rust_cargo_application()

@@ -200,12 +200,14 @@ extern "C" {
 
     // Value creation
     pub fn JS_NewObject(ctx: *mut JSContext) -> JSValue;
+    #[link_name = "isere_JS_NewString"]
     pub fn JS_NewString(ctx: *mut JSContext, str: *const c_char) -> JSValue;
     // static inline in quickjs.h, shimmed via quickjs_shim.c
     #[link_name = "isere_JS_NewInt32"]
     pub fn JS_NewInt32(ctx: *mut JSContext, val: i32) -> JSValue;
     #[link_name = "isere_JS_NewBool"]
     pub fn JS_NewBool(ctx: *mut JSContext, val: c_int) -> JSValue;
+    #[link_name = "isere_JS_NewCFunction"]
     pub fn JS_NewCFunction(
         ctx: *mut JSContext,
         func: JSCFunction,
