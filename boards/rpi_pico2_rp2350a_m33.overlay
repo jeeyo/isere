@@ -13,6 +13,6 @@
 &zephyr_udc0 {
 	cdc_ecm {
 		compatible = "zephyr,cdc-ecm-ethernet";
-		remote-mac = "00:00:5E:00:53:01";
+		remote-mac-address = "00:00:5E:00:53:01";
 	};
 };
