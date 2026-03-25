@@ -221,10 +221,12 @@ extern "C" {
         val: JSValue,
     ) -> c_int;
     pub fn JS_GetPropertyStr(ctx: *mut JSContext, this_obj: JSValue, prop: *const c_char) -> JSValue;
+    #[link_name = "isere_JS_GetProperty"]
     pub fn JS_GetProperty(ctx: *mut JSContext, this_obj: JSValue, prop: u32) -> JSValue;
 
     // Value inspection
     pub fn JS_ToInt32(ctx: *mut JSContext, pres: *mut i32, val: JSValue) -> c_int;
+    #[link_name = "isere_JS_ToCStringLen"]
     pub fn JS_ToCStringLen(
         ctx: *mut JSContext,
         plen: *mut usize,
@@ -270,6 +272,7 @@ extern "C" {
         obj: JSValue,
         flags: c_int,
     ) -> c_int;
+    #[link_name = "isere_JS_AtomToCString"]
     pub fn JS_AtomToCString(ctx: *mut JSContext, atom: u32) -> *const c_char;
     pub fn JS_FreeAtom(ctx: *mut JSContext, atom: u32);
 

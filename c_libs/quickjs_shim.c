@@ -35,3 +35,21 @@ JSValue isere_JS_NewInt32(JSContext *ctx, int32_t val)
 {
     return JS_NewInt32(ctx, val);
 }
+
+/* JS_ToCStringLen is static inline in quickjs.h (wraps JS_ToCStringLen2) */
+const char *isere_JS_ToCStringLen(JSContext *ctx, size_t *plen, JSValueConst val)
+{
+    return JS_ToCStringLen(ctx, plen, val);
+}
+
+/* JS_AtomToCString is static inline in quickjs.h (wraps JS_AtomToCStringLen) */
+const char *isere_JS_AtomToCString(JSContext *ctx, JSAtom atom)
+{
+    return JS_AtomToCString(ctx, atom);
+}
+
+/* JS_GetProperty is static inline in quickjs.h (wraps JS_GetPropertyInternal) */
+JSValue isere_JS_GetProperty(JSContext *ctx, JSValueConst this_obj, JSAtom prop)
+{
+    return JS_GetProperty(ctx, this_obj, prop);
+}
