@@ -31,7 +31,7 @@ add_custom_command(
         ${QUICKJS_DIR}/cutils.c
         ${QUICKJS_DIR}/dtoa.c
         -I${QUICKJS_DIR}
-        -DCONFIG_VERSION="2025-09-13"
+        "-DCONFIG_VERSION=\"2025-09-13\""
         -D_GNU_SOURCE
         -lm -lpthread
     DEPENDS
