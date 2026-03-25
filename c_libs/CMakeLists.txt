@@ -20,9 +20,6 @@ target_include_directories(quickjs PUBLIC
 )
 
 # QuickJS compile definitions for embedded use
-# Undefine Zephyr's CONFIG_VERSION (integer from Kconfig) before defining
-# QuickJS's CONFIG_VERSION (string) to avoid macro collision.
-target_compile_options(quickjs PRIVATE -UCONFIG_VERSION)
 target_compile_definitions(quickjs PRIVATE
     _GNU_SOURCE
     CONFIG_VERSION="2025-09-13"
@@ -38,6 +35,8 @@ target_compile_options(quickjs PRIVATE
     -Wno-missing-field-initializers
 )
 
-# Link QuickJS into the Zephyr application and give it access to Zephyr headers
-target_link_libraries(quickjs PUBLIC zephyr_interface)
+# Link QuickJS into the Zephyr application.
+# Don't use target_link_libraries with zephyr_interface — it would propagate
+# Zephyr's CONFIG_VERSION (Kconfig integer) which conflicts with QuickJS's
+# CONFIG_VERSION (string). QuickJS doesn't need Zephyr headers anyway.
 zephyr_link_libraries(quickjs)
