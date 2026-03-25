@@ -98,9 +98,9 @@ jobs:
           tar xf zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz -C /opt/
           ${ZEPHYR_SDK_INSTALL_DIR}/setup.sh -h -c
           if [ "${{ matrix.arch }}" = "arm" ]; then
-            wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/toolchain_linux-x86_64_arm-zephyr-eabi.tar.xz
-            tar xf toolchain_linux-x86_64_arm-zephyr-eabi.tar.xz -C ${ZEPHYR_SDK_INSTALL_DIR}
-            rm toolchain_linux-x86_64_arm-zephyr-eabi.tar.xz
+            wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz
+            tar xf toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz -C ${ZEPHYR_SDK_INSTALL_DIR}
+            rm toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz
           fi
 
       - name: Install Rust toolchain
