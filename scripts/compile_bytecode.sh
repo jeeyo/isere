@@ -20,7 +20,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 INPUT="${1:-$ROOT_DIR/js/handler.js}"
 OUTPUT="${2:-$ROOT_DIR/zephyr/js/handler.bin}"
 
-QUICKJS_DIR="$ROOT_DIR/3rdparty/quickjs"
+QUICKJS_DIR="$ROOT_DIR/zephyr/c_libs/quickjs"
 BUILD_DIR="$ROOT_DIR/build/bytecode_compiler"
 
 mkdir -p "$BUILD_DIR"

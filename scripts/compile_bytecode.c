@@ -7,16 +7,16 @@
  *
  * Build (on host):
  *   cc -o compile_bytecode scripts/compile_bytecode.c \
- *      3rdparty/quickjs/quickjs.c 3rdparty/quickjs/libregexp.c \
- *      3rdparty/quickjs/libunicode.c 3rdparty/quickjs/cutils.c \
- *      -I3rdparty/quickjs -DCONFIG_VERSION=\"0.1.0\" \
+ *      zephyr/c_libs/quickjs/quickjs.c zephyr/c_libs/quickjs/libregexp.c \
+ *      zephyr/c_libs/quickjs/libunicode.c zephyr/c_libs/quickjs/cutils.c \
+ *      -Izephyr/c_libs/quickjs -DCONFIG_VERSION=\"0.1.0\" \
  *      -DCONFIG_BIGNUM -D_GNU_SOURCE -lm -lpthread
  *
  * For 32-bit bytecode (required for RP2350):
  *   cc -m32 -o compile_bytecode32 scripts/compile_bytecode.c \
- *      3rdparty/quickjs/quickjs.c 3rdparty/quickjs/libregexp.c \
- *      3rdparty/quickjs/libunicode.c 3rdparty/quickjs/cutils.c \
- *      -I3rdparty/quickjs -DCONFIG_VERSION=\"0.1.0\" \
+ *      zephyr/c_libs/quickjs/quickjs.c zephyr/c_libs/quickjs/libregexp.c \
+ *      zephyr/c_libs/quickjs/libunicode.c zephyr/c_libs/quickjs/cutils.c \
+ *      -Izephyr/c_libs/quickjs -DCONFIG_VERSION=\"0.1.0\" \
  *      -DCONFIG_BIGNUM -D_GNU_SOURCE -lm -lpthread
  *
  * Usage:
