@@ -43,7 +43,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - board: native_sim
+          - board: native_sim/native/64
             arch: x86
           - board: rpi_pico2/rp2350a/m33
             arch: arm
