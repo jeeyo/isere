@@ -10,6 +10,10 @@ crate-type = ["staticlib"]
 name = "rustapp"
 path = "src/lib.rs"
 
+[features]
+default = []
+bytecode = []  # Enable pre-compiled QuickJS bytecode handler loading
+
 [dependencies]
 zephyr = "0.1.0"
 

@@ -309,12 +309,12 @@ impl JsContext {
         }
     }
 
-    /// Evaluate the handler module and set up the promise chain.
+    /// Evaluate the handler module from JavaScript source and set up the promise chain.
     pub fn eval_handler(&mut self, handler_code: &[u8]) -> Result<(), ()> {
         unsafe {
             let ctx = self.context;
 
-            // Compile handler as module
+            // Compile handler as module (parse JS source)
             let h = qjs::JS_Eval(
                 ctx,
                 handler_code.as_ptr() as *const c_char,
@@ -329,6 +329,60 @@ impl JsContext {
 
             qjs::js_module_set_import_meta(ctx, h, 0, 0);
             qjs::JS_FreeValue(ctx, h);
+
+            self.eval_handler_wrapper()
+        }
+    }
+
+    /// Load and evaluate handler from pre-compiled QuickJS bytecode.
+    ///
+    /// The bytecode must be produced by JS_WriteObject() with JS_WRITE_OBJ_BYTECODE
+    /// on the same QuickJS version, targeting the same pointer size (32-bit for RP2350).
+    ///
+    /// This skips the entire JS parser, resulting in faster startup per request
+    /// and reduced code size (parser code becomes dead code).
+    pub fn eval_handler_bytecode(&mut self, bytecode: &[u8]) -> Result<(), ()> {
+        unsafe {
+            let ctx = self.context;
+
+            // Deserialize bytecode into a compiled module object.
+            // JS_READ_OBJ_ROM_DATA avoids copying the buffer — safe because
+            // our bytecode is in static ROM (include_bytes!).
+            let h = qjs::JS_ReadObject(
+                ctx,
+                bytecode.as_ptr(),
+                bytecode.len(),
+                qjs::JS_READ_OBJ_BYTECODE | qjs::JS_READ_OBJ_ROM_DATA,
+            );
+            if h.is_exception() {
+                qjs::JS_FreeValue(ctx, h);
+                return Err(());
+            }
+
+            // Resolve module imports before evaluation
+            if qjs::JS_ResolveModule(ctx, h) < 0 {
+                qjs::JS_FreeValue(ctx, h);
+                return Err(());
+            }
+
+            // Instantiate and execute the module
+            let result = qjs::JS_EvalFunction(ctx, h);
+            // JS_EvalFunction consumes h, do not free it
+            if result.is_exception() {
+                qjs::JS_FreeValue(ctx, result);
+                return Err(());
+            }
+            qjs::JS_FreeValue(ctx, result);
+
+            self.eval_handler_wrapper()
+        }
+    }
+
+    /// Common wrapper that imports the handler and sets up the promise chain.
+    /// Called after the handler module has been loaded (from source or bytecode).
+    fn eval_handler_wrapper(&mut self) -> Result<(), ()> {
+        unsafe {
+            let ctx = self.context;
 
             // Evaluate the import + promise chain
             let eval_code = b"import { handler } from 'handler';\

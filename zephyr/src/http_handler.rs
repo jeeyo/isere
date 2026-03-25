@@ -11,7 +11,7 @@
 
 use crate::httpd::{Connection, HttpResponse};
 use crate::js::context::JsContext;
-use crate::platform::loader;
+use crate::platform::loader::{self, HandlerCode};
 
 /// Process a parsed HTTP request through the JavaScript handler.
 ///
@@ -20,8 +20,8 @@ use crate::platform::loader;
 ///
 /// Returns Ok(()) if the handler completed, Err(()) on JS error.
 pub fn handle_request(conn: &mut Connection) -> Result<(), ()> {
-    // Load handler code
-    let handler_code = loader::handler_code();
+    // Load handler code (bytecode or source)
+    let handler = loader::handler_code();
 
     // Create JS context
     let mut js_ctx = JsContext::new().ok_or(())?;
@@ -29,8 +29,11 @@ pub fn handle_request(conn: &mut Connection) -> Result<(), ()> {
     // Set up global objects (event, context, console, process.env, cb)
     js_ctx.setup_globals(&conn.request, &mut conn.response);
 
-    // Evaluate the handler module
-    js_ctx.eval_handler(handler_code)?;
+    // Evaluate the handler module — bytecode path skips the JS parser
+    match handler {
+        HandlerCode::Bytecode(bytecode) => js_ctx.eval_handler_bytecode(bytecode)?,
+        HandlerCode::Source(source) => js_ctx.eval_handler(source)?,
+    }
 
     // Poll pending jobs until the response callback fires
     // This is the same loop as in httpd.c's __httpd_task

@@ -49,6 +49,11 @@ pub const JS_EVAL_TYPE_GLOBAL: c_int = 0;
 pub const JS_EVAL_TYPE_MODULE: c_int = 1;
 pub const JS_EVAL_FLAG_COMPILE_ONLY: c_int = 1 << 5;
 
+// JS bytecode serialization flags
+pub const JS_WRITE_OBJ_BYTECODE: c_int = 1 << 0;
+pub const JS_READ_OBJ_BYTECODE: c_int = 1 << 0;
+pub const JS_READ_OBJ_ROM_DATA: c_int = 1 << 1;
+
 // JS property flags
 pub const JS_GPN_STRING_MASK: c_int = 1 << 0;
 pub const JS_GPN_ENUM_ONLY: c_int = 1 << 4;
@@ -194,6 +199,22 @@ extern "C" {
         use_realpath: c_int,
         is_main: c_int,
     );
+
+    // Bytecode serialization/deserialization
+    pub fn JS_WriteObject(
+        ctx: *mut JSContext,
+        psize: *mut usize,
+        obj: JSValue,
+        flags: c_int,
+    ) -> *mut u8;
+    pub fn JS_ReadObject(
+        ctx: *mut JSContext,
+        buf: *const u8,
+        buf_len: usize,
+        flags: c_int,
+    ) -> JSValue;
+    pub fn JS_EvalFunction(ctx: *mut JSContext, fun_obj: JSValue) -> JSValue;
+    pub fn JS_ResolveModule(ctx: *mut JSContext, obj: JSValue) -> c_int;
 }
 
 // Helper constants matching QuickJS
