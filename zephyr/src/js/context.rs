@@ -7,6 +7,7 @@ use core::ffi::{c_char, c_int, c_void};
 use core::ptr;
 
 use super::quickjs_ffi as qjs;
+use super::polyfills::TimerState;
 use crate::httpd::{HttpRequest, HttpResponse, MAX_HEADERS, MAX_RESPONSE_BODY_LEN};
 
 /// Custom allocator that bridges QuickJS to Zephyr's k_malloc/k_free.
@@ -98,6 +99,7 @@ pub struct JsContext {
     context: *mut qjs::JSContext,
     future: qjs::JSValue,
     pub response_ready: bool,
+    timer_state: TimerState,
 }
 
 /// Opaque data attached to a JS context for the handler callback.
@@ -130,12 +132,21 @@ impl JsContext {
             qjs::JS_AddIntrinsicPromise(context);
         }
 
-        Some(Self {
+        let mut ctx = Self {
             runtime,
             context,
             future: qjs::JSValue::UNDEFINED,
             response_ready: false,
-        })
+            timer_state: TimerState::new(),
+        };
+
+        // Initialize setTimeout/clearTimeout polyfills
+        ctx.timer_state.init(runtime, context);
+        unsafe {
+            super::polyfills::set_global_timer_state(&mut ctx.timer_state);
+        }
+
+        Some(ctx)
     }
 
     /// Set up the global environment (console, process.env, event, context, cb).
@@ -407,6 +418,9 @@ impl JsContext {
 
     /// Poll pending JS jobs (promises, timers). Returns true if jobs remain.
     pub fn poll(&mut self) -> Result<bool, ()> {
+        // Fire any expired timers first (may enqueue new JS jobs)
+        let timers_active = self.timer_state.poll();
+
         unsafe {
             let rt = qjs::JS_GetRuntime(self.context);
             let mut ctx1: *mut qjs::JSContext = ptr::null_mut();
@@ -416,7 +430,8 @@ impl JsContext {
                 return Err(());
             }
 
-            Ok(err > 0)
+            // Jobs remain if either pending JS jobs or active timers
+            Ok(err > 0 || timers_active)
         }
     }
 }
@@ -425,6 +440,9 @@ impl Drop for JsContext {
     fn drop(&mut self) {
         unsafe {
             if !self.context.is_null() {
+                // Clean up timers before freeing the context
+                self.timer_state.deinit(self.context);
+
                 qjs::JS_FreeValue(self.context, self.future);
                 qjs::JS_FreeContext(self.context);
             }

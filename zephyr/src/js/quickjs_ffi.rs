@@ -86,6 +86,19 @@ pub struct JSPropertyEnum {
 pub type JSCFunction =
     unsafe extern "C" fn(ctx: *mut JSContext, this_val: JSValue, argc: c_int, argv: *const JSValue) -> JSValue;
 
+// Class ID type (used for custom JS classes like Timer)
+pub type JSClassID = u32;
+
+// Class definition for custom JS classes
+#[repr(C)]
+pub struct JSClassDef {
+    pub class_name: *const c_char,
+    pub finalizer: Option<unsafe extern "C" fn(rt: *mut JSRuntime, val: JSValue)>,
+    pub gc_mark: Option<unsafe extern "C" fn(rt: *mut JSRuntime, val: JSValue, mark_func: *mut c_void)>,
+    pub call: Option<unsafe extern "C" fn(ctx: *mut JSContext, func_obj: JSValue, this_val: JSValue, argc: c_int, argv: *const JSValue, flags: c_int) -> JSValue>,
+    pub exotic: *const c_void,
+}
+
 extern "C" {
     // Runtime lifecycle
     pub fn JS_NewRuntime() -> *mut JSRuntime;
@@ -118,7 +131,10 @@ extern "C" {
     // Value creation
     pub fn JS_NewObject(ctx: *mut JSContext) -> JSValue;
     pub fn JS_NewString(ctx: *mut JSContext, str: *const c_char) -> JSValue;
+    // static inline in quickjs.h, shimmed via quickjs_shim.c
+    #[link_name = "isere_JS_NewInt32"]
     pub fn JS_NewInt32(ctx: *mut JSContext, val: i32) -> JSValue;
+    #[link_name = "isere_JS_NewBool"]
     pub fn JS_NewBool(ctx: *mut JSContext, val: c_int) -> JSValue;
     pub fn JS_NewCFunction(
         ctx: *mut JSContext,
@@ -146,13 +162,11 @@ extern "C" {
     ) -> *const c_char;
     pub fn JS_FreeCString(ctx: *mut JSContext, ptr: *const c_char);
 
-    // Value type checking helpers
-    pub fn JS_IsNumber(v: JSValue) -> c_int;
-    pub fn JS_IsString(v: JSValue) -> c_int;
-    pub fn JS_IsObject(v: JSValue) -> c_int;
-    pub fn JS_IsException(v: JSValue) -> c_int;
+    // Note: JS_IsNumber, JS_IsString, JS_IsObject, JS_IsException are
+    // static inline in quickjs.h — use the Rust impl methods on JSValue instead.
 
-    // Memory management
+    // Memory management (static inline in quickjs.h, shimmed via quickjs_shim.c)
+    #[link_name = "isere_JS_FreeValue"]
     pub fn JS_FreeValue(ctx: *mut JSContext, v: JSValue);
 
     // Evaluation
@@ -199,6 +213,35 @@ extern "C" {
         use_realpath: c_int,
         is_main: c_int,
     );
+
+    // Value duplication — wraps the static inline JS_DupValue via C shim
+    // (see c_libs/quickjs_shim.c)
+    pub fn isere_JS_DupValue(ctx: *mut JSContext, v: JSValue) -> JSValue;
+    pub fn JS_Call(
+        ctx: *mut JSContext,
+        func_obj: JSValue,
+        this_obj: JSValue,
+        argc: c_int,
+        argv: *const JSValue,
+    ) -> JSValue;
+    pub fn JS_IsFunction(ctx: *mut JSContext, val: JSValue) -> c_int;
+    pub fn JS_ToInt64(ctx: *mut JSContext, pres: *mut i64, val: JSValue) -> c_int;
+
+    // Error throwing
+    pub fn JS_ThrowTypeError(ctx: *mut JSContext, fmt: *const c_char, ...) -> JSValue;
+    pub fn JS_ThrowInternalError(ctx: *mut JSContext, fmt: *const c_char, ...) -> JSValue;
+
+    // Custom class support (for Timer objects)
+    pub fn JS_NewClassID(pclass_id: *mut JSClassID) -> JSClassID;
+    pub fn JS_NewClass(rt: *mut JSRuntime, class_id: JSClassID, class_def: *const JSClassDef) -> c_int;
+    pub fn JS_NewObjectClass(ctx: *mut JSContext, class_id: c_int) -> JSValue;
+    pub fn JS_SetOpaque(obj: JSValue, opaque: *mut c_void);
+    pub fn JS_GetOpaque(obj: JSValue, class_id: JSClassID) -> *mut c_void;
+    pub fn JS_GetOpaque2(ctx: *mut JSContext, obj: JSValue, class_id: JSClassID) -> *mut c_void;
+
+    // Atom operations (for property deletion)
+    pub fn JS_NewAtom(ctx: *mut JSContext, str: *const c_char) -> u32;
+    pub fn JS_DeleteProperty(ctx: *mut JSContext, this_obj: JSValue, prop: u32, flags: c_int) -> c_int;
 
     // Bytecode serialization/deserialization
     pub fn JS_WriteObject(

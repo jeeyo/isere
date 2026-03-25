@@ -14,6 +14,7 @@ zephyr_library_sources(
     quickjs/libregexp.c
     quickjs/libunicode.c
     quickjs/cutils.c
+    quickjs_shim.c
 )
 
 zephyr_library_include_directories(
