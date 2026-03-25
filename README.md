@@ -1,152 +1,132 @@
 # isère
 
-![workflow](https://github.com/jeeyo/isere/actions/workflows/ci.yml/badge.svg)
+A serverless platform for microcontrollers, powered by Zephyr RTOS, Rust, and QuickJS.
 
-A serverless platform aimed to be running on Microcontrollers, powered by FreeRTOS, LwIP, and QuickJS
+Handlers are written in JavaScript (ES modules with async/await) and evaluated on-device by QuickJS. The device exposes an HTTP server over USB Ethernet (CDC-ECM), accepting requests and dispatching them through the JS handler — similar to AWS Lambda's programming model.
 
-### Current progress
+## Architecture
 
-- [x] FreeRTOS as Kernel
-- [x] JavaScript runtime
-  - [x] QuickJS
-  - [x] JerryScript
-- [ ] Python runtime (?)
-  - [ ] MicroPython
-- [x] HTTP server
-  - [x] Event Loop (no Keep-Alive support)
-    - [x] Socket
-    - [x] JavaScript Runtime
-  - [ ] Static Files (?)
-- [ ] Unit tests
-  - [ ] loader
-  - [ ] js
-  - [ ] httpd
-  - [ ] http handler
-  - [ ] logger
-- [x] Unit tests on CI
-- [ ] File System
-- [ ] Configuration File
-- [ ] Watchdog timer
-- [ ] Integration tests
-- [ ] Integration tests on CI
-- [ ] [Cloudflare Workers API](https://developers.cloudflare.com/workers/runtime-apis/) (on QuickJS)
-  - [ ] crypto
-  - [ ] fetch
-  - [x] process (env)
-  - [x] console (log, warn, error)
-  - [x] setTimeout / clearTimeout (FreeRTOS Timer)
-  - [ ] performance (?)
-  - [ ] ~~WebAssembly~~
-- [ ] OpenTelemetry
-  - [x] Metrics
-    - [x] Sum (Counter)
-      - [x] Cumulative
-      - [ ] ~~Delta~~ (see [Prometheus and OpenMetrics Compatibility](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#sums))
-    - [x] Gauge
-  - [ ] ~~Logs~~
-  - [ ] Trace
-- [ ] LogStash
-  - [ ] unbuffered printf()
-  - [ ] NDJSON logs
-  - [ ] Serial-to-LogStash integration
-- [ ] Memory Leak Check
-- [ ] Valgrind
-- [ ] Project Template
-- [ ] Low-power mode
-- [x] Benchmark
-- [ ] Doxygen
-- [ ] Port
-  - [x] Raspberry Pi Pico 2 (RP2350)
-  - [ ] ESP32 Ethernet Kit (ESP32-WROVER-E) [Pull Request #28](https://github.com/jeeyo/isere/pull/28)
-- [ ] Monitoring
-  - [ ] CPU Usage ([vTaskGetRunTimeStats](https://www.freertos.org/rtos-run-time-stats.html))
-  - [ ] Memory Usage ([vPortGetHeapStats](https://www.freertos.org/a00111.html))
-
-### Limitations
-
-- No Keep-Alive support
-- JavaScript handler function needs to be stored sequentially and addressible in a memory
-- Pico 2 may act as DHCP Server, but it doesn't have any routing information, making it unable to connect to external OpenTelemetry Collector
-
-### Porting
-
-See [PORTING.md](PORTING.md)
-
-### Building and Running
-
-Prerequisites:
-- cmake
-- make
-- gcc
-- cpputest
-- xxd
-- [protoc](https://grpc.io/docs/protoc-installation/)
-- python3
-  - [protobuf package](https://pypi.org/project/protobuf/)
-  - [grpcio-tools package](https://pypi.org/project/grpcio-tools/)
-
-### Install dependencies
-
-#### macOS
-
-```zsh
-brew install gcc cmake make libtool protobuf
+```
+HTTP request (USB Ethernet)
+  → Rust HTTP parser (httpd.rs)
+    → JS handler evaluation (QuickJS via FFI)
+      → HTTP response
 ```
 
-If you want to build unit tests, you also need to install CppUTest
+- **Zephyr RTOS** — kernel, USB device stack, networking, DHCP server
+- **Rust** — HTTP server, event loop, request routing, platform abstraction
+- **QuickJS** — JavaScript runtime (C library linked via FFI)
+- **Target** — Raspberry Pi Pico 2 (RP2350, Cortex-M33)
 
-```zsh
-brew install cpputest
-export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
+## Handler format
+
+Handlers follow an AWS Lambda-like signature:
+
+```js
+export const handler = async function(event, context, done) {
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'text/plain' },
+    body: { key: 'value' }
+  }
+}
 ```
 
-#### Debian / Ubuntu
+The handler receives `event` (HTTP request with method, path, headers, query, body), `context` (function metadata), and an optional `done` callback for explicit completion.
 
-```bash
-sudo apt-get install -y build-essential make cmake xxd protobuf-compiler
+## Project structure
+
+```
+├── CMakeLists.txt           # Zephyr build entry point
+├── Cargo.toml               # Rust crate configuration
+├── prj.conf                 # Zephyr Kconfig
+├── west.yml                 # West manifest (Zephyr SDK + modules)
+├── boards/                  # Board-specific Kconfig + devicetree overlays
+│   ├── rpi_pico2_rp2350a_m33.conf / .overlay
+│   └── native_sim.conf / .overlay
+├── c_libs/
+│   ├── CMakeLists.txt       # QuickJS Zephyr library build
+│   ├── quickjs_shim.c       # FFI shims for static inline functions
+│   └── quickjs/             # git submodule: github.com/bellard/quickjs
+├── js/
+│   ├── handler.js           # JavaScript handler source
+│   └── handler.bin          # Pre-compiled bytecode (optional)
+├── scripts/
+│   ├── compile_bytecode.c   # Host tool: compile JS → QuickJS bytecode
+│   └── compile_bytecode.sh  # Build + run the bytecode compiler
+└── src/
+    ├── lib.rs               # Entry point, server loop, connection state machine
+    ├── httpd.rs             # HTTP/1.1 parser and response builder
+    ├── http_handler.rs      # Request → QuickJS → response bridge
+    ├── event_loop.rs        # Poll-based I/O event loop
+    ├── js/
+    │   ├── quickjs_ffi.rs   # QuickJS C API FFI bindings
+    │   ├── context.rs       # JS runtime wrapper (allocator, eval, poll)
+    │   └── polyfills.rs     # setTimeout / clearTimeout
+    └── platform/
+        ├── tcp.rs           # Zephyr POSIX socket wrapper
+        ├── loader.rs        # Handler loading (source or bytecode)
+        ├── logger.rs        # Zephyr printk logging
+        └── rtc.rs           # Monotonic clock via k_uptime_get()
 ```
 
-For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk and gcc](https://cpputest.github.io/) section on CppUTest website.
+## Prerequisites
 
-### Building
+- [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/getting_started/index.html)
+- [west](https://docs.zephyrproject.org/latest/develop/west/index.html) (Zephyr meta-tool)
+- Rust toolchain with `thumbv8m.main-none-eabihf` target
+- For bytecode compilation: 32-bit libc dev package (`gcc-multilib`)
+
+## Building
 
 ```sh
-git clone https://github.com/jeeyo/isere.git
-git submodule update --init --recursive
+# Clone and initialize submodules
+git clone https://github.com/jeeyo/isere-c.git
+cd isere-c
+git submodule update --init
 
-mkdir build
-cd build
-cmake -DTARGET_PLATFORM=linux -DDEBUG=on .. # see Build configurations for more options
-make -j
+# Set up Zephyr workspace
+west init -l .
+west update
+
+# Build for Raspberry Pi Pico 2
+west build -b rpi_pico2/rp2350a/m33
+
+# Or build for native_sim (development/testing without hardware)
+west build -b native_sim
 ```
 
-#### Build configurations
-
-|Name|Description|Supported values|Default value|
-|-|-|-|-|
-|TARGET_PLATFORM|Target platform to build isère executable for|linux, pico2|linux|
-|DEBUG|Whether to build isère executable with debug symbol|off, on|off|
-|JS_RUNTIME|JavaScript runtime to execute handler function|quickjs, jerryscript|quickjs|
-|WITH_OTEL|Whether to send metrics to OpenTelemetry Collector|off, on|on|
-|OTEL_HOST|OpenTelemetry Collector OLTP/HTTP Host||"127.0.0.1"|
-|OTEL_PORT|OpenTelemetry Collector OLTP/HTTP Port||4318|
-
-### Running
+### Flashing
 
 ```sh
-./isere
+west flash
 ```
 
-A web server will start on port 8080 with the function defined in [js/handler.js](js/handler.js)
+### Bytecode compilation (optional)
 
-### Benchmark
+Pre-compile the JS handler to QuickJS bytecode for faster startup:
 
-See [BENCHMARK.md](BENCHMARK.md)
+```sh
+./scripts/compile_bytecode.sh
+# Then build with bytecode feature:
+west build -b rpi_pico2/rp2350a/m33 -- -DEXTRA_CONF_FILE=bytecode.conf
+```
 
-### Acknowledgment
+The bytecode compiler must be built for 32-bit to match the RP2350's pointer size.
 
-Special thanks to
+## Development with native_sim
 
-- [maxnet](https://github.com/maxnet/pico-webserver/) for tinyusb RNDIS to LwIP glue for Raspberry Pi Pico
-- [libuv](https://github.com/libuv/libuv) for [src/internals/uv_poll.c](src/internals/uv_poll.c)
-- [librdkafka](https://github.com/confluentinc/librdkafka) for OpenTelemetry nanopb encoding
+For rapid iteration without hardware, use Zephyr's `native_sim` target with a TAP network interface:
+
+```sh
+# Build
+west build -b native_sim
+
+# Run (requires TAP interface setup)
+west build -t run
+```
+
+## Acknowledgments
+
+- [QuickJS](https://bellard.org/quickjs/) by Fabrice Bellard — JavaScript engine
+- [Zephyr RTOS](https://zephyrproject.org/) — real-time operating system
