@@ -9,8 +9,8 @@ on:
       - main
 
 env:
-  ZEPHYR_SDK_VERSION: 0.17.0
-  ZEPHYR_SDK_INSTALL_DIR: /opt/zephyr-sdk-0.17.0
+  ZEPHYR_SDK_VERSION: 1.0.0
+  ZEPHYR_SDK_INSTALL_DIR: /opt/zephyr-sdk-1.0.0
 
 jobs:
   bytecode:
