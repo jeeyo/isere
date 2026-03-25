@@ -89,7 +89,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
-          key: zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-${{ matrix.arch }}
+          key: zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-${{ matrix.arch }}-v2
 
       - name: Install Zephyr SDK
         if: steps.cache-zephyr-sdk.outputs.cache-hit != 'true'
