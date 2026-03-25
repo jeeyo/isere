@@ -20,6 +20,9 @@ target_include_directories(quickjs PUBLIC
 )
 
 # QuickJS compile definitions for embedded use
+# Undefine Zephyr's CONFIG_VERSION (integer from Kconfig) before defining
+# QuickJS's CONFIG_VERSION (string) to avoid macro collision.
+target_compile_options(quickjs PRIVATE -UCONFIG_VERSION)
 target_compile_definitions(quickjs PRIVATE
     _GNU_SOURCE
     CONFIG_VERSION="2025-09-13"
