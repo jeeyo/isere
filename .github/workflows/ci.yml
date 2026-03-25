@@ -10,7 +10,7 @@ on:
 
 env:
   ZEPHYR_SDK_VERSION: 0.17.0
-  ZEPHYR_SDK_INSTALL_DIR: /opt/zephyr-sdk
+  ZEPHYR_SDK_INSTALL_DIR: /opt/zephyr-sdk-0.17.0
 
 jobs:
   bytecode:
@@ -95,10 +95,8 @@ jobs:
         if: steps.cache-zephyr-sdk.outputs.cache-hit != 'true'
         run: |
           wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz
-          mkdir -p ${ZEPHYR_SDK_INSTALL_DIR}
           tar xf zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz -C /opt/
-          cd ${ZEPHYR_SDK_INSTALL_DIR}
-          ./setup.sh -h -c
+          ${ZEPHYR_SDK_INSTALL_DIR}/setup.sh -h -c
           if [ "${{ matrix.arch }}" = "arm" ]; then
             wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/toolchain_linux-x86_64_arm-zephyr-eabi.tar.xz
             tar xf toolchain_linux-x86_64_arm-zephyr-eabi.tar.xz -C ${ZEPHYR_SDK_INSTALL_DIR}
