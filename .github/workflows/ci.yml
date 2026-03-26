@@ -114,7 +114,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: thumbv8m.main-none-eabihf, x86_64-unknown-none
+          targets: thumbv8m.main-none-eabihf, thumbv8m.main-none-eabi, x86_64-unknown-none
 
       - name: Build firmware
         run: |
