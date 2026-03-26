@@ -8,13 +8,14 @@ Handlers are written in JavaScript (ES modules with async/await) and evaluated o
 
 ```
 HTTP request (USB Ethernet)
-  → Rust HTTP parser (httpd.rs)
+  → httparse zero-copy parser (httpd.rs)
     → JS handler evaluation (QuickJS via FFI)
       → HTTP response
 ```
 
 - **Zephyr RTOS** — kernel, USB device stack, networking, DHCP server
 - **Rust** — HTTP server, event loop, request routing, platform abstraction
+- **httparse** — zero-copy, zero-alloc HTTP/1.1 request parser (`no_std`)
 - **QuickJS** — JavaScript runtime (C library linked via FFI)
 - **Target** — Raspberry Pi Pico 2 (RP2350, Cortex-M33)
 
@@ -56,7 +57,7 @@ The handler receives `event` (HTTP request with method, path, headers, query, bo
 │   └── compile_bytecode.sh  # Build + run the bytecode compiler
 └── src/
     ├── lib.rs               # Entry point, server loop, connection state machine
-    ├── httpd.rs             # HTTP/1.1 parser and response builder
+    ├── httpd.rs             # HTTP/1.1 server: zero-copy parsing (httparse) + response builder
     ├── http_handler.rs      # Request → QuickJS → response bridge
     ├── event_loop.rs        # Poll-based I/O event loop
     ├── js/
@@ -125,6 +126,66 @@ west build -b native_sim
 # Run (requires TAP interface setup)
 west build -t run
 ```
+
+## Roadmap
+
+### Current progress
+
+- [x] Zephyr RTOS as Kernel
+- [x] JavaScript runtime
+  - [x] QuickJS
+- [ ] Python runtime (?)
+  - [ ] MicroPython
+- [x] HTTP server
+  - [x] httparse zero-copy request parsing
+  - [x] Event Loop (no Keep-Alive support)
+    - [x] Socket
+    - [x] JavaScript Runtime
+  - [ ] Static Files (?)
+- [ ] Unit tests
+  - [ ] loader
+  - [ ] js
+  - [ ] httpd
+  - [ ] http handler
+  - [ ] logger
+- [x] Unit tests on CI
+- [ ] File System
+- [ ] Configuration File
+- [ ] Watchdog timer
+- [ ] Integration tests
+- [ ] Integration tests on CI
+- [ ] [Cloudflare Workers API](https://developers.cloudflare.com/workers/runtime-apis/) (on QuickJS)
+  - [ ] crypto
+  - [ ] fetch
+  - [x] process (env)
+  - [x] console (log, warn, error)
+  - [x] setTimeout / clearTimeout
+  - [ ] performance (?)
+  - [ ] ~~WebAssembly~~
+- [ ] OpenTelemetry
+  - [x] Metrics
+    - [x] Sum (Counter)
+      - [x] Cumulative
+      - [ ] ~~Delta~~ (see [Prometheus and OpenMetrics Compatibility](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#sums))
+    - [x] Gauge
+  - [ ] ~~Logs~~
+  - [ ] Trace
+- [ ] LogStash
+  - [ ] unbuffered printf()
+  - [ ] NDJSON logs
+  - [ ] Serial-to-LogStash integration
+- [ ] Memory Leak Check
+- [ ] Valgrind
+- [ ] Project Template
+- [ ] Low-power mode
+- [x] Benchmark
+- [ ] Doxygen
+- [ ] Port
+  - [x] Raspberry Pi Pico 2 (RP2350)
+  - [ ] ESP32 Ethernet Kit (ESP32-WROVER-E) [Pull Request #28](https://github.com/jeeyo/isere/pull/28)
+- [ ] Monitoring
+  - [ ] CPU Usage
+  - [ ] Memory Usage
 
 ## Acknowledgments
 
