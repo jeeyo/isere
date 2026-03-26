@@ -10,6 +10,7 @@ manifest:
       import:
         name-allowlist:
           - cmsis
+          - cmsis_6
           - hal_rpi_pico
           - mbedtls
           - picolibc
