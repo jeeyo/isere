@@ -164,27 +164,36 @@ fn on_client_readable(_watcher_id: usize, fd: core::ffi::c_int, events: i16, use
 /// Process connections that have finished parsing their HTTP request.
 unsafe fn process_pending_requests() {
     for i in 0..httpd::MAX_CONNECTIONS {
-        let state = SERVER.connections[i].state;
-        if state != ConnState::Processing {
+        if SERVER.connections[i].state != ConnState::Processing {
             continue;
         }
 
-        // Execute JS handler
-        let conn = SERVER.connection_mut(i);
-        match http_handler::handle_request(conn) {
-            Ok(()) => {
-                // Write the response
-                let fd = conn.fd;
-                write_response(fd, &conn.response);
+        // Parse buffer into zero-copy request (borrows recv_buf)
+        let conn = &mut SERVER.connections[i];
+        let recv_len = conn.recv_len;
+
+        match httpd::parse_request(&conn.recv_buf[..recv_len]) {
+            Ok((request, _body_start)) => {
+                // Split borrow: request borrows recv_buf, response is a separate field
+                match http_handler::handle_request(&request, &mut conn.response) {
+                    Ok(()) => {
+                        write_response(conn.fd, &conn.response);
+                    }
+                    Err(()) => {
+                        let mut resp = httpd::HttpResponse::new();
+                        resp.status_code = 500;
+                        resp.set_body(b"Internal Server Error");
+                        resp.completed = true;
+                        write_response(conn.fd, &resp);
+                    }
+                }
             }
             Err(()) => {
-                // JS error — send 500
-                let fd = conn.fd;
                 let mut resp = httpd::HttpResponse::new();
-                resp.status_code = 500;
-                resp.set_body(b"Internal Server Error");
+                resp.status_code = 400;
+                resp.set_body(b"Bad Request");
                 resp.completed = true;
-                write_response(fd, &resp);
+                write_response(conn.fd, &resp);
             }
         }
 
