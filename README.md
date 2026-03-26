@@ -135,7 +135,6 @@ west build -t run
 - [x] QuickJS runtime
 - [ ] MicroPython runtime (?)
 - [x] HTTP server
-  - [x] httparse
   - [x] Event Loop (no Keep-Alive support)
     - [x] Socket
     - [x] JavaScript Runtime
@@ -176,3 +175,4 @@ west build -t run
 
 - [QuickJS](https://bellard.org/quickjs/) by Fabrice Bellard — JavaScript engine
 - [Zephyr RTOS](https://zephyrproject.org/) — real-time operating system
+- [httparse](https://github.com/seanmonstar/httparse/) - zero-copy HTTP 1.x parser
