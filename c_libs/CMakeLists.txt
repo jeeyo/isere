@@ -6,6 +6,17 @@
 # Uses standard CMake (not zephyr_library) since this is built in
 # Zephyr application mode, not kernel mode.
 
+# Apply minimal compatibility patch for Zephyr/picolibc targets:
+#   - routes getTimezoneOffset through the portable _WIN32 path so it
+#     avoids tm_gmtoff (a GNU/BSD extension absent in picolibc)
+# -N makes patch skip silently if already applied.
+execute_process(
+    COMMAND patch -N -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/quickjs_zephyr.patch
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/quickjs
+    OUTPUT_QUIET
+    ERROR_QUIET
+)
+
 add_library(quickjs STATIC
     quickjs/quickjs.c
     quickjs/libregexp.c
@@ -33,6 +44,9 @@ target_compile_options(quickjs PRIVATE
     -Wno-unused-parameter
     -Wno-implicit-fallthrough
     -Wno-missing-field-initializers
+    # On ARM, int32_t is 'long' not 'int'; QuickJS uses them interchangeably
+    # since they're the same width on 32-bit targets.
+    -Wno-incompatible-pointer-types
 )
 
 # Link QuickJS into the Zephyr application.
