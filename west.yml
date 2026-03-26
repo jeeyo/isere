@@ -1,0 +1,24 @@
+manifest:
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: main
+      import:
+        name-allowlist:
+          - cmsis
+          - cmsis_6
+          - hal_rpi_pico
+          - mbedtls
+          - picolibc
+
+    - name: zephyr-lang-rust
+      remote: zephyrproject-rtos
+      revision: main
+      path: modules/lang/rust
+
+  self:
+    path: app

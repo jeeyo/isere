@@ -1,208 +1,68 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.20.0)
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(isere LANGUAGES C)
 
-set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
+# QuickJS C library (submodule at c_libs/quickjs/)
+add_subdirectory(c_libs)
 
-# build configuration
-option(DEBUG "Debug mode" OFF)
-set(JS_RUNTIME quickjs CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
+# --- Compile handler.js to QuickJS bytecode at build time ---
+#
+# handler.bin must be pre-compiled for 32-bit (to match RP2350's pointer size)
+# using scripts/compile_bytecode.sh before the firmware build.
+# In CI, the bytecode job does this and passes handler.bin as an artifact.
+#
+# For local native_sim builds where handler.bin is absent, we fall back to
+# building it here using the host's gcc (never CMAKE_C_COMPILER, which is
+# the cross-compiler when targeting ARM).
 
-option(WITH_OTEL "OpenTelemetry Exporter enabled" OFF)
-set(OTEL_HOST "127.0.0.1" CACHE STRING "OpenTelemetry Collector OTLP/HTTP host")
-set(OTEL_PORT 4318 CACHE STRING "OpenTelemetry Collector OTLP/HTTP port")
+set(QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/c_libs/quickjs)
+set(HANDLER_JS ${CMAKE_CURRENT_SOURCE_DIR}/js/handler.js)
+set(HANDLER_BIN ${CMAKE_CURRENT_SOURCE_DIR}/js/handler.bin)
+set(COMPILE_BYTECODE ${CMAKE_CURRENT_BINARY_DIR}/compile_bytecode)
 
-# platform-specific configuration
-option(WITH_LWIP "Include LwIP" OFF)
-option(SUPPORT_DYNLINK "Platform supports Dynamic Linking" OFF)
-
-include(portable/${TARGET_PLATFORM}/platform_features.cmake)
-
-project(isere C CXX ASM)
-
-set(FREERTOS_DIR ./3rdparty/FreeRTOS)
-set(QUICKJS_DIR ./3rdparty/quickjs)
-set(JERRYSCRIPT_DIR ./3rdparty/jerryscript)
-set(LWIP_DIR ./3rdparty/lwip)
-set(LLHTTP_DIR ./3rdparty/llhttp)
-set(LIBYUAREL_DIR ./3rdparty/libyuarel)
-set(NANOPB_DIR ./3rdparty/nanopb)
-set(OTELPROTO_DIR ./3rdparty/opentelemetry-proto)
-set(JS_DIR ./js)
-
-set(SOURCES )
-set(LIBS )
-
-list(APPEND SOURCES
-  ./src/hooks.c
-  ./src/http_handler.c
-  ./src/httpd.c
-  ./src/js.c
-  ./src/polyfills/pvPortRealloc.c
-  ./src/internals/uv_poll.c
-  ./portable/${TARGET_PLATFORM}/src/fs.c
-  ./portable/${TARGET_PLATFORM}/src/loader.c
-  ./portable/${TARGET_PLATFORM}/src/logger.c
-  ./portable/${TARGET_PLATFORM}/src/rtc.c
-  ./portable/${TARGET_PLATFORM}/src/tcp.c
-  ./portable/${TARGET_PLATFORM}/src/platform.c
-  ${FREERTOS_DIR}/croutine.c
-  ${FREERTOS_DIR}/event_groups.c
-  ${FREERTOS_DIR}/list.c
-  ${FREERTOS_DIR}/queue.c
-  ${FREERTOS_DIR}/stream_buffer.c
-  ${FREERTOS_DIR}/tasks.c
-  ${FREERTOS_DIR}/timers.c
-  ${FREERTOS_DIR}/portable/MemMang/heap_3.c
-  ${LLHTTP_DIR}/src/api.c
-  ${LLHTTP_DIR}/src/http.c
-  ${LLHTTP_DIR}/src/llhttp.c
-  ${LIBYUAREL_DIR}/yuarel.c
-)
-
-include(portable/${TARGET_PLATFORM}/platform_sources.cmake OPTIONAL)
-
-if(WITH_LWIP)
-  set(LWIP_INCLUDE_DIRS
-    ${LWIP_DIR}/src/include
-    ./portable/${TARGET_PLATFORM}/include
-  )
-  include(${LWIP_DIR}/src/Filelists.cmake)
-endif()
-
-if(SUPPORT_DYNLINK)
-  add_executable(handler handler.c)
-  set_target_properties(handler PROPERTIES PREFIX "")
-  set_target_properties(handler PROPERTIES SUFFIX ".so")
-  target_link_options(handler PRIVATE -shared -fPIC)
+if(EXISTS ${HANDLER_BIN})
+    # handler.bin is already present (pre-built by CI or developer); use it.
+    add_custom_target(handler_bytecode ALL)
 else()
-  list(APPEND SOURCES
-    handler.c
-  )
+    # Not present: build using the host's native gcc, not CMAKE_C_COMPILER
+    # (which would be arm-zephyr-eabi-gcc when cross-compiling).
+    find_program(HOST_CC gcc REQUIRED)
+
+    add_custom_command(
+        OUTPUT ${COMPILE_BYTECODE}
+        COMMAND ${HOST_CC} -m32 -O2
+            -o ${COMPILE_BYTECODE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/compile_bytecode.c
+            ${QUICKJS_DIR}/quickjs.c
+            ${QUICKJS_DIR}/libregexp.c
+            ${QUICKJS_DIR}/libunicode.c
+            ${QUICKJS_DIR}/cutils.c
+            ${QUICKJS_DIR}/dtoa.c
+            -I${QUICKJS_DIR}
+            -DCONFIG_VERSION='"2025-09-13"'
+            -D_GNU_SOURCE
+            -lm -lpthread
+        DEPENDS
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/compile_bytecode.c
+            ${QUICKJS_DIR}/quickjs.c
+            ${QUICKJS_DIR}/quickjs.h
+        COMMENT "Building host bytecode compiler (32-bit)"
+    )
+
+    add_custom_command(
+        OUTPUT ${HANDLER_BIN}
+        COMMAND ${COMPILE_BYTECODE} ${HANDLER_JS} ${HANDLER_BIN}
+        DEPENDS ${COMPILE_BYTECODE} ${HANDLER_JS}
+        COMMENT "Compiling handler.js to QuickJS bytecode"
+    )
+
+    add_custom_target(handler_bytecode ALL DEPENDS ${HANDLER_BIN})
 endif()
 
-if(JS_RUNTIME STREQUAL quickjs)
-  list(APPEND SOURCES
-    ${QUICKJS_DIR}/quickjs.c
-    ${QUICKJS_DIR}/libbf.c
-    ${QUICKJS_DIR}/libregexp.c
-    ${QUICKJS_DIR}/libunicode.c
-    ${QUICKJS_DIR}/cutils.c
-    ./src/runtimes/quickjs/quickjs.c
-    ./src/runtimes/quickjs/quickjs-libc.c
-    ./src/polyfills/quickjs/fetch.c
-    ./src/polyfills/quickjs/timer.c
-  )
-elseif(JS_RUNTIME STREQUAL jerryscript)
-  list(APPEND SOURCES
-    ./src/runtimes/jerryscript/jerryscript.c
-    ./src/runtimes/jerryscript/jerry-common.c
-    ./src/runtimes/jerryscript/jerry-port.c
-    ./src/polyfills/jerryscript/timer.c
-  )
-endif()
 
-add_custom_command(
-  OUTPUT handler.c
-  COMMAND xxd -i ../${JS_DIR}/handler.js handler.c
-  COMMAND sed -i.bak -E "s/[a-z_]+\\[\\]/handler\\[\\]/" handler.c # change code array variable name to "handler"
-  COMMAND sed -i.bak -E "s/[a-z_]+_len/handler_len/" handler.c # change code length variable name to "handler_len"
-  COMMENT "Compiling JavaScript files"
-  MAIN_DEPENDENCY ../${JS_DIR}/handler.js
-  VERBATIM
-)
+# Zephyr API shims for Rust FFI (k_uptime_get and similar __syscall functions
+# expand to static inline in Zephyr — these thin wrappers provide linkable symbols)
+target_sources(app PRIVATE app_shim.c)
 
-add_executable(isere ${SOURCES} ./src/main.c)
-
-target_compile_definitions(isere PRIVATE
-  ISERE_RUNTIME_NAME="${JS_RUNTIME}"
-  __STDC_FORMAT_MACROS=1)
-
-if(WITH_OTEL)
-  list(APPEND SOURCES
-    ./src/otel.c
-  )
-  target_compile_definitions(isere PRIVATE
-    ISERE_WITH_OTEL
-    ISERE_OTEL_HOST="${OTEL_HOST}"
-    ISERE_OTEL_PORT=${OTEL_PORT})
-
-  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/${NANOPB_DIR}/extra)
-  find_package(Nanopb REQUIRED)
-  set(PROTOC_OPTIONS --experimental_allow_proto3_optional)
-  nanopb_generate_cpp(TARGET otelproto RELPATH ${OTELPROTO_DIR}
-    ${OTELPROTO_DIR}/opentelemetry/proto/metrics/v1/metrics.proto
-    ${OTELPROTO_DIR}/opentelemetry/proto/common/v1/common.proto
-    ${OTELPROTO_DIR}/opentelemetry/proto/resource/v1/resource.proto)
-  target_link_libraries(isere PRIVATE otelproto)
-endif()
-
-if(JS_RUNTIME STREQUAL quickjs)
-  target_compile_definitions(isere PRIVATE ISERE_RUNTIME_QUICKJS)
-elseif(JS_RUNTIME STREQUAL jerryscript)
-  SET(JERRY_EXTERNAL_CONTEXT ON CACHE BOOL "")
-  SET(JERRY_PROMISE_CALLBACK ON CACHE BOOL "")
-  SET(JERRY_ERROR_MESSAGES ON CACHE BOOL "")
-  SET(JERRY_MEM_STATS ON CACHE BOOL "")
-
-  add_custom_target(amalgam)
-  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core)
-  add_subdirectory(${JERRYSCRIPT_DIR}/jerry-ext)
-  list(APPEND LIBS
-    jerry-core
-    jerry-ext
-  )
-  target_compile_definitions(isere PRIVATE ISERE_RUNTIME_JERRYSCRIPT)
-  target_include_directories(isere PRIVATE
-    ${JERRYSCRIPT_DIR}/jerry-core/include
-    ${JERRYSCRIPT_DIR}/jerry-ext/include
-  )
-endif()
-
-if(SUPPORT_DYNLINK)
-  target_compile_definitions(isere PRIVATE ISERE_USE_DYNLINK)
-endif()
-
-find_package(Git REQUIRED)
-execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
-target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
-
-if(DEBUG)
-  target_compile_options(isere PRIVATE -O0 -g)
-
-  if(JS_RUNTIME STREQUAL jerryscript)
-    target_compile_options(jerry-core PRIVATE -O0 -g)
-    target_compile_options(jerry-ext PRIVATE -O0 -g)
-  endif()
-
-  # enable profiling on Linux
-  if(TARGET_PLATFORM STREQUAL linux)
-    # target_compile_definitions(isere PRIVATE DUMP_LEAKS DUMP_MEM)
-    target_compile_options(isere PRIVATE -pg)
-    target_link_options(isere PRIVATE -pg)
-  endif()
-endif()
-
-include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)
-
-target_include_directories(isere PRIVATE
-  ./include
-  ./portable/include
-  ./portable/${TARGET_PLATFORM}/include
-  ./schemas
-  ${FREERTOS_DIR}/include
-  ${QUICKJS_DIR}
-  ${LLHTTP_DIR}/include
-  ${LIBYUAREL_DIR}
-)
-
-if(WITH_LWIP)
-  target_include_directories(isere PRIVATE
-    ${LWIP_DIR}/src/include
-  )
-  list(APPEND LIBS
-    lwipallapps
-    lwipcore
-  )
-  target_compile_definitions(isere PRIVATE ISERE_WITH_LWIP)
-endif()
-
-target_link_libraries(isere PRIVATE ${LIBS})
+# Build the Rust application (depends on bytecode being ready)
+rust_cargo_application()

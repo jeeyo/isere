@@ -1,0 +1,22 @@
+[package]
+name = "rustapp"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "isere - serverless platform for microcontrollers (Zephyr + Rust)"
+
+[lib]
+crate-type = ["staticlib"]
+name = "rustapp"
+path = "src/lib.rs"
+
+[dependencies]
+zephyr = "0.1.0"
+
+# no_std HTTP parser (Phase 4)
+# httparse = { version = "1", default-features = false }
+
+[profile.release]
+opt-level = "s"    # Optimize for size on embedded
+lto = true
+debug = true       # Keep debug info for embedded debugging

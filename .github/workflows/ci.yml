@@ -8,9 +8,13 @@ on:
     branches:
       - main
 
+env:
+  ZEPHYR_SDK_VERSION: 1.0.0
+  ZEPHYR_SDK_INSTALL_DIR: /opt/zephyr-sdk-1.0.0
+
 jobs:
-  build_and_test:
-    name: Build and Test (Linux)
+  bytecode:
+    name: Compile Bytecode
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,46 +22,102 @@ jobs:
           submodules: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc g++ make cmake xxd autoconf
+        run: sudo apt-get update && sudo apt-get install -y gcc-multilib
 
+      - name: Compile bytecode
+        run: |
+          chmod +x scripts/compile_bytecode.sh
+          ./scripts/compile_bytecode.sh js/handler.js js/handler.bin
+
+      - name: Upload bytecode artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: handler-bytecode
+          path: js/handler.bin
+
+  build:
+    name: Build (${{ matrix.board }})
+    runs-on: ubuntu-latest
+    needs: bytecode
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - board: native_sim/native/64
+            arch: x86
+          - board: rpi_pico2/rp2350a/m33
+            arch: arm
+
+    steps:
+      # Checkout into workspace/app/ to match west.yml self.path: app
       - uses: actions/checkout@v4
         with:
-          repository: cpputest/cpputest
-          path: ./cpputest
+          submodules: true
+          path: app
 
-      - name: Restore cached CppUTest
-        id: cache-cpputest-restore
-        uses: actions/cache/restore@v4
+      - name: Download bytecode artifact
+        uses: actions/download-artifact@v4
         with:
-          path: cpputest
-          key: ${{ runner.os }}-cpputest
+          name: handler-bytecode
+          path: app/js/
 
-      - name: Install CppUTest from source
-        if: steps.cache-cpputest-restore.outputs.cache-hit != 'true'
-        run: autoreconf -i . && ./configure && make tdd
-        working-directory: cpputest
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git cmake ninja-build gperf ccache dfu-util \
+            device-tree-compiler wget python3-dev python3-pip \
+            python3-setuptools python3-tk python3-wheel \
+            xz-utils file make gcc gcc-multilib g++ g++-multilib \
+            libsdl2-dev libmagic1
 
-      - name: Save CppUTest
-        id: cache-cpputest-save
-        uses: actions/cache/save@v4
+      - name: Install west and Python dependencies
+        run: |
+          pip3 install west
+
+      - name: Initialize west workspace
+        run: |
+          west init -l app
+          west update --narrow --fetch-opt=--depth=1
+
+      - name: Install additional Python dependencies
+        run: |
+          pip3 install -r zephyr/scripts/requirements.txt
+
+      - name: Cache Zephyr SDK
+        id: cache-zephyr-sdk
+        uses: actions/cache@v4
         with:
-          path: cpputest
-          key: ${{ steps.cache-cpputest-restore.outputs.cache-primary-key }}
+          path: ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+          key: zephyr-sdk-${{ env.ZEPHYR_SDK_VERSION }}-${{ matrix.arch }}
 
-      - run: mkdir build
+      - name: Install Zephyr SDK
+        if: steps.cache-zephyr-sdk.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz
+          tar xf zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-x86_64_minimal.tar.xz -C /opt/
+          ${ZEPHYR_SDK_INSTALL_DIR}/setup.sh -h -c
+          # In SDK 1.0.0, cmake looks for toolchains in ${ZEPHYR_SDK_INSTALL_DIR}/gnu/.
+          # The individual toolchain tarballs extract without a gnu/ prefix, so we
+          # must create that directory and extract into it.
+          mkdir -p ${ZEPHYR_SDK_INSTALL_DIR}/gnu
+          if [ "${{ matrix.arch }}" = "arm" ]; then
+            wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz
+            tar xf toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz -C ${ZEPHYR_SDK_INSTALL_DIR}/gnu
+            rm toolchain_gnu_linux-x86_64_arm-zephyr-eabi.tar.xz
+            # FindHostTools also needs x86_64-zephyr-elf even when cross-compiling for ARM
+            wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/toolchain_gnu_linux-x86_64_x86_64-zephyr-elf.tar.xz
+            tar xf toolchain_gnu_linux-x86_64_x86_64-zephyr-elf.tar.xz -C ${ZEPHYR_SDK_INSTALL_DIR}/gnu
+            rm toolchain_gnu_linux-x86_64_x86_64-zephyr-elf.tar.xz
+          fi
 
-      - name: Build
-        run: cmake .. && make VERBOSE=1 -j4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv8m.main-none-eabihf, x86_64-unknown-none
+
+      - name: Build firmware
+        run: |
+          west build -b ${{ matrix.board }} -p always app/
         env:
-          CPPUTEST_HOME: ${{ github.workspace }}/cpputest
-        working-directory: build
-
-      - name: Run unit tests
-        run: ./unittests -ojunit
-        working-directory: build
-
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
-        if: success() || failure()
-        with:
-          report_paths: './build/cpputest_*.xml'
+          ZEPHYR_SDK_INSTALL_DIR: ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
