@@ -132,12 +132,10 @@ west build -t run
 ### Current progress
 
 - [x] Zephyr RTOS as Kernel
-- [x] JavaScript runtime
-  - [x] QuickJS
-- [ ] Python runtime (?)
-  - [ ] MicroPython
+- [x] QuickJS runtime
+- [ ] MicroPython runtime (?)
 - [x] HTTP server
-  - [x] httparse zero-copy request parsing
+  - [x] httparse
   - [x] Event Loop (no Keep-Alive support)
     - [x] Socket
     - [x] JavaScript Runtime
@@ -159,26 +157,13 @@ west build -t run
   - [ ] fetch
   - [x] process (env)
   - [x] console (log, warn, error)
+  - [ ] Date
   - [x] setTimeout / clearTimeout
-  - [ ] performance (?)
-  - [ ] ~~WebAssembly~~
-- [ ] OpenTelemetry
-  - [x] Metrics
-    - [x] Sum (Counter)
-      - [x] Cumulative
-      - [ ] ~~Delta~~ (see [Prometheus and OpenMetrics Compatibility](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#sums))
-    - [x] Gauge
-  - [ ] ~~Logs~~
-  - [ ] Trace
-- [ ] LogStash
-  - [ ] unbuffered printf()
-  - [ ] NDJSON logs
-  - [ ] Serial-to-LogStash integration
-- [ ] Memory Leak Check
-- [ ] Valgrind
+  - [ ] performance
+- [ ] NDJSON logs
 - [ ] Project Template
 - [ ] Low-power mode
-- [x] Benchmark
+- [ ] Benchmark
 - [ ] Doxygen
 - [ ] Port
   - [x] Raspberry Pi Pico 2 (RP2350)
