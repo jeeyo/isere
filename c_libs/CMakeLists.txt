@@ -37,6 +37,17 @@ target_compile_definitions(quickjs PRIVATE
     EMSCRIPTEN  # Disables OS-specific features in QuickJS
 )
 
+# Inherit Zephyr's CPU/ABI compile options (e.g. -mcpu=cortex-m33,
+# -mfpu=fpv5-sp-d16, -mfloat-abi=hard) so QuickJS is built for the
+# same architecture as the rest of the application.
+# We only take COMPILE_OPTIONS, not COMPILE_DEFINITIONS, to avoid
+# inheriting Zephyr's CONFIG_VERSION (integer) which conflicts with
+# QuickJS's CONFIG_VERSION (string).
+get_target_property(_zephyr_compile_opts zephyr_interface INTERFACE_COMPILE_OPTIONS)
+if(_zephyr_compile_opts)
+    target_compile_options(quickjs PRIVATE ${_zephyr_compile_opts})
+endif()
+
 # Optimize for size on embedded targets
 target_compile_options(quickjs PRIVATE
     -Os
