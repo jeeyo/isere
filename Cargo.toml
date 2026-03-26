@@ -13,8 +13,7 @@ path = "src/lib.rs"
 [dependencies]
 zephyr = "0.1.0"
 
-# no_std HTTP parser (Phase 4)
-# httparse = { version = "1", default-features = false }
+httparse = { version = "1", default-features = false }
 
 [profile.release]
 opt-level = "s"    # Optimize for size on embedded

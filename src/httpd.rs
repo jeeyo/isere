@@ -257,112 +257,63 @@ impl Connection {
     }
 }
 
-/// Minimal HTTP request parser (no_std, no alloc).
+/// Parse an HTTP request from a buffer using httparse.
 ///
-/// Parses the request line and headers from a buffer.
-/// Returns Ok(body_offset) if complete, Err(()) if incomplete or malformed.
+/// Returns Ok(body_offset) if headers are complete, Err(()) if incomplete or malformed.
 fn parse_request(buf: &[u8], req: &mut HttpRequest) -> Result<usize, ()> {
-    // Find end of headers (\r\n\r\n)
-    let header_end = find_header_end(buf).ok_or(())?;
+    let mut headers = [httparse::EMPTY_HEADER; MAX_HEADERS];
+    let mut parsed = httparse::Request::new(&mut headers);
 
-    // Parse request line
-    let mut pos = 0;
+    match parsed.parse(buf) {
+        Ok(httparse::Status::Complete(body_offset)) => {
+            // Method
+            if let Some(method) = parsed.method {
+                req.method = Method::from_bytes(method.as_bytes());
+            }
 
-    // Method
-    let method_end = memchr(b' ', &buf[pos..]).ok_or(())?;
-    req.method = Method::from_bytes(&buf[pos..pos + method_end]);
-    pos += method_end + 1;
+            // Path and query string
+            if let Some(path) = parsed.path {
+                let path_bytes = path.as_bytes();
+                if let Some(q_pos) = path_bytes.iter().position(|&b| b == b'?') {
+                    let plen = q_pos.min(MAX_PATH_LEN);
+                    req.path[..plen].copy_from_slice(&path_bytes[..plen]);
+                    req.path_len = plen;
 
-    // Path (and query)
-    let path_end = memchr(b' ', &buf[pos..]).ok_or(())?;
-    let uri = &buf[pos..pos + path_end];
+                    let query = &path_bytes[q_pos + 1..];
+                    let qlen = query.len().min(MAX_PATH_LEN);
+                    req.query[..qlen].copy_from_slice(&query[..qlen]);
+                    req.query_len = qlen;
+                } else {
+                    let plen = path_bytes.len().min(MAX_PATH_LEN);
+                    req.path[..plen].copy_from_slice(&path_bytes[..plen]);
+                    req.path_len = plen;
+                }
+            }
 
-    // Split path and query at '?'
-    if let Some(q_pos) = memchr(b'?', uri) {
-        let path_len = q_pos.min(MAX_PATH_LEN);
-        req.path[..path_len].copy_from_slice(&uri[..path_len]);
-        req.path_len = path_len;
+            // Headers
+            req.num_headers = 0;
+            for h in parsed.headers.iter() {
+                if req.num_headers >= MAX_HEADERS {
+                    break;
+                }
+                let name_len = h.name.len().min(MAX_HEADER_NAME_LEN);
+                req.headers[req.num_headers].name[..name_len]
+                    .copy_from_slice(&h.name.as_bytes()[..name_len]);
+                req.headers[req.num_headers].name_len = name_len;
 
-        let query = &uri[q_pos + 1..];
-        let query_len = query.len().min(MAX_PATH_LEN);
-        req.query[..query_len].copy_from_slice(&query[..query_len]);
-        req.query_len = query_len;
-    } else {
-        let path_len = uri.len().min(MAX_PATH_LEN);
-        req.path[..path_len].copy_from_slice(&uri[..path_len]);
-        req.path_len = path_len;
+                let value_len = h.value.len().min(MAX_HEADER_VALUE_LEN);
+                req.headers[req.num_headers].value[..value_len]
+                    .copy_from_slice(&h.value[..value_len]);
+                req.headers[req.num_headers].value_len = value_len;
+
+                req.num_headers += 1;
+            }
+
+            Ok(body_offset)
+        }
+        Ok(httparse::Status::Partial) => Err(()), // Need more data
+        Err(_) => Err(()),                         // Malformed request
     }
-    pos += path_end + 1;
-
-    // Skip HTTP version line
-    let line_end = memchr(b'\n', &buf[pos..]).ok_or(())?;
-    pos += line_end + 1;
-
-    // Parse headers
-    req.num_headers = 0;
-    while pos < header_end && req.num_headers < MAX_HEADERS {
-        // Check for end of headers
-        if buf[pos] == b'\r' || buf[pos] == b'\n' {
-            break;
-        }
-
-        // Header name
-        let colon = memchr(b':', &buf[pos..]).ok_or(())?;
-        let name = &buf[pos..pos + colon];
-        let name_len = name.len().min(MAX_HEADER_NAME_LEN);
-        req.headers[req.num_headers].name[..name_len].copy_from_slice(&name[..name_len]);
-        req.headers[req.num_headers].name_len = name_len;
-        pos += colon + 1;
-
-        // Skip whitespace
-        while pos < header_end && buf[pos] == b' ' {
-            pos += 1;
-        }
-
-        // Header value (until \r\n)
-        let val_end = memchr(b'\r', &buf[pos..]).unwrap_or(header_end - pos);
-        let value = &buf[pos..pos + val_end];
-        let value_len = value.len().min(MAX_HEADER_VALUE_LEN);
-        req.headers[req.num_headers].value[..value_len].copy_from_slice(&value[..value_len]);
-        req.headers[req.num_headers].value_len = value_len;
-        req.num_headers += 1;
-
-        pos += val_end;
-        // Skip \r\n
-        if pos < buf.len() && buf[pos] == b'\r' {
-            pos += 1;
-        }
-        if pos < buf.len() && buf[pos] == b'\n' {
-            pos += 1;
-        }
-    }
-
-    // Body starts after \r\n\r\n
-    let body_start = header_end + 4;
-    Ok(body_start)
-}
-
-/// Find \r\n\r\n in buffer, returns index of the first \r.
-fn find_header_end(buf: &[u8]) -> Option<usize> {
-    if buf.len() < 4 {
-        return None;
-    }
-    for i in 0..buf.len() - 3 {
-        if buf[i] == b'\r' && buf[i + 1] == b'\n' && buf[i + 2] == b'\r' && buf[i + 3] == b'\n' {
-            return Some(i);
-        }
-    }
-    None
-}
-
-/// Find a byte in a slice (like libc memchr).
-fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
-    for (i, &b) in haystack.iter().enumerate() {
-        if b == needle {
-            return Some(i);
-        }
-    }
-    None
 }
 
 /// Get Content-Length from parsed request headers.
