@@ -13,6 +13,19 @@ env:
   ZEPHYR_SDK_INSTALL_DIR: /opt/zephyr-sdk-1.0.0
 
 jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Run tests
+        run: cargo test
+
   bytecode:
     name: Compile Bytecode
     runs-on: ubuntu-latest

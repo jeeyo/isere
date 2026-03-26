@@ -5,7 +5,9 @@
 
 use core::ffi::c_int;
 
+#[cfg(not(test))]
 use crate::event_loop::EventLoop;
+#[cfg(not(test))]
 use crate::platform::tcp;
 
 pub const HTTPD_PORT: u16 = 8080;
@@ -217,6 +219,7 @@ impl HttpResponse {
     }
 }
 
+#[cfg(not(test))]
 /// State of an HTTP connection.
 #[derive(Clone, Copy, PartialEq)]
 pub enum ConnState {
@@ -226,6 +229,7 @@ pub enum ConnState {
     Writing,
 }
 
+#[cfg(not(test))]
 /// A connection slot in the server.
 pub struct Connection {
     pub fd: c_int,
@@ -245,6 +249,7 @@ pub struct Connection {
     pub js_context_id: i32,
 }
 
+#[cfg(not(test))]
 impl Connection {
     pub const fn empty() -> Self {
         Self {
@@ -271,6 +276,7 @@ impl Connection {
     }
 }
 
+#[cfg(not(test))]
 /// Write an HTTP response to a socket.
 pub fn write_response(fd: c_int, response: &HttpResponse) {
     // Status line
@@ -312,6 +318,7 @@ pub fn write_response(fd: c_int, response: &HttpResponse) {
     }
 }
 
+#[cfg(not(test))]
 fn status_text(code: u16) -> &'static str {
     match code {
         200 => "OK",
@@ -333,11 +340,13 @@ fn status_text(code: u16) -> &'static str {
     }
 }
 
+#[cfg(not(test))]
 /// Write a u16 to a buffer as ASCII decimal. Returns number of bytes written.
 fn write_u16(val: u16, buf: &mut [u8]) -> usize {
     write_usize(val as usize, buf)
 }
 
+#[cfg(not(test))]
 /// Write a usize to a buffer as ASCII decimal. Returns number of bytes written.
 fn write_usize(mut val: usize, buf: &mut [u8]) -> usize {
     if val == 0 {
@@ -357,6 +366,7 @@ fn write_usize(mut val: usize, buf: &mut [u8]) -> usize {
     i
 }
 
+#[cfg(not(test))]
 /// The HTTP server.
 pub struct HttpServer {
     pub server_fd: c_int,
@@ -365,6 +375,7 @@ pub struct HttpServer {
     pub should_exit: bool,
 }
 
+#[cfg(not(test))]
 impl HttpServer {
     pub const fn new() -> Self {
         Self {
@@ -426,5 +437,122 @@ impl HttpServer {
             write_response(fd, &resp);
         }
         self.close_connection(conn_idx, event_loop);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_get_with_query_and_headers() {
+        let buf = b"GET /path?query=value HTTP/1.1\r\nHost: localhost\r\nAccept: */*\r\n\r\n";
+        let (req, body_start) = parse_request(buf).unwrap();
+
+        assert_eq!(req.method, Method::Get);
+        assert_eq!(req.path, "/path");
+        assert_eq!(req.query, "query=value");
+        assert_eq!(req.headers().len(), 2);
+        assert_eq!(req.headers()[0].name, "Host");
+        assert_eq!(req.headers()[0].value, b"localhost");
+        assert_eq!(req.headers()[1].name, "Accept");
+        assert_eq!(req.body.len(), 0);
+        assert_eq!(body_start, buf.len());
+    }
+
+    #[test]
+    fn parse_post_with_body() {
+        let buf = b"POST /submit HTTP/1.1\r\nContent-Length: 13\r\n\r\nHello, World!";
+        let (req, body_start) = parse_request(buf).unwrap();
+
+        assert_eq!(req.method, Method::Post);
+        assert_eq!(req.path, "/submit");
+        assert_eq!(req.query, "");
+        assert_eq!(req.body, b"Hello, World!");
+        assert_eq!(req.body_str(), "Hello, World!");
+        assert_eq!(body_start, buf.len() - 13);
+    }
+
+    #[test]
+    fn parse_path_without_query() {
+        let buf = b"GET /about HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        let (req, _) = parse_request(buf).unwrap();
+
+        assert_eq!(req.path, "/about");
+        assert_eq!(req.query, "");
+    }
+
+    #[test]
+    fn parse_all_methods() {
+        for (method_str, expected) in [
+            ("GET", Method::Get),
+            ("POST", Method::Post),
+            ("PUT", Method::Put),
+            ("DELETE", Method::Delete),
+            ("PATCH", Method::Patch),
+            ("OPTIONS", Method::Options),
+            ("HEAD", Method::Head),
+        ] {
+            let buf = format!("{} / HTTP/1.1\r\nHost: localhost\r\n\r\n", method_str);
+            let (req, _) = parse_request(buf.as_bytes()).unwrap();
+            assert_eq!(req.method, expected, "failed for {}", method_str);
+        }
+    }
+
+    #[test]
+    fn partial_request_returns_err() {
+        // Incomplete headers (no \r\n\r\n terminator)
+        let buf = b"GET /path HTTP/1.1\r\nHost: localhost";
+        assert!(parse_request(buf).is_err());
+    }
+
+    #[test]
+    fn empty_buffer_returns_err() {
+        assert!(parse_request(b"").is_err());
+    }
+
+    #[test]
+    fn malformed_request_returns_err() {
+        let buf = b"\x00\x01\x02\r\n\r\n";
+        assert!(parse_request(buf).is_err());
+    }
+
+    #[test]
+    fn is_complete_no_body() {
+        let buf = b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        assert!(is_request_complete(buf, buf.len()));
+    }
+
+    #[test]
+    fn is_complete_with_full_body() {
+        let buf = b"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello";
+        assert!(is_request_complete(buf, buf.len()));
+    }
+
+    #[test]
+    fn is_incomplete_partial_body() {
+        let buf = b"POST / HTTP/1.1\r\nContent-Length: 10\r\n\r\nhello";
+        assert!(!is_request_complete(buf, buf.len()));
+    }
+
+    #[test]
+    fn is_incomplete_partial_headers() {
+        let buf = b"GET / HTTP/1.1\r\nHost:";
+        assert!(!is_request_complete(buf, buf.len()));
+    }
+
+    #[test]
+    fn parse_multiple_headers() {
+        let buf = b"GET / HTTP/1.1\r\n\
+            Host: example.com\r\n\
+            Content-Type: application/json\r\n\
+            Authorization: Bearer token123\r\n\
+            X-Custom: value\r\n\r\n";
+        let (req, _) = parse_request(buf).unwrap();
+
+        assert_eq!(req.headers().len(), 4);
+        assert_eq!(req.headers()[0].name, "Host");
+        assert_eq!(req.headers()[2].name, "Authorization");
+        assert_eq!(req.headers()[2].value, b"Bearer token123");
     }
 }
