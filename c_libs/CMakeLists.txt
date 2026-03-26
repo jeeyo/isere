@@ -37,15 +37,19 @@ target_compile_definitions(quickjs PRIVATE
     EMSCRIPTEN  # Disables OS-specific features in QuickJS
 )
 
-# Inherit Zephyr's CPU/ABI compile options (e.g. -mcpu=cortex-m33,
-# -mfpu=fpv5-sp-d16, -mfloat-abi=hard) so QuickJS is built for the
-# same architecture as the rest of the application.
-# We only take COMPILE_OPTIONS, not COMPILE_DEFINITIONS, to avoid
-# inheriting Zephyr's CONFIG_VERSION (integer) which conflicts with
-# QuickJS's CONFIG_VERSION (string).
+# Inherit only the -m* machine flags from Zephyr (e.g. -mcpu=cortex-m33,
+# -mfpu=fpv5-sp-d16, -mfloat-abi=hard, -mthumb) so QuickJS is compiled
+# for the correct CPU/ABI. We deliberately exclude all other options
+# (e.g. -nostdinc, -isystem) to keep QuickJS using its own standard
+# toolchain headers — pulling in Zephyr's include paths would shadow
+# <alloca.h> and other standard headers QuickJS depends on.
 get_target_property(_zephyr_compile_opts zephyr_interface INTERFACE_COMPILE_OPTIONS)
 if(_zephyr_compile_opts)
-    target_compile_options(quickjs PRIVATE ${_zephyr_compile_opts})
+    foreach(_opt ${_zephyr_compile_opts})
+        if(_opt MATCHES "^-m")
+            target_compile_options(quickjs PRIVATE ${_opt})
+        endif()
+    endforeach()
 endif()
 
 # Optimize for size on embedded targets
@@ -58,6 +62,7 @@ target_compile_options(quickjs PRIVATE
     # On ARM, int32_t is 'long' not 'int'; QuickJS uses them interchangeably
     # since they're the same width on 32-bit targets.
     -Wno-incompatible-pointer-types
+    -Wno-double-promotion
 )
 
 # Link QuickJS into the Zephyr application.
