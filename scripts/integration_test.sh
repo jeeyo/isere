@@ -66,7 +66,7 @@ ip addr add "${HOST_IP}/24" dev "$TAP_IF"
 
 echo "=== Starting native_sim binary ==="
 chmod +x "$BINARY"
-"$BINARY" --eth-if="$TAP_IF" > "$LOG_FILE" 2>&1 &
+"$BINARY" > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 
 echo "=== Waiting for server to be ready ==="
