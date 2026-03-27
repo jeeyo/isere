@@ -33,11 +33,11 @@ assert_contains() {
     local label="$1" haystack="$2" needle="$3"
     if echo "$haystack" | grep -qF "$needle"; then
         echo "  PASS: $label"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo "  FAIL: $label (expected '$needle')"
         echo "    got: $haystack"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
 }
 
@@ -45,10 +45,10 @@ assert_log_contains() {
     local label="$1" needle="$2"
     if grep -qF "$needle" "$LOG_FILE"; then
         echo "  PASS: $label"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo "  FAIL: $label (expected '$needle' in logs)"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
 }
 
