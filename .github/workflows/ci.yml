@@ -78,6 +78,10 @@ jobs:
           name: handler-bytecode
           path: app/js/
 
+      - name: Remove placeholder bytecode for native_sim
+        if: matrix.arch == 'x86'
+        run: rm -f app/js/handler.bin
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
