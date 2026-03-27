@@ -146,6 +146,13 @@ jobs:
           name: native-sim-binary
           path: build/zephyr/zephyr.exe
 
+      - name: Upload RP2350 UF2
+        if: matrix.arch == 'arm'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpi-pico2-uf2
+          path: build/zephyr/zephyr.uf2
+
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest

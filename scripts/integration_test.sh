@@ -58,12 +58,26 @@ echo "=== Starting native_sim binary ==="
 chmod +x "$BINARY"
 "$BINARY" > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
+sleep 2
+
+# Verify the process is still alive
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "FATAL: Server process exited immediately"
+    echo "=== Server logs ==="
+    cat "$LOG_FILE"
+    exit 1
+fi
+echo "Server process alive (PID $SERVER_PID)"
 
 echo "=== Waiting for server to be ready ==="
 READY=false
 for i in $(seq 1 30); do
-    if curl -sf --connect-timeout 1 --max-time 3 "$SERVER_URL/" >/dev/null 2>&1; then
+    # Use -o /dev/null instead of -f so we detect the server even if it
+    # returns non-200 (e.g. 500). We just need to know it's accepting connections.
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 1 --max-time 3 "$SERVER_URL/" 2>/dev/null || true)
+    if [[ -n "$HTTP_CODE" && "$HTTP_CODE" != "000" ]]; then
         READY=true
+        echo "Server responded with HTTP $HTTP_CODE"
         break
     fi
     sleep 1
@@ -71,6 +85,7 @@ done
 
 if ! $READY; then
     echo "FATAL: Server did not become ready within 30 seconds"
+    echo "Server process alive: $(kill -0 "$SERVER_PID" 2>/dev/null && echo yes || echo no)"
     echo "=== Server logs ==="
     cat "$LOG_FILE"
     exit 1
