@@ -72,6 +72,7 @@ jobs:
           path: app
 
       - name: Download bytecode artifact
+        if: matrix.arch == 'arm'
         uses: actions/download-artifact@v4
         with:
           name: handler-bytecode
