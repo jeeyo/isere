@@ -47,14 +47,26 @@ mod ffi {
         pub revents: i16,
     }
 
+    // Use Zephyr's zsock_* functions to avoid linking to glibc on native_sim.
+    // On native_sim (host executable), `extern "C" fn socket()` would resolve
+    // to glibc's socket(), bypassing Zephyr's network stack entirely.
+    // The zsock_* symbols are always Zephyr's implementation on all targets.
     extern "C" {
+        #[link_name = "zsock_socket"]
         pub fn socket(domain: c_int, sock_type: c_int, protocol: c_int) -> c_int;
+        #[link_name = "zsock_bind"]
         pub fn bind(fd: c_int, addr: *const SockAddrIn, addrlen: u32) -> c_int;
+        #[link_name = "zsock_listen"]
         pub fn listen(fd: c_int, backlog: c_int) -> c_int;
+        #[link_name = "zsock_accept"]
         pub fn accept(fd: c_int, addr: *mut SockAddrIn, addrlen: *mut u32) -> c_int;
+        #[link_name = "zsock_recv"]
         pub fn recv(fd: c_int, buf: *mut c_void, len: usize, flags: c_int) -> isize;
+        #[link_name = "zsock_send"]
         pub fn send(fd: c_int, buf: *const c_void, len: usize, flags: c_int) -> isize;
+        #[link_name = "zsock_close"]
         pub fn close(fd: c_int) -> c_int;
+        #[link_name = "zsock_setsockopt"]
         pub fn setsockopt(
             fd: c_int,
             level: c_int,
@@ -62,7 +74,9 @@ mod ffi {
             optval: *const c_void,
             optlen: u32,
         ) -> c_int;
+        #[link_name = "zsock_fcntl"]
         pub fn fcntl(fd: c_int, cmd: c_int, ...) -> c_int;
+        #[link_name = "zsock_poll"]
         pub fn poll(fds: *mut PollFd, nfds: u32, timeout: c_int) -> c_int;
     }
 }
