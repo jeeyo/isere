@@ -2,19 +2,16 @@
 #
 # Integration test for isere native_sim build.
 #
-# Sets up a TAP interface, runs the native_sim binary, sends HTTP requests,
-# and verifies the responses match expected values.
+# Runs the native_sim binary (which binds on the host network via glibc
+# sockets), sends HTTP requests to localhost, and verifies responses.
 #
-# Usage: sudo ./scripts/integration_test.sh <path-to-zephyr-exe>
+# Usage: ./scripts/integration_test.sh <path-to-zephyr.exe>
 #
 set -euo pipefail
 
 BINARY="${1:?Usage: $0 <path-to-zephyr.exe>}"
-TAP_IF="zeth"
-SERVER_IP="192.0.2.1"
-HOST_IP="192.0.2.2"
 SERVER_PORT="8080"
-SERVER_URL="http://${SERVER_IP}:${SERVER_PORT}"
+SERVER_URL="http://127.0.0.1:${SERVER_PORT}"
 LOG_FILE="$(mktemp)"
 PASS=0
 FAIL=0
@@ -25,8 +22,6 @@ cleanup() {
         kill "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
     fi
-    # Remove TAP interface
-    ip link show "$TAP_IF" &>/dev/null && ip link delete "$TAP_IF" 2>/dev/null || true
     echo ""
     echo "=== Server logs ==="
     cat "$LOG_FILE"
@@ -58,11 +53,6 @@ assert_log_contains() {
 }
 
 # --- Setup ---
-
-echo "=== Setting up TAP interface ($TAP_IF) ==="
-ip tuntap add "$TAP_IF" mode tap
-ip link set "$TAP_IF" up
-ip addr add "${HOST_IP}/24" dev "$TAP_IF"
 
 echo "=== Starting native_sim binary ==="
 chmod +x "$BINARY"

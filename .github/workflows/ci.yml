@@ -158,4 +158,4 @@ jobs:
       - name: Run integration tests
         timeout-minutes: 3
         run: |
-          sudo scripts/integration_test.sh bin/zephyr.exe
+          scripts/integration_test.sh bin/zephyr.exe
