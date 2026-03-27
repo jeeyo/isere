@@ -35,7 +35,6 @@ target_compile_definitions(quickjs PRIVATE
     _GNU_SOURCE
     CONFIG_VERSION="2025-09-13"
     EMSCRIPTEN  # Disables OS-specific features in QuickJS
-    NDEBUG      # Disable assertions (e.g. GC leak detection in JS_FreeRuntime)
 )
 
 # Inherit only the -m* machine flags from Zephyr (e.g. -mcpu=cortex-m33,

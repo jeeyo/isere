@@ -7,8 +7,13 @@
 // 4. Polls until the response promise resolves
 // 5. Returns the response to the HTTP server for writeback
 
+<<<<<<< Updated upstream
+use crate::httpd::Connection;
+use crate::js::context::JsContext;
+=======
 use crate::httpd::{HttpRequest, HttpResponse};
 use crate::js::context::{JsContext, PollStatus};
+>>>>>>> Stashed changes
 use crate::platform::loader;
 
 /// Process a parsed HTTP request through the JavaScript handler.
@@ -17,19 +22,19 @@ use crate::platform::loader;
 /// and polls until the response is ready.
 ///
 /// Returns Ok(()) if the handler completed, Err(()) on JS error.
-pub fn handle_request(request: &HttpRequest<'_>, response: &mut HttpResponse) -> Result<(), ()> {
+pub fn handle_request(conn: &mut Connection) -> Result<(), ()> {
     let bytecode = loader::handler_bytecode();
 
     let mut js_ctx = JsContext::new().ok_or(())?;
 
-    js_ctx.setup_globals(request, response);
+    js_ctx.setup_globals(&conn.request, &mut conn.response);
 
     js_ctx.eval_handler(bytecode)?;
 
     // Poll pending jobs until the response callback fires
     let max_iterations = 1000; // Safety limit
     for _ in 0..max_iterations {
-        if response.completed {
+        if conn.response.completed {
             break;
         }
 
@@ -47,9 +52,9 @@ pub fn handle_request(request: &HttpRequest<'_>, response: &mut HttpResponse) ->
     }
 
     // If handler didn't produce a response, send default 200
-    if !response.completed {
-        response.status_code = 200;
-        response.completed = true;
+    if !conn.response.completed {
+        conn.response.status_code = 200;
+        conn.response.completed = true;
     }
 
     Ok(())

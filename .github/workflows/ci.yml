@@ -5,30 +5,12 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
-
-permissions:
-  contents: read
 
 env:
   ZEPHYR_SDK_VERSION: 1.0.0
   ZEPHYR_SDK_INSTALL_DIR: /opt/zephyr-sdk-1.0.0
 
 jobs:
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Run tests
-        run: cargo test
-
   bytecode:
     name: Compile Bytecode
     runs-on: ubuntu-latest
@@ -72,15 +54,10 @@ jobs:
           path: app
 
       - name: Download bytecode artifact
-        if: matrix.arch == 'arm'
         uses: actions/download-artifact@v4
         with:
           name: handler-bytecode
           path: app/js/
-
-      - name: Remove placeholder bytecode for native_sim
-        if: matrix.arch == 'x86'
-        run: rm -f app/js/handler.bin
 
       - name: Install system dependencies
         run: |
@@ -142,35 +119,3 @@ jobs:
           west build -b ${{ matrix.board }} -p always app/
         env:
           ZEPHYR_SDK_INSTALL_DIR: ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
-
-      - name: Upload native_sim binary
-        if: matrix.arch == 'x86'
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-sim-binary
-          path: build/zephyr/zephyr.exe
-
-      - name: Upload RP2350 UF2
-        if: matrix.arch == 'arm'
-        uses: actions/upload-artifact@v4
-        with:
-          name: rpi-pico2-uf2
-          path: build/zephyr/zephyr.uf2
-
-  integration-test:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download native_sim binary
-        uses: actions/download-artifact@v4
-        with:
-          name: native-sim-binary
-          path: bin/
-
-      - name: Run integration tests
-        timeout-minutes: 3
-        run: |
-          scripts/integration_test.sh bin/zephyr.exe

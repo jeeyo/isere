@@ -47,10 +47,6 @@ mod ffi {
         pub revents: i16,
     }
 
-    // On RP2350 (bare metal, no glibc), CONFIG_POSIX_API provides these
-    // symbols pointing to Zephyr's socket implementation.
-    // On native_sim, these resolve to glibc — the server binds on the host
-    // network stack, which is fine for integration testing via localhost.
     extern "C" {
         pub fn socket(domain: c_int, sock_type: c_int, protocol: c_int) -> c_int;
         pub fn bind(fd: c_int, addr: *const SockAddrIn, addrlen: u32) -> c_int;
