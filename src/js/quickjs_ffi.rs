@@ -277,6 +277,7 @@ extern "C" {
     #[link_name = "isere_JS_AtomToCString"]
     pub fn JS_AtomToCString(ctx: *mut JSContext, atom: u32) -> *const c_char;
     pub fn JS_FreeAtom(ctx: *mut JSContext, atom: u32);
+    pub fn JS_FreePropertyEnum(ctx: *mut JSContext, tab: *mut JSPropertyEnum, len: u32);
 
     // Job execution (promises, async)
     pub fn JS_ExecutePendingJob(rt: *mut JSRuntime, pctx: *mut *mut JSContext) -> c_int;
@@ -297,6 +298,7 @@ extern "C" {
     // Error throwing
     pub fn JS_ThrowTypeError(ctx: *mut JSContext, fmt: *const c_char, ...) -> JSValue;
     pub fn JS_ThrowInternalError(ctx: *mut JSContext, fmt: *const c_char, ...) -> JSValue;
+    pub fn JS_GetException(ctx: *mut JSContext) -> JSValue;
 
     // Custom class support (for Timer objects)
     pub fn JS_NewClassID(pclass_id: *mut JSClassID) -> JSClassID;

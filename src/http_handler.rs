@@ -8,7 +8,7 @@
 // 5. Returns the response to the HTTP server for writeback
 
 use crate::httpd::{HttpRequest, HttpResponse};
-use crate::js::context::JsContext;
+use crate::js::context::{JsContext, PollStatus};
 use crate::platform::loader;
 
 /// Process a parsed HTTP request through the JavaScript handler.
@@ -34,8 +34,14 @@ pub fn handle_request(request: &HttpRequest<'_>, response: &mut HttpResponse) ->
         }
 
         match js_ctx.poll() {
-            Ok(true) => continue,  // More jobs pending
-            Ok(false) => break,    // No more jobs
+            Ok(PollStatus::JobsExecuted) => continue,  // More jobs pending, execute immediately
+            Ok(PollStatus::WaitingForTimers) => {
+                // Wait for timers, yield the thread
+                extern "C" { fn isere_k_msleep(ms: i32) -> i32; }
+                unsafe { isere_k_msleep(5); }
+                continue;
+            },
+            Ok(PollStatus::Idle) => break,    // No more jobs
             Err(()) => return Err(()),
         }
     }
