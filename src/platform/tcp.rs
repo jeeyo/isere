@@ -47,26 +47,27 @@ mod ffi {
         pub revents: i16,
     }
 
-    // Use Zephyr's zsock_* functions to avoid linking to glibc on native_sim.
-    // On native_sim (host executable), `extern "C" fn socket()` would resolve
-    // to glibc's socket(), bypassing Zephyr's network stack entirely.
-    // The zsock_* symbols are always Zephyr's implementation on all targets.
+    // Use isere_* shim wrappers (defined in app_shim.c) to call Zephyr's
+    // zsock_* socket functions. On native_sim (host executable), bare
+    // `socket()` would resolve to glibc's version, bypassing Zephyr's
+    // network stack. The C shims include <zephyr/net/socket.h> and call
+    // zsock_socket() etc. via the preprocessor, which works on all targets.
     extern "C" {
-        #[link_name = "zsock_socket"]
+        #[link_name = "isere_socket"]
         pub fn socket(domain: c_int, sock_type: c_int, protocol: c_int) -> c_int;
-        #[link_name = "zsock_bind"]
+        #[link_name = "isere_bind"]
         pub fn bind(fd: c_int, addr: *const SockAddrIn, addrlen: u32) -> c_int;
-        #[link_name = "zsock_listen"]
+        #[link_name = "isere_listen"]
         pub fn listen(fd: c_int, backlog: c_int) -> c_int;
-        #[link_name = "zsock_accept"]
+        #[link_name = "isere_accept"]
         pub fn accept(fd: c_int, addr: *mut SockAddrIn, addrlen: *mut u32) -> c_int;
-        #[link_name = "zsock_recv"]
+        #[link_name = "isere_recv"]
         pub fn recv(fd: c_int, buf: *mut c_void, len: usize, flags: c_int) -> isize;
-        #[link_name = "zsock_send"]
+        #[link_name = "isere_send"]
         pub fn send(fd: c_int, buf: *const c_void, len: usize, flags: c_int) -> isize;
-        #[link_name = "zsock_close"]
+        #[link_name = "isere_close"]
         pub fn close(fd: c_int) -> c_int;
-        #[link_name = "zsock_setsockopt"]
+        #[link_name = "isere_setsockopt"]
         pub fn setsockopt(
             fd: c_int,
             level: c_int,
@@ -74,9 +75,9 @@ mod ffi {
             optval: *const c_void,
             optlen: u32,
         ) -> c_int;
-        #[link_name = "zsock_fcntl"]
+        #[link_name = "isere_fcntl"]
         pub fn fcntl(fd: c_int, cmd: c_int, ...) -> c_int;
-        #[link_name = "zsock_poll"]
+        #[link_name = "isere_poll"]
         pub fn poll(fds: *mut PollFd, nfds: u32, timeout: c_int) -> c_int;
     }
 }
