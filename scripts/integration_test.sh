@@ -72,7 +72,7 @@ SERVER_PID=$!
 echo "=== Waiting for server to be ready ==="
 READY=false
 for i in $(seq 1 30); do
-    if curl -sf --connect-timeout 1 "$SERVER_URL/" >/dev/null 2>&1; then
+    if curl -sf --connect-timeout 1 --max-time 3 "$SERVER_URL/" >/dev/null 2>&1; then
         READY=true
         break
     fi
