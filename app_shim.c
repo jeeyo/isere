@@ -24,7 +24,7 @@ int isere_socket(int domain, int type, int protocol)
     return zsock_socket(domain, type, protocol);
 }
 
-int isere_bind(int fd, const struct sockaddr *addr, socklen_t addrlen)
+int isere_bind(int fd, const struct sockaddr *addr, net_socklen_t addrlen)
 {
     return zsock_bind(fd, addr, addrlen);
 }
@@ -34,7 +34,7 @@ int isere_listen(int fd, int backlog)
     return zsock_listen(fd, backlog);
 }
 
-int isere_accept(int fd, struct sockaddr *addr, socklen_t *addrlen)
+int isere_accept(int fd, struct sockaddr *addr, net_socklen_t *addrlen)
 {
     return zsock_accept(fd, addr, addrlen);
 }
@@ -54,7 +54,7 @@ int isere_close(int fd)
     return zsock_close(fd);
 }
 
-int isere_setsockopt(int fd, int level, int optname, const void *optval, socklen_t optlen)
+int isere_setsockopt(int fd, int level, int optname, const void *optval, net_socklen_t optlen)
 {
     return zsock_setsockopt(fd, level, optname, optval, optlen);
 }
