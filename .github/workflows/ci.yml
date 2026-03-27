@@ -134,3 +134,27 @@ jobs:
           west build -b ${{ matrix.board }} -p always app/
         env:
           ZEPHYR_SDK_INSTALL_DIR: ${{ env.ZEPHYR_SDK_INSTALL_DIR }}
+
+      - name: Upload native_sim binary
+        if: matrix.arch == 'x86'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-sim-binary
+          path: build/zephyr/zephyr.exe
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download native_sim binary
+        uses: actions/download-artifact@v4
+        with:
+          name: native-sim-binary
+          path: bin/
+
+      - name: Run integration tests
+        run: |
+          sudo scripts/integration_test.sh bin/zephyr.exe
