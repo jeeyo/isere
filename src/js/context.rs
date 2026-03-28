@@ -92,6 +92,13 @@ mod alloc {
     };
 }
 
+#[derive(Debug, PartialEq)]
+pub enum PollStatus {
+    JobsExecuted,
+    WaitingForTimers,
+    Idle,
+}
+
 /// A QuickJS context bound to a single HTTP request.
 /// Each request gets its own runtime+context (same pattern as the C code).
 pub struct JsContext {
@@ -351,6 +358,17 @@ impl JsContext {
             let result = qjs::JS_EvalFunction(ctx, h);
             // JS_EvalFunction consumes h, do not free it
             if result.is_exception() {
+                let err = qjs::JS_GetException(ctx);
+                let err_str = qjs::JS_ToCStringLen(ctx, core::ptr::null_mut(), err);
+                if !err_str.is_null() {
+                    extern "C" {
+                        fn printk(fmt: *const c_char, ...);
+                    }
+                    printk(b"JS_EvalFunction exception: %s\n\0".as_ptr() as *const c_char, err_str);
+                    qjs::JS_FreeCString(ctx, err_str);
+                }
+                qjs::JS_FreeValue(ctx, err);
+
                 qjs::JS_FreeValue(ctx, result);
                 return Err(());
             }
@@ -380,6 +398,16 @@ impl JsContext {
             );
 
             if self.future.is_exception() {
+                let err = qjs::JS_GetException(ctx);
+                let err_str = qjs::JS_ToCStringLen(ctx, core::ptr::null_mut(), err);
+                if !err_str.is_null() {
+                    extern "C" {
+                        fn printk(fmt: *const c_char, ...);
+                    }
+                    printk(b"JS_Eval exception: %s\n\0".as_ptr() as *const c_char, err_str);
+                    qjs::JS_FreeCString(ctx, err_str);
+                }
+                qjs::JS_FreeValue(ctx, err);
                 return Err(());
             }
 
@@ -387,8 +415,8 @@ impl JsContext {
         }
     }
 
-    /// Poll pending JS jobs (promises, timers). Returns true if jobs remain.
-    pub fn poll(&mut self) -> Result<bool, ()> {
+    /// Poll pending JS jobs (promises, timers).
+    pub fn poll(&mut self) -> Result<PollStatus, ()> {
         // Fire any expired timers first (may enqueue new JS jobs)
         let timers_active = self.timer_state.poll();
 
@@ -398,11 +426,28 @@ impl JsContext {
 
             let err = qjs::JS_ExecutePendingJob(rt, &mut ctx1);
             if err < 0 {
+                if !ctx1.is_null() {
+                    let exc = qjs::JS_GetException(ctx1);
+                    let err_str = qjs::JS_ToCStringLen(ctx1, core::ptr::null_mut(), exc);
+                    if !err_str.is_null() {
+                        extern "C" {
+                            fn printk(fmt: *const c_char, ...);
+                        }
+                        printk(b"JS_ExecutePendingJob exception: %s\n\0".as_ptr() as *const c_char, err_str);
+                        qjs::JS_FreeCString(ctx1, err_str);
+                    }
+                    qjs::JS_FreeValue(ctx1, exc);
+                }
                 return Err(());
             }
 
-            // Jobs remain if either pending JS jobs or active timers
-            Ok(err > 0 || timers_active)
+            if err > 0 {
+                Ok(PollStatus::JobsExecuted)
+            } else if timers_active {
+                Ok(PollStatus::WaitingForTimers)
+            } else {
+                Ok(PollStatus::Idle)
+            }
         }
     }
 }
@@ -497,9 +542,8 @@ unsafe extern "C" fn handler_callback(
                     qjs::JS_FreeCString(ctx, val_ptr);
                 }
                 qjs::JS_FreeValue(ctx, val);
-
-                qjs::JS_FreeAtom(ctx, prop.atom);
             }
+            qjs::JS_FreePropertyEnum(ctx, props, props_len);
         }
     }
     qjs::JS_FreeValue(ctx, headers);
