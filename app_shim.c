@@ -12,3 +12,8 @@ int64_t isere_k_uptime_get(void)
 {
     return k_uptime_get();
 }
+
+int32_t isere_k_msleep(int32_t ms)
+{
+    return k_msleep(ms);
+}
