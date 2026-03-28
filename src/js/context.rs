@@ -344,12 +344,24 @@ impl JsContext {
                 qjs::JS_READ_OBJ_BYTECODE | qjs::JS_READ_OBJ_ROM_DATA,
             );
             if h.is_exception() {
+                extern "C" { fn printk(fmt: *const c_char, ...); }
+                let err = qjs::JS_GetException(ctx);
+                let err_str = qjs::JS_ToCStringLen(ctx, core::ptr::null_mut(), err);
+                if !err_str.is_null() {
+                    printk(b"JS_ReadObject exception: %s\n\0".as_ptr() as *const c_char, err_str);
+                    qjs::JS_FreeCString(ctx, err_str);
+                } else {
+                    printk(b"JS_ReadObject failed (no exception string)\n\0".as_ptr() as *const c_char);
+                }
+                qjs::JS_FreeValue(ctx, err);
                 qjs::JS_FreeValue(ctx, h);
                 return Err(());
             }
 
             // Resolve module imports before evaluation
             if qjs::JS_ResolveModule(ctx, h) < 0 {
+                extern "C" { fn printk(fmt: *const c_char, ...); }
+                printk(b"JS_ResolveModule failed\n\0".as_ptr() as *const c_char);
                 qjs::JS_FreeValue(ctx, h);
                 return Err(());
             }
