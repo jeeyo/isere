@@ -335,13 +335,15 @@ impl JsContext {
             let ctx = self.context;
 
             // Deserialize bytecode into a compiled module object.
-            // JS_READ_OBJ_ROM_DATA avoids copying the buffer — safe because
-            // our bytecode is in static ROM (include_bytes!).
+            // Copy the bytecode buffer into QuickJS-managed memory.
+            // Using JS_READ_OBJ_ROM_DATA (zero-copy) corrupts the shared
+            // static buffer after the first runtime is freed, causing
+            // subsequent requests to produce empty modules.
             let h = qjs::JS_ReadObject(
                 ctx,
                 bytecode.as_ptr(),
                 bytecode.len(),
-                qjs::JS_READ_OBJ_BYTECODE | qjs::JS_READ_OBJ_ROM_DATA,
+                qjs::JS_READ_OBJ_BYTECODE,
             );
             if h.is_exception() {
                 extern "C" { fn printk(fmt: *const c_char, ...); }
