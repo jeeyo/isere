@@ -107,6 +107,9 @@ pub struct JsContext {
     future: qjs::JSValue,
     pub response_ready: bool,
     timer_state: TimerState,
+    /// Stored here so the pointer passed to JS_SetContextOpaque remains valid
+    /// for the lifetime of the JsContext.
+    opaque: ContextOpaque,
 }
 
 /// Opaque data attached to a JS context for the handler callback.
@@ -145,6 +148,7 @@ impl JsContext {
             future: qjs::JSValue::UNDEFINED,
             response_ready: false,
             timer_state: TimerState::new(),
+            opaque: ContextOpaque { response: ptr::null_mut() },
         };
 
         // Initialize setTimeout/clearTimeout polyfills
@@ -308,11 +312,9 @@ impl JsContext {
             );
             qjs::JS_SetPropertyStr(ctx, global, b"context\0".as_ptr() as *const c_char, context_obj);
 
-            // Store response pointer in context opaque for the callback
-            let opaque = &mut ContextOpaque {
-                response: response as *mut HttpResponse,
-            };
-            qjs::JS_SetContextOpaque(ctx, opaque as *mut ContextOpaque as *mut c_void);
+            // Store response pointer in self.opaque (lives as long as JsContext)
+            self.opaque.response = response as *mut HttpResponse;
+            qjs::JS_SetContextOpaque(ctx, &mut self.opaque as *mut ContextOpaque as *mut c_void);
 
             // Handler callback function
             qjs::JS_SetPropertyStr(

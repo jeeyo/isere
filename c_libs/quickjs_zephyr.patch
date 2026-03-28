@@ -1,6 +1,35 @@
---- a/quickjs.c
-+++ b/quickjs.c
-@@ -46786,7 +46786,7 @@ static int getTimezoneOffset(int64_t time)
+--- a/quickjs.c	2026-03-28 16:07:37.024857963 +0000
++++ b/quickjs.c	2026-03-28 16:08:07.562650037 +0000
+@@ -2044,8 +2044,25 @@
+             printf("Secondary object leaks: %d\n", count);
+     }
+ #endif
+-    assert(list_empty(&rt->gc_obj_list));
+-    assert(list_empty(&rt->weakref_list));
++    /* Force-free any remaining GC objects (e.g. ES module cycles that
++       survive normal GC due to inter-module import/export references).
++       Without this cleanup, their allocator memory is never reclaimed,
++       which exhausts the heap on embedded targets with per-request
++       runtime creation. */
++    if (!list_empty(&rt->gc_obj_list)) {
++        rt->gc_phase = JS_GC_PHASE_REMOVE_CYCLES;
++        for(;;) {
++            el = rt->gc_obj_list.next;
++            if (el == &rt->gc_obj_list)
++                break;
++            free_gc_object(rt, list_entry(el, JSGCObjectHeader, link));
++        }
++        rt->gc_phase = JS_GC_PHASE_NONE;
++        list_for_each_safe(el, el1, &rt->gc_zero_ref_count_list) {
++            js_free_rt(rt, list_entry(el, JSGCObjectHeader, link));
++        }
++        init_list_head(&rt->gc_zero_ref_count_list);
++    }
+ 
+     /* free the classes */
+     for(i = 0; i < rt->class_count; i++) {
+@@ -46786,7 +46803,7 @@
+         }
      }
      ti = time;
 -#if defined(_WIN32)

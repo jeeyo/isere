@@ -20,7 +20,6 @@ use zephyr::printk;
 /// Returns Ok(()) if the handler completed, Err(()) on JS error.
 pub fn handle_request(request: &HttpRequest<'_>, response: &mut HttpResponse) -> Result<(), ()> {
     let bytecode = loader::handler_bytecode();
-    printk!("handler: bytecode len={}\n", bytecode.len());
 
     let mut js_ctx = JsContext::new().ok_or_else(|| {
         printk!("handler: failed to create JS context\n");
@@ -32,34 +31,29 @@ pub fn handle_request(request: &HttpRequest<'_>, response: &mut HttpResponse) ->
         printk!("handler: eval_handler failed\n");
         return Err(());
     }
-    printk!("handler: eval_handler ok\n");
 
     // Poll pending jobs until the response callback fires
     let max_iterations = 1000; // Safety limit
-    let mut iters = 0;
     for _ in 0..max_iterations {
         if response.completed {
             break;
         }
 
         match js_ctx.poll() {
-            Ok(PollStatus::JobsExecuted) => { iters += 1; continue; }
+            Ok(PollStatus::JobsExecuted) => continue,
             Ok(PollStatus::WaitingForTimers) => {
                 // Wait for timers, yield the thread
                 extern "C" { fn isere_k_msleep(ms: i32) -> i32; }
                 unsafe { isere_k_msleep(5); }
-                iters += 1;
                 continue;
             },
             Ok(PollStatus::Idle) => break,    // No more jobs
             Err(()) => {
-                printk!("handler: poll error after {} iters\n", iters);
+                printk!("handler: poll error\n");
                 return Err(());
             }
         }
     }
-
-    printk!("handler: done completed={} iters={}\n", response.completed, iters);
 
     // If handler didn't produce a response, send default 200
     if !response.completed {
