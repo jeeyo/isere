@@ -7,14 +7,10 @@
 // 4. Polls until the response promise resolves
 // 5. Returns the response to the HTTP server for writeback
 
-<<<<<<< Updated upstream
-use crate::httpd::Connection;
-use crate::js::context::JsContext;
-=======
 use crate::httpd::{HttpRequest, HttpResponse};
 use crate::js::context::{JsContext, PollStatus};
->>>>>>> Stashed changes
 use crate::platform::loader;
+use zephyr::printk;
 
 /// Process a parsed HTTP request through the JavaScript handler.
 ///
@@ -25,11 +21,16 @@ use crate::platform::loader;
 pub fn handle_request(conn: &mut Connection) -> Result<(), ()> {
     let bytecode = loader::handler_bytecode();
 
-    let mut js_ctx = JsContext::new().ok_or(())?;
+    let mut js_ctx = JsContext::new().ok_or_else(|| {
+        printk!("handler: failed to create JS context\n");
+    })?;
 
     js_ctx.setup_globals(&conn.request, &mut conn.response);
 
-    js_ctx.eval_handler(bytecode)?;
+    if let Err(()) = js_ctx.eval_handler(bytecode) {
+        printk!("handler: eval_handler failed\n");
+        return Err(());
+    }
 
     // Poll pending jobs until the response callback fires
     let max_iterations = 1000; // Safety limit
@@ -47,7 +48,10 @@ pub fn handle_request(conn: &mut Connection) -> Result<(), ()> {
                 continue;
             },
             Ok(PollStatus::Idle) => break,    // No more jobs
-            Err(()) => return Err(()),
+            Err(()) => {
+                printk!("handler: poll error\n");
+                return Err(());
+            }
         }
     }
 

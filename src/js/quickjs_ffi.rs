@@ -322,4 +322,3 @@ extern "C" {
     pub fn JS_EvalFunction(ctx: *mut JSContext, fun_obj: JSValue) -> JSValue;
     pub fn JS_ResolveModule(ctx: *mut JSContext, obj: JSValue) -> c_int;
 }
-

@@ -107,6 +107,9 @@ pub struct JsContext {
     future: qjs::JSValue,
     pub response_ready: bool,
     timer_state: TimerState,
+    /// Stored here so the pointer passed to JS_SetContextOpaque remains valid
+    /// for the lifetime of the JsContext.
+    opaque: ContextOpaque,
 }
 
 /// Opaque data attached to a JS context for the handler callback.
@@ -145,6 +148,7 @@ impl JsContext {
             future: qjs::JSValue::UNDEFINED,
             response_ready: false,
             timer_state: TimerState::new(),
+            opaque: ContextOpaque { response: ptr::null_mut() },
         };
 
         // Initialize setTimeout/clearTimeout polyfills
@@ -309,11 +313,9 @@ impl JsContext {
             );
             qjs::JS_SetPropertyStr(ctx, global, b"context\0".as_ptr() as *const c_char, context_obj);
 
-            // Store response pointer in context opaque for the callback
-            let opaque = &mut ContextOpaque {
-                response: response as *mut HttpResponse,
-            };
-            qjs::JS_SetContextOpaque(ctx, opaque as *mut ContextOpaque as *mut c_void);
+            // Store response pointer in self.opaque (lives as long as JsContext)
+            self.opaque.response = response as *mut HttpResponse;
+            qjs::JS_SetContextOpaque(ctx, &mut self.opaque as *mut ContextOpaque as *mut c_void);
 
             // Handler callback function
             qjs::JS_SetPropertyStr(
@@ -336,21 +338,35 @@ impl JsContext {
             let ctx = self.context;
 
             // Deserialize bytecode into a compiled module object.
-            // JS_READ_OBJ_ROM_DATA avoids copying the buffer — safe because
-            // our bytecode is in static ROM (include_bytes!).
+            // Copy the bytecode buffer into QuickJS-managed memory.
+            // Using JS_READ_OBJ_ROM_DATA (zero-copy) corrupts the shared
+            // static buffer after the first runtime is freed, causing
+            // subsequent requests to produce empty modules.
             let h = qjs::JS_ReadObject(
                 ctx,
                 bytecode.as_ptr(),
                 bytecode.len(),
-                qjs::JS_READ_OBJ_BYTECODE | qjs::JS_READ_OBJ_ROM_DATA,
+                qjs::JS_READ_OBJ_BYTECODE,
             );
             if h.is_exception() {
+                extern "C" { fn printk(fmt: *const c_char, ...); }
+                let err = qjs::JS_GetException(ctx);
+                let err_str = qjs::JS_ToCStringLen(ctx, core::ptr::null_mut(), err);
+                if !err_str.is_null() {
+                    printk(b"JS_ReadObject exception: %s\n\0".as_ptr() as *const c_char, err_str);
+                    qjs::JS_FreeCString(ctx, err_str);
+                } else {
+                    printk(b"JS_ReadObject failed (no exception string)\n\0".as_ptr() as *const c_char);
+                }
+                qjs::JS_FreeValue(ctx, err);
                 qjs::JS_FreeValue(ctx, h);
                 return Err(());
             }
 
             // Resolve module imports before evaluation
             if qjs::JS_ResolveModule(ctx, h) < 0 {
+                extern "C" { fn printk(fmt: *const c_char, ...); }
+                printk(b"JS_ResolveModule failed\n\0".as_ptr() as *const c_char);
                 qjs::JS_FreeValue(ctx, h);
                 return Err(());
             }
