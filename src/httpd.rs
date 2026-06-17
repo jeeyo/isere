@@ -5,10 +5,8 @@
 // Non-blocking sockets with poll()-based event loop.
 
 use core::ffi::c_int;
-use core::fmt::Write as FmtWrite;
-
-use crate::event_loop::{EventLoop, IoCallback};
-use crate::platform::tcp::{self, POLLIN};
+use crate::event_loop::EventLoop;
+use crate::platform::tcp;
 
 pub const HTTPD_PORT: u16 = 8080;
 pub const MAX_CONNECTIONS: usize = 12;

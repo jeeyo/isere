@@ -20,44 +20,50 @@ set(HANDLER_JS ${CMAKE_CURRENT_SOURCE_DIR}/js/handler.js)
 set(HANDLER_BIN ${CMAKE_CURRENT_SOURCE_DIR}/js/handler.bin)
 set(COMPILE_BYTECODE ${CMAKE_CURRENT_BINARY_DIR}/compile_bytecode)
 
-if(EXISTS ${HANDLER_BIN})
-    # handler.bin is already present (pre-built by CI or developer); use it.
-    add_custom_target(handler_bytecode ALL)
+# native_sim runs on the host (64-bit on modern systems) — bytecode must match.
+# RP2350 (Cortex-M33) is 32-bit — requires -m32 on the host compiler.
+# macOS arm64 does not support -m32 at all, so native_sim is the only usable
+# build target on Apple Silicon without a Linux cross-build environment.
+if(BOARD MATCHES "native_sim")
+    set(BYTECODE_ARCH_FLAGS "")
 else()
-    # Not present: build using the host's native gcc, not CMAKE_C_COMPILER
-    # (which would be arm-zephyr-eabi-gcc when cross-compiling).
-    find_program(HOST_CC gcc REQUIRED)
-
-    add_custom_command(
-        OUTPUT ${COMPILE_BYTECODE}
-        COMMAND ${HOST_CC} -m32 -O2
-            -o ${COMPILE_BYTECODE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/compile_bytecode.c
-            ${QUICKJS_DIR}/quickjs.c
-            ${QUICKJS_DIR}/libregexp.c
-            ${QUICKJS_DIR}/libunicode.c
-            ${QUICKJS_DIR}/cutils.c
-            ${QUICKJS_DIR}/dtoa.c
-            -I${QUICKJS_DIR}
-            -DCONFIG_VERSION='"2025-09-13"'
-            -D_GNU_SOURCE
-            -lm -lpthread
-        DEPENDS
-            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/compile_bytecode.c
-            ${QUICKJS_DIR}/quickjs.c
-            ${QUICKJS_DIR}/quickjs.h
-        COMMENT "Building host bytecode compiler (32-bit)"
-    )
-
-    add_custom_command(
-        OUTPUT ${HANDLER_BIN}
-        COMMAND ${COMPILE_BYTECODE} ${HANDLER_JS} ${HANDLER_BIN}
-        DEPENDS ${COMPILE_BYTECODE} ${HANDLER_JS}
-        COMMENT "Compiling handler.js to QuickJS bytecode"
-    )
-
-    add_custom_target(handler_bytecode ALL DEPENDS ${HANDLER_BIN})
+    set(BYTECODE_ARCH_FLAGS "-m32")
 endif()
+
+find_program(HOST_CC gcc HINTS /usr/bin /usr/local/bin)
+if(NOT HOST_CC)
+    find_program(HOST_CC cc REQUIRED)
+endif()
+
+add_custom_command(
+    OUTPUT ${COMPILE_BYTECODE}
+    COMMAND ${HOST_CC} ${BYTECODE_ARCH_FLAGS} -O2
+        -o ${COMPILE_BYTECODE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/scripts/compile_bytecode.c
+        ${QUICKJS_DIR}/quickjs.c
+        ${QUICKJS_DIR}/libregexp.c
+        ${QUICKJS_DIR}/libunicode.c
+        ${QUICKJS_DIR}/cutils.c
+        ${QUICKJS_DIR}/dtoa.c
+        -I${QUICKJS_DIR}
+        -DCONFIG_VERSION='"2025-09-13"'
+        -D_GNU_SOURCE
+        -lm -lpthread
+    DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/scripts/compile_bytecode.c
+        ${QUICKJS_DIR}/quickjs.c
+        ${QUICKJS_DIR}/quickjs.h
+    COMMENT "Building host bytecode compiler (${BOARD})"
+)
+
+add_custom_command(
+    OUTPUT ${HANDLER_BIN}
+    COMMAND ${COMPILE_BYTECODE} ${HANDLER_JS} ${HANDLER_BIN}
+    DEPENDS ${COMPILE_BYTECODE} ${HANDLER_JS}
+    COMMENT "Compiling handler.js to QuickJS bytecode"
+)
+
+add_custom_target(handler_bytecode ALL DEPENDS ${HANDLER_BIN})
 
 
 # Zephyr API shims for Rust FFI (k_uptime_get and similar __syscall functions

@@ -17,8 +17,8 @@ The project was migrated from a C codebase (FreeRTOS + lwIP + TinyUSB) to **Zeph
 ## Build commands
 
 ```sh
-west build -b rpi_pico2/rp2350a/m33     # hardware build
-west build -b native_sim                  # development build (no hardware)
+west build -b rpi_pico2/rp2350a/m33     # hardware build (Linux host required for -m32 bytecode)
+west build -b native_sim/native/64       # development build in Docker (macOS arm64)
 west flash                                # flash to device
 ```
 

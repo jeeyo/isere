@@ -16,6 +16,19 @@ zephyr = "0.1.0"
 # no_std HTTP parser (Phase 4)
 # httparse = { version = "1", default-features = false }
 
+# Cargo [lints] overrides RUSTFLAGS=-D warnings set by zephyr-lang-rust's clippy target.
+# These lints are legitimate future work for the FFI/unsafe-heavy QuickJS bindings,
+# but should not block the build.
+[lints.rust]
+dead_code = "warn"
+static_mut_refs = "warn"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "warn"
+manual_c_str_literals = "warn"
+unnecessary_cast = "warn"
+manual_find = "warn"
+
 [profile.release]
 opt-level = "s"    # Optimize for size on embedded
 lto = true

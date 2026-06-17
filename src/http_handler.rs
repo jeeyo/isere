@@ -7,7 +7,7 @@
 // 4. Polls until the response promise resolves
 // 5. Returns the response to the HTTP server for writeback
 
-use crate::httpd::{HttpRequest, HttpResponse};
+use crate::httpd::Connection;
 use crate::js::context::{JsContext, PollStatus};
 use crate::platform::loader;
 use zephyr::printk;

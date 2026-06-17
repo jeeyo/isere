@@ -67,7 +67,7 @@ mod ffi {
     }
 }
 
-pub use ffi::{PollFd, POLLERR, POLLHUP, POLLIN, POLLOUT};
+pub use ffi::{PollFd, POLLERR, POLLHUP, POLLIN};
 
 /// Convert port to network byte order (big-endian).
 fn htons(val: u16) -> u16 {
