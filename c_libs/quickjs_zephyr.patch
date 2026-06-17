@@ -1,6 +1,16 @@
 --- a/quickjs.c	2026-03-28 16:07:37.024857963 +0000
 +++ b/quickjs.c	2026-03-28 16:08:07.562650037 +0000
-@@ -2044,8 +2044,25 @@
+@@ -1985,6 +1985,9 @@
+         rt->rt_info = s;
+ }
+
++/* Forward declaration: defined later in this file, called here in JS_FreeRuntime. */
++static void free_gc_object(JSRuntime *rt, JSGCObjectHeader *gp);
++
+ void JS_FreeRuntime(JSRuntime *rt)
+ {
+     struct list_head *el, *el1;
+@@ -2044,8 +2047,25 @@
              printf("Secondary object leaks: %d\n", count);
      }
  #endif
@@ -25,10 +35,10 @@
 +        }
 +        init_list_head(&rt->gc_zero_ref_count_list);
 +    }
- 
+
      /* free the classes */
      for(i = 0; i < rt->class_count; i++) {
-@@ -46786,7 +46803,7 @@
+@@ -46786,7 +46806,7 @@
          }
      }
      ti = time;
