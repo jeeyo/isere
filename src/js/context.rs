@@ -161,7 +161,7 @@ impl JsContext {
     }
 
     /// Set up the global environment (console, process.env, event, context, cb).
-    pub fn setup_globals(&mut self, request: &HttpRequest<'_>, response: &mut HttpResponse) {
+    pub fn setup_globals(&mut self, request: &HttpRequest, response: &mut HttpResponse) {
         unsafe {
             let ctx = self.context;
             let global = qjs::JS_GetGlobalObject(ctx);
@@ -217,8 +217,8 @@ impl JsContext {
 
             // Path
             let mut path_buf = [0u8; 258];
-            let plen = request.path.len().min(257);
-            path_buf[..plen].copy_from_slice(request.path.as_bytes());
+            let plen = request.path_len.min(257);
+            path_buf[..plen].copy_from_slice(&request.path[..plen]);
             qjs::JS_SetPropertyStr(
                 ctx,
                 event,
@@ -228,13 +228,14 @@ impl JsContext {
 
             // Headers
             let headers = qjs::JS_NewObject(ctx);
-            for h in request.headers() {
+            for i in 0..request.num_headers {
+                let h = &request.headers[i];
                 let mut name_buf = [0u8; 66];
-                let nlen = h.name.len().min(65);
-                name_buf[..nlen].copy_from_slice(&h.name.as_bytes()[..nlen]);
+                let nlen = h.name_len.min(65);
+                name_buf[..nlen].copy_from_slice(&h.name[..nlen]);
 
                 let mut val_buf = [0u8; 514];
-                let vlen = h.value.len().min(513);
+                let vlen = h.value_len.min(513);
                 val_buf[..vlen].copy_from_slice(&h.value[..vlen]);
 
                 qjs::JS_SetPropertyStr(
@@ -248,8 +249,8 @@ impl JsContext {
 
             // Query
             let mut query_buf = [0u8; 258];
-            let qlen = request.query.len().min(257);
-            query_buf[..qlen].copy_from_slice(request.query.as_bytes());
+            let qlen = request.query_len.min(257);
+            query_buf[..qlen].copy_from_slice(&request.query[..qlen]);
             qjs::JS_SetPropertyStr(
                 ctx,
                 event,

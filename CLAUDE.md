@@ -9,7 +9,7 @@ The project was migrated from a C codebase (FreeRTOS + lwIP + TinyUSB) to **Zeph
 ## Tech stack
 
 - **Zephyr RTOS** — kernel, USB CDC-ECM ethernet, networking, DHCP server
-- **Rust** (`#![no_std]`, staticlib) — application logic: HTTP server (httparse for zero-copy parsing), event loop, JS runtime wrapper, platform abstraction
+- **Rust** (`#![no_std]`, staticlib) — application logic: HTTP server, event loop, JS runtime wrapper, platform abstraction
 - **QuickJS** (C, git submodule at `c_libs/quickjs/`) — JavaScript engine, accessed through raw FFI bindings
 - **Target hardware** — Raspberry Pi Pico 2 (RP2350, Cortex-M33, 520KB SRAM)
 - **Build system** — west + CMake (Zephyr) invoking Cargo (Rust)
@@ -17,8 +17,8 @@ The project was migrated from a C codebase (FreeRTOS + lwIP + TinyUSB) to **Zeph
 ## Build commands
 
 ```sh
-west build -b rpi_pico2/rp2350a/m33     # hardware build
-west build -b native_sim                  # development build (no hardware)
+west build -b rpi_pico2/rp2350a/m33     # hardware build (Linux host required for -m32 bytecode)
+west build -b native_sim/native/64       # development build in Docker (macOS arm64)
 west flash                                # flash to device
 ```
 
@@ -42,7 +42,7 @@ scripts/
   compile_bytecode.sh — Builds the compiler for 32-bit and runs it
 src/
   lib.rs             — Entry point (rust_main), server socket setup, connection state machine, event loop
-  httpd.rs           — HTTP/1.1 server: zero-copy request parsing via httparse, response builder
+  httpd.rs           — HTTP/1.1 request parser (zero-copy, no_std) and response builder
   http_handler.rs    — Bridges HTTP request → JsContext → HTTP response
   event_loop.rs      — Poll-based I/O (replaces libuv subset from C version)
   js/
@@ -77,6 +77,5 @@ src/
 - The `zephyr` crate dependency in Cargo.toml comes from the `zephyr-lang-rust` module (declared in `west.yml`)
 - QuickJS bytecode is NOT portable across pointer sizes — always compile with `-m32` for the 32-bit RP2350
 - The HTTP server uses Connection: close (no keep-alive) — each request is a full TCP connection
-- `HttpRequest<'a>` is fully zero-copy: path, query, headers, and body are references into the connection's receive buffer (parsed on-demand via `httparse`, not stored in `Connection`)
 - Max 12 simultaneous connections, 8 setTimeout timers, 2KB request buffer, 4KB response body
 - Handler JS format: `export const handler = async function(event, context, done) { return { statusCode, headers, body } }`

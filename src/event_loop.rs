@@ -5,7 +5,7 @@
 // then poll() in a loop to dispatch ready events.
 
 use core::ffi::c_int;
-use crate::platform::tcp::{self, PollFd, POLLIN, POLLOUT, POLLERR, POLLHUP};
+use crate::platform::tcp::{self, PollFd, POLLERR, POLLHUP};
 
 /// Maximum number of file descriptors we can watch simultaneously.
 const MAX_WATCHERS: usize = 16;

@@ -1,0 +1,35 @@
+FROM ubuntu:24.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git cmake ninja-build gperf ccache dfu-util device-tree-compiler \
+    wget curl xz-utils file make \
+    gcc g++ clang libclang-dev \
+    python3-dev python3-pip python3-venv python3-setuptools python3-wheel \
+    libsdl2-dev libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# In a container, pip --break-system-packages is safe (isolated env).
+RUN pip3 install --break-system-packages west pyelftools pykwalify PyYAML \
+    packaging colorama canopen progress
+
+# Zephyr SDK 1.0.0 — extract minimal bundle for CMake version-check and cmake config.
+# native_sim uses the host's gcc (from apt above); no cross-compiler download needed.
+# dtc comes from apt, so SDK host tools aren't required either.
+ARG ZEPHYR_SDK_VERSION=1.0.0
+RUN wget -q \
+    https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_SDK_VERSION}/zephyr-sdk-${ZEPHYR_SDK_VERSION}_linux-aarch64_minimal.tar.xz \
+    -O /tmp/zephyr-sdk.tar.xz \
+    && tar -xf /tmp/zephyr-sdk.tar.xz -C /opt/ \
+    && rm /tmp/zephyr-sdk.tar.xz
+
+ENV ZEPHYR_SDK_INSTALL_DIR=/opt/zephyr-sdk-1.0.0
+
+# Rust toolchain
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+# thumbv8m for RP2350, aarch64-unknown-none for native_sim on arm64
+RUN rustup target add thumbv8m.main-none-eabihf aarch64-unknown-none
+
+WORKDIR /workspace

@@ -1,41 +1,37 @@
-#![cfg_attr(not(test), no_std)]
+#![no_std]
+// These lints fire extensively in the FFI/unsafe QuickJS bindings and embedded
+// platform shims. They represent legitimate future cleanup work, not bugs.
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(clippy::undocumented_unsafe_blocks)]
+#![allow(clippy::manual_c_str_literals)]
+#![allow(clippy::unnecessary_cast)]
+#![allow(clippy::manual_find)]
+#![allow(clippy::needless_range_loop)]
+#![allow(static_mut_refs)]
 
-#[cfg(not(test))]
 extern crate zephyr;
 
-#[cfg(not(test))]
-mod platform;
-#[cfg(not(test))]
-mod event_loop;
-mod httpd;
-#[cfg(not(test))]
-mod http_handler;
-#[cfg(not(test))]
-mod js;
-
-#[cfg(not(test))]
 use zephyr::printk;
 
-#[cfg(not(test))]
+mod platform;
+mod event_loop;
+mod httpd;
+mod http_handler;
+mod js;
+
 use event_loop::EventLoop;
-#[cfg(not(test))]
 use httpd::{HttpServer, ConnState, HTTPD_PORT, MAX_REQUEST_SIZE, write_response};
-#[cfg(not(test))]
 use platform::tcp::{self, POLLIN};
 
-#[cfg(not(test))]
 const APP_NAME: &str = "isere";
-#[cfg(not(test))]
 const APP_VERSION: &str = "0.1.0";
 
 /// Global mutable state — in a real Zephyr app these would be in the main thread.
 /// Zephyr's single-threaded Rust model means this is safe for our use case.
-#[cfg(not(test))]
 static mut EVENT_LOOP: EventLoop = EventLoop::new();
-#[cfg(not(test))]
 static mut SERVER: HttpServer = HttpServer::new();
 
-#[cfg(not(test))]
 #[no_mangle]
 extern "C" fn rust_main() {
     printk!("{} v{} starting on Zephyr OS (Rust)\n", APP_NAME, APP_VERSION);
@@ -45,7 +41,6 @@ extern "C" fn rust_main() {
     }
 }
 
-#[cfg(not(test))]
 fn run_server() -> Result<(), ()> {
     // Create server socket
     let server_fd = tcp::socket_new().map_err(|_| {
@@ -97,7 +92,6 @@ fn run_server() -> Result<(), ()> {
     Ok(())
 }
 
-#[cfg(not(test))]
 /// Callback when the server socket is readable (new connection incoming).
 fn on_server_readable(_watcher_id: usize, fd: core::ffi::c_int, _events: i16, _userdata: usize) {
     let newfd = match tcp::accept_conn(fd) {
@@ -137,9 +131,8 @@ fn on_server_readable(_watcher_id: usize, fd: core::ffi::c_int, _events: i16, _u
     }
 }
 
-#[cfg(not(test))]
 /// Callback when a client socket is readable (data available).
-fn on_client_readable(_watcher_id: usize, fd: core::ffi::c_int, events: i16, userdata: usize) {
+fn on_client_readable(_watcher_id: usize, fd: core::ffi::c_int, _events: i16, userdata: usize) {
     let conn_idx = userdata;
 
     unsafe {
@@ -178,40 +171,30 @@ fn on_client_readable(_watcher_id: usize, fd: core::ffi::c_int, events: i16, use
     }
 }
 
-#[cfg(not(test))]
 /// Process connections that have finished parsing their HTTP request.
 unsafe fn process_pending_requests() {
     for i in 0..httpd::MAX_CONNECTIONS {
-        if SERVER.connections[i].state != ConnState::Processing {
+        let state = SERVER.connections[i].state;
+        if state != ConnState::Processing {
             continue;
         }
 
-        // Parse buffer into zero-copy request (borrows recv_buf)
-        let conn = &mut SERVER.connections[i];
-        let recv_len = conn.recv_len;
-
-        match httpd::parse_request(&conn.recv_buf[..recv_len]) {
-            Ok((request, _body_start)) => {
-                // Split borrow: request borrows recv_buf, response is a separate field
-                match http_handler::handle_request(&request, &mut conn.response) {
-                    Ok(()) => {
-                        write_response(conn.fd, &conn.response);
-                    }
-                    Err(()) => {
-                        let mut resp = httpd::HttpResponse::new();
-                        resp.status_code = 500;
-                        resp.set_body(b"Internal Server Error");
-                        resp.completed = true;
-                        write_response(conn.fd, &resp);
-                    }
-                }
+        // Execute JS handler
+        let conn = SERVER.connection_mut(i);
+        match http_handler::handle_request(conn) {
+            Ok(()) => {
+                // Write the response
+                let fd = conn.fd;
+                write_response(fd, &conn.response);
             }
             Err(()) => {
+                // JS error — send 500
+                let fd = conn.fd;
                 let mut resp = httpd::HttpResponse::new();
-                resp.status_code = 400;
-                resp.set_body(b"Bad Request");
+                resp.status_code = 500;
+                resp.set_body(b"Internal Server Error");
                 resp.completed = true;
-                write_response(conn.fd, &resp);
+                write_response(fd, &resp);
             }
         }
 

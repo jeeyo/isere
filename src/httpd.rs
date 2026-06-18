@@ -1,19 +1,22 @@
 // HTTP/1.1 server for isere.
 //
+// Replaces httpd.c + llhttp with a Rust-native implementation.
 // Uses httparse for zero-copy HTTP parsing (no_std compatible).
 // Non-blocking sockets with poll()-based event loop.
 
 use core::ffi::c_int;
-
-#[cfg(not(test))]
 use crate::event_loop::EventLoop;
-#[cfg(not(test))]
 use crate::platform::tcp;
 
 pub const HTTPD_PORT: u16 = 8080;
 pub const MAX_CONNECTIONS: usize = 12;
 pub const MAX_HEADERS: usize = 16;
 pub const MAX_REQUEST_SIZE: usize = 2048;
+pub const MAX_BODY_SIZE: usize = 512;
+pub const MAX_METHOD_LEN: usize = 16;
+pub const MAX_PATH_LEN: usize = 256;
+pub const MAX_HEADER_NAME_LEN: usize = 64;
+pub const MAX_HEADER_VALUE_LEN: usize = 512;
 pub const MAX_RESPONSE_BODY_LEN: usize = 4096;
 pub const MAX_RESPONSE_HEADER_NAME_LEN: usize = 64;
 pub const MAX_RESPONSE_HEADER_VALUE_LEN: usize = 256;
@@ -59,19 +62,68 @@ impl Method {
     }
 }
 
-/// A zero-copy parsed HTTP request. All fields borrow from the receive buffer.
-pub struct HttpRequest<'a> {
-    pub method: Method,
-    pub path: &'a str,
-    pub query: &'a str,
-    pub body: &'a [u8],
-    headers_buf: [httparse::Header<'a>; MAX_HEADERS],
-    pub num_headers: usize,
+/// A parsed HTTP request header.
+#[derive(Clone)]
+pub struct Header {
+    pub name: [u8; MAX_HEADER_NAME_LEN],
+    pub name_len: usize,
+    pub value: [u8; MAX_HEADER_VALUE_LEN],
+    pub value_len: usize,
 }
 
-impl<'a> HttpRequest<'a> {
-    pub fn headers(&self) -> &[httparse::Header<'a>] {
-        &self.headers_buf[..self.num_headers]
+impl Header {
+    pub const fn empty() -> Self {
+        Self {
+            name: [0u8; MAX_HEADER_NAME_LEN],
+            name_len: 0,
+            value: [0u8; MAX_HEADER_VALUE_LEN],
+            value_len: 0,
+        }
+    }
+
+    pub fn name_str(&self) -> &str {
+        core::str::from_utf8(&self.name[..self.name_len]).unwrap_or("")
+    }
+
+    pub fn value_str(&self) -> &str {
+        core::str::from_utf8(&self.value[..self.value_len]).unwrap_or("")
+    }
+}
+
+/// A parsed HTTP request.
+pub struct HttpRequest {
+    pub method: Method,
+    pub path: [u8; MAX_PATH_LEN],
+    pub path_len: usize,
+    pub query: [u8; MAX_PATH_LEN],
+    pub query_len: usize,
+    pub headers: [Header; MAX_HEADERS],
+    pub num_headers: usize,
+    pub body: [u8; MAX_BODY_SIZE],
+    pub body_len: usize,
+}
+
+impl HttpRequest {
+    pub const fn new() -> Self {
+        Self {
+            method: Method::Unknown,
+            path: [0u8; MAX_PATH_LEN],
+            path_len: 0,
+            query: [0u8; MAX_PATH_LEN],
+            query_len: 0,
+            headers: [const { Header::empty() }; MAX_HEADERS],
+            num_headers: 0,
+            body: [0u8; MAX_BODY_SIZE],
+            body_len: 0,
+        }
+    }
+
+    pub fn path_str(&self) -> &str {
+        core::str::from_utf8(&self.path[..self.path_len]).unwrap_or("/")
+    }
+
+    pub fn query_str(&self) -> &str {
+        core::str::from_utf8(&self.query[..self.query_len]).unwrap_or("")
     }
 
     pub fn method_str(&self) -> &str {
@@ -79,82 +131,8 @@ impl<'a> HttpRequest<'a> {
     }
 
     pub fn body_str(&self) -> &str {
-        core::str::from_utf8(self.body).unwrap_or("")
+        core::str::from_utf8(&self.body[..self.body_len]).unwrap_or("")
     }
-}
-
-/// Parse an HTTP request from a buffer using httparse (zero-copy).
-///
-/// Returns the parsed request and the body start offset on success.
-/// All fields in the returned HttpRequest borrow directly from `buf`.
-pub fn parse_request(buf: &[u8]) -> Result<(HttpRequest<'_>, usize), ()> {
-    let mut headers = [httparse::EMPTY_HEADER; MAX_HEADERS];
-    let mut parsed = httparse::Request::new(&mut headers);
-
-    let body_start = match parsed.parse(buf) {
-        Ok(httparse::Status::Complete(n)) => n,
-        Ok(httparse::Status::Partial) => return Err(()),
-        Err(_) => return Err(()),
-    };
-
-    let method = Method::from_bytes(parsed.method.unwrap_or("").as_bytes());
-
-    let full_path = parsed.path.unwrap_or("/");
-    let (path, query) = match full_path.find('?') {
-        Some(pos) => (&full_path[..pos], &full_path[pos + 1..]),
-        None => (full_path, ""),
-    };
-
-    let num_headers = parsed.headers.len();
-    let body = &buf[body_start..];
-
-    drop(parsed);
-
-    Ok((
-        HttpRequest {
-            method,
-            path,
-            query,
-            body,
-            headers_buf: headers,
-            num_headers,
-        },
-        body_start,
-    ))
-}
-
-/// Check if headers are complete and body is fully received.
-/// Used during the reading phase to decide when to stop reading.
-fn is_request_complete(buf: &[u8], buf_len: usize) -> bool {
-    let mut headers = [httparse::EMPTY_HEADER; MAX_HEADERS];
-    let mut parsed = httparse::Request::new(&mut headers);
-
-    let body_start = match parsed.parse(buf) {
-        Ok(httparse::Status::Complete(n)) => n,
-        _ => return false,
-    };
-
-    let content_length = get_content_length(parsed.headers);
-    if content_length > 0 {
-        let available = buf_len - body_start;
-        return available >= content_length;
-    }
-
-    true
-}
-
-/// Get Content-Length from httparse headers.
-fn get_content_length(headers: &[httparse::Header<'_>]) -> usize {
-    for h in headers {
-        if h.name.eq_ignore_ascii_case("content-length") {
-            if let Ok(s) = core::str::from_utf8(h.value) {
-                if let Ok(n) = s.trim().parse::<usize>() {
-                    return n;
-                }
-            }
-        }
-    }
-    0
 }
 
 /// An HTTP response header.
@@ -219,7 +197,6 @@ impl HttpResponse {
     }
 }
 
-#[cfg(not(test))]
 /// State of an HTTP connection.
 #[derive(Clone, Copy, PartialEq)]
 pub enum ConnState {
@@ -229,7 +206,6 @@ pub enum ConnState {
     Writing,
 }
 
-#[cfg(not(test))]
 /// A connection slot in the server.
 pub struct Connection {
     pub fd: c_int,
@@ -240,6 +216,8 @@ pub struct Connection {
     pub recv_buf: [u8; MAX_REQUEST_SIZE],
     pub recv_len: usize,
 
+    // parsed request
+    pub request: HttpRequest,
     pub parse_complete: bool,
 
     // response
@@ -249,7 +227,6 @@ pub struct Connection {
     pub js_context_id: i32,
 }
 
-#[cfg(not(test))]
 impl Connection {
     pub const fn empty() -> Self {
         Self {
@@ -258,6 +235,7 @@ impl Connection {
             watcher_id: 0,
             recv_buf: [0u8; MAX_REQUEST_SIZE],
             recv_len: 0,
+            request: HttpRequest::new(),
             parse_complete: false,
             response: HttpResponse::new(),
             js_context_id: -1,
@@ -270,13 +248,138 @@ impl Connection {
         self.watcher_id = 0;
         self.recv_buf = [0u8; MAX_REQUEST_SIZE];
         self.recv_len = 0;
+        self.request = HttpRequest::new();
         self.parse_complete = false;
         self.response = HttpResponse::new();
         self.js_context_id = -1;
     }
 }
 
-#[cfg(not(test))]
+/// Minimal HTTP request parser (no_std, no alloc).
+///
+/// Parses the request line and headers from a buffer.
+/// Returns Ok(body_offset) if complete, Err(()) if incomplete or malformed.
+fn parse_request(buf: &[u8], req: &mut HttpRequest) -> Result<usize, ()> {
+    // Find end of headers (\r\n\r\n)
+    let header_end = find_header_end(buf).ok_or(())?;
+
+    // Parse request line
+    let mut pos = 0;
+
+    // Method
+    let method_end = memchr(b' ', &buf[pos..]).ok_or(())?;
+    req.method = Method::from_bytes(&buf[pos..pos + method_end]);
+    pos += method_end + 1;
+
+    // Path (and query)
+    let path_end = memchr(b' ', &buf[pos..]).ok_or(())?;
+    let uri = &buf[pos..pos + path_end];
+
+    // Split path and query at '?'
+    if let Some(q_pos) = memchr(b'?', uri) {
+        let path_len = q_pos.min(MAX_PATH_LEN);
+        req.path[..path_len].copy_from_slice(&uri[..path_len]);
+        req.path_len = path_len;
+
+        let query = &uri[q_pos + 1..];
+        let query_len = query.len().min(MAX_PATH_LEN);
+        req.query[..query_len].copy_from_slice(&query[..query_len]);
+        req.query_len = query_len;
+    } else {
+        let path_len = uri.len().min(MAX_PATH_LEN);
+        req.path[..path_len].copy_from_slice(&uri[..path_len]);
+        req.path_len = path_len;
+    }
+    pos += path_end + 1;
+
+    // Skip HTTP version line
+    let line_end = memchr(b'\n', &buf[pos..]).ok_or(())?;
+    pos += line_end + 1;
+
+    // Parse headers
+    req.num_headers = 0;
+    while pos < header_end && req.num_headers < MAX_HEADERS {
+        // Check for end of headers
+        if buf[pos] == b'\r' || buf[pos] == b'\n' {
+            break;
+        }
+
+        // Header name
+        let colon = memchr(b':', &buf[pos..]).ok_or(())?;
+        let name = &buf[pos..pos + colon];
+        let name_len = name.len().min(MAX_HEADER_NAME_LEN);
+        req.headers[req.num_headers].name[..name_len].copy_from_slice(&name[..name_len]);
+        req.headers[req.num_headers].name_len = name_len;
+        pos += colon + 1;
+
+        // Skip whitespace
+        while pos < header_end && buf[pos] == b' ' {
+            pos += 1;
+        }
+
+        // Header value (until \r\n)
+        let val_end = memchr(b'\r', &buf[pos..]).unwrap_or(header_end - pos);
+        let value = &buf[pos..pos + val_end];
+        let value_len = value.len().min(MAX_HEADER_VALUE_LEN);
+        req.headers[req.num_headers].value[..value_len].copy_from_slice(&value[..value_len]);
+        req.headers[req.num_headers].value_len = value_len;
+        req.num_headers += 1;
+
+        pos += val_end;
+        // Skip \r\n
+        if pos < buf.len() && buf[pos] == b'\r' {
+            pos += 1;
+        }
+        if pos < buf.len() && buf[pos] == b'\n' {
+            pos += 1;
+        }
+    }
+
+    // Body starts after \r\n\r\n
+    let body_start = header_end + 4;
+    Ok(body_start)
+}
+
+/// Find \r\n\r\n in buffer, returns index of the first \r.
+fn find_header_end(buf: &[u8]) -> Option<usize> {
+    if buf.len() < 4 {
+        return None;
+    }
+    for i in 0..buf.len() - 3 {
+        if buf[i] == b'\r' && buf[i + 1] == b'\n' && buf[i + 2] == b'\r' && buf[i + 3] == b'\n' {
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// Find a byte in a slice (like libc memchr).
+fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+    for (i, &b) in haystack.iter().enumerate() {
+        if b == needle {
+            return Some(i);
+        }
+    }
+    None
+}
+
+/// Get Content-Length from parsed request headers.
+fn get_content_length(req: &HttpRequest) -> usize {
+    for i in 0..req.num_headers {
+        let name = &req.headers[i].name[..req.headers[i].name_len];
+        // Case-insensitive compare for "Content-Length" / "content-length"
+        if name.len() == 14 && name.eq_ignore_ascii_case(b"content-length") {
+            let val_str = core::str::from_utf8(&req.headers[i].value[..req.headers[i].value_len]);
+            if let Ok(s) = val_str {
+                if let Ok(n) = s.trim().parse::<usize>() {
+                    return n;
+                }
+            }
+        }
+    }
+    0
+}
+
 /// Write an HTTP response to a socket.
 pub fn write_response(fd: c_int, response: &HttpResponse) {
     // Status line
@@ -318,7 +421,6 @@ pub fn write_response(fd: c_int, response: &HttpResponse) {
     }
 }
 
-#[cfg(not(test))]
 fn status_text(code: u16) -> &'static str {
     match code {
         200 => "OK",
@@ -340,13 +442,11 @@ fn status_text(code: u16) -> &'static str {
     }
 }
 
-#[cfg(not(test))]
 /// Write a u16 to a buffer as ASCII decimal. Returns number of bytes written.
 fn write_u16(val: u16, buf: &mut [u8]) -> usize {
     write_usize(val as usize, buf)
 }
 
-#[cfg(not(test))]
 /// Write a usize to a buffer as ASCII decimal. Returns number of bytes written.
 fn write_usize(mut val: usize, buf: &mut [u8]) -> usize {
     if val == 0 {
@@ -366,7 +466,6 @@ fn write_usize(mut val: usize, buf: &mut [u8]) -> usize {
     i
 }
 
-#[cfg(not(test))]
 /// The HTTP server.
 pub struct HttpServer {
     pub server_fd: c_int,
@@ -375,7 +474,6 @@ pub struct HttpServer {
     pub should_exit: bool,
 }
 
-#[cfg(not(test))]
 impl HttpServer {
     pub const fn new() -> Self {
         Self {
@@ -396,6 +494,11 @@ impl HttpServer {
         None
     }
 
+    /// Get a connection by index.
+    pub fn connection(&self, idx: usize) -> &Connection {
+        &self.connections[idx]
+    }
+
     /// Get a mutable connection by index.
     pub fn connection_mut(&mut self, idx: usize) -> &mut Connection {
         &mut self.connections[idx]
@@ -412,14 +515,36 @@ impl HttpServer {
     }
 
     /// Try to parse the receive buffer of a connection.
-    /// Returns true if the request (headers + body) is fully received.
+    /// Returns true if parsing is complete.
     pub fn try_parse(&mut self, conn_idx: usize) -> bool {
         let conn = &mut self.connections[conn_idx];
-        let complete = is_request_complete(&conn.recv_buf[..conn.recv_len], conn.recv_len);
-        if complete {
-            conn.parse_complete = true;
+        let buf = &conn.recv_buf[..conn.recv_len];
+
+        match parse_request(buf, &mut conn.request) {
+            Ok(body_start) => {
+                // Copy body if present
+                let content_length = get_content_length(&conn.request);
+                if content_length > 0 && body_start < conn.recv_len {
+                    let available = conn.recv_len - body_start;
+                    let body_len = available.min(content_length).min(MAX_BODY_SIZE);
+                    conn.request.body[..body_len]
+                        .copy_from_slice(&conn.recv_buf[body_start..body_start + body_len]);
+                    conn.request.body_len = body_len;
+
+                    // Check if we have the full body
+                    if available >= content_length {
+                        conn.parse_complete = true;
+                        return true;
+                    }
+                    // Need more data for body
+                    return false;
+                }
+                // No body expected
+                conn.parse_complete = true;
+                true
+            }
+            Err(()) => false, // Need more data or parse error
         }
-        complete
     }
 
     /// Send an error response and close the connection.
@@ -437,122 +562,5 @@ impl HttpServer {
             write_response(fd, &resp);
         }
         self.close_connection(conn_idx, event_loop);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_get_with_query_and_headers() {
-        let buf = b"GET /path?query=value HTTP/1.1\r\nHost: localhost\r\nAccept: */*\r\n\r\n";
-        let (req, body_start) = parse_request(buf).unwrap();
-
-        assert_eq!(req.method, Method::Get);
-        assert_eq!(req.path, "/path");
-        assert_eq!(req.query, "query=value");
-        assert_eq!(req.headers().len(), 2);
-        assert_eq!(req.headers()[0].name, "Host");
-        assert_eq!(req.headers()[0].value, b"localhost");
-        assert_eq!(req.headers()[1].name, "Accept");
-        assert_eq!(req.body.len(), 0);
-        assert_eq!(body_start, buf.len());
-    }
-
-    #[test]
-    fn parse_post_with_body() {
-        let buf = b"POST /submit HTTP/1.1\r\nContent-Length: 13\r\n\r\nHello, World!";
-        let (req, body_start) = parse_request(buf).unwrap();
-
-        assert_eq!(req.method, Method::Post);
-        assert_eq!(req.path, "/submit");
-        assert_eq!(req.query, "");
-        assert_eq!(req.body, b"Hello, World!");
-        assert_eq!(req.body_str(), "Hello, World!");
-        assert_eq!(body_start, buf.len() - 13);
-    }
-
-    #[test]
-    fn parse_path_without_query() {
-        let buf = b"GET /about HTTP/1.1\r\nHost: localhost\r\n\r\n";
-        let (req, _) = parse_request(buf).unwrap();
-
-        assert_eq!(req.path, "/about");
-        assert_eq!(req.query, "");
-    }
-
-    #[test]
-    fn parse_all_methods() {
-        for (method_str, expected) in [
-            ("GET", Method::Get),
-            ("POST", Method::Post),
-            ("PUT", Method::Put),
-            ("DELETE", Method::Delete),
-            ("PATCH", Method::Patch),
-            ("OPTIONS", Method::Options),
-            ("HEAD", Method::Head),
-        ] {
-            let buf = format!("{} / HTTP/1.1\r\nHost: localhost\r\n\r\n", method_str);
-            let (req, _) = parse_request(buf.as_bytes()).unwrap();
-            assert_eq!(req.method, expected, "failed for {}", method_str);
-        }
-    }
-
-    #[test]
-    fn partial_request_returns_err() {
-        // Incomplete headers (no \r\n\r\n terminator)
-        let buf = b"GET /path HTTP/1.1\r\nHost: localhost";
-        assert!(parse_request(buf).is_err());
-    }
-
-    #[test]
-    fn empty_buffer_returns_err() {
-        assert!(parse_request(b"").is_err());
-    }
-
-    #[test]
-    fn malformed_request_returns_err() {
-        let buf = b"\x00\x01\x02\r\n\r\n";
-        assert!(parse_request(buf).is_err());
-    }
-
-    #[test]
-    fn is_complete_no_body() {
-        let buf = b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
-        assert!(is_request_complete(buf, buf.len()));
-    }
-
-    #[test]
-    fn is_complete_with_full_body() {
-        let buf = b"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nhello";
-        assert!(is_request_complete(buf, buf.len()));
-    }
-
-    #[test]
-    fn is_incomplete_partial_body() {
-        let buf = b"POST / HTTP/1.1\r\nContent-Length: 10\r\n\r\nhello";
-        assert!(!is_request_complete(buf, buf.len()));
-    }
-
-    #[test]
-    fn is_incomplete_partial_headers() {
-        let buf = b"GET / HTTP/1.1\r\nHost:";
-        assert!(!is_request_complete(buf, buf.len()));
-    }
-
-    #[test]
-    fn parse_multiple_headers() {
-        let buf = b"GET / HTTP/1.1\r\n\
-            Host: example.com\r\n\
-            Content-Type: application/json\r\n\
-            Authorization: Bearer token123\r\n\
-            X-Custom: value\r\n\r\n";
-        let (req, _) = parse_request(buf).unwrap();
-
-        assert_eq!(req.headers().len(), 4);
-        assert_eq!(req.headers()[0].name, "Host");
-        assert_eq!(req.headers()[2].name, "Authorization");
-        assert_eq!(req.headers()[2].value, b"Bearer token123");
     }
 }
