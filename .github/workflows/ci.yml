@@ -58,13 +58,22 @@ jobs:
           chmod +x "$ISERE_BIN"
           python3 -m pytest tests/integration \
             -v -m "not slow" \
-            --junitxml=integration-results.xml
+            --catalog-out reports/catalog.json \
+            --junitxml=reports/integration-results.xml
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: results-integration
+          path: reports/
+          retention-days: 14
 
       - name: Publish test report
         uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
-          report_paths: integration-results.xml
+          report_paths: reports/integration-results.xml
           check_name: Integration test report
 
   leaks:
@@ -93,11 +102,60 @@ jobs:
           chmod +x "$ISERE_BIN"
           python3 -m pytest tests/integration \
             -v -m "slow" \
-            --junitxml=leak-results.xml
+            --junitxml=reports/leak-results.xml
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: results-leaks
+          path: reports/
+          retention-days: 14
 
       - name: Publish leak report
         uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
-          report_paths: leak-results.xml
+          report_paths: reports/leak-results.xml
           check_name: Leak test report
+
+  report:
+    name: HTML report
+    runs-on: ubuntu-latest
+    needs: [integration, leaks]
+    # the report is most useful precisely when something failed
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: results-*
+          path: downloaded
+          merge-multiple: true
+
+      - name: Build HTML report
+        run: |
+          python3 tests/integration/report.py \
+            --catalog downloaded/catalog.json \
+            --junit downloaded/integration-results.xml \
+            --junit downloaded/leak-results.xml \
+            --title "isère integration tests — ${GITHUB_REF_NAME} @ ${GITHUB_SHA:0:7}" \
+            --out report/index.html
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-html
+          path: report/
+          retention-days: 30
+
+      - name: Summarise
+        run: |
+          {
+            echo "## Integration test report"
+            echo
+            echo "Download the **test-report-html** artifact from this run for the"
+            echo "full catalogue: every test with its purpose, what a failure means,"
+            echo "and the source it exercises."
+          } >> "$GITHUB_STEP_SUMMARY"

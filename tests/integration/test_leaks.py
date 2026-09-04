@@ -22,6 +22,8 @@ import harness
 # array reaching steady state) is fine; anything scaling linearly is not.
 PER_REQUEST_TOLERANCE = 256
 
+AREA = "leaks"
+
 pytestmark = pytest.mark.slow
 
 
@@ -102,7 +104,17 @@ def _assert_no_growth(handler_js, low=20, high=200, action=None, label=""):
     return hi
 
 
+@pytest.mark.case(
+    id="LEAK-01",
+    title="No memory retained per plain request",
+    area=AREA,
+    severity="high",
+    proves="Memory grows with every request served. At ~500 bytes/request an RP2350 with 520KiB of RAM dies after roughly a thousand requests.",
+    refs=["src/httpd.c:279", "src/httpd.c:367"],
+)
 def test_no_leak_on_plain_requests():
+    """Serve 20 and then 200 plain requests under valgrind and compare the
+    bytes still retained at exit."""
     report = _assert_no_growth("hello.js", label="plain")
     assert report["definitely_lost"] == 0, (
         "%d bytes definitely lost serving plain requests"
@@ -110,7 +122,17 @@ def test_no_leak_on_plain_requests():
     )
 
 
+@pytest.mark.case(
+    id="LEAK-02",
+    title="No memory retained per connect/disconnect",
+    area=AREA,
+    severity="high",
+    proves="Connections that never send a complete request leak. Cheapest possible attack: open sockets and hang up.",
+    refs=["src/httpd.c:232", "src/httpd.c:367"],
+)
 def test_no_leak_on_connect_disconnect():
+    """Open and drop connections without completing a request, at two
+    different counts, and compare retained bytes."""
     _assert_no_growth(
         "hello.js",
         action=lambda: harness.connect_and_close(),
@@ -118,27 +140,70 @@ def test_no_leak_on_connect_disconnect():
     )
 
 
+@pytest.mark.case(
+    id="LEAK-03",
+    title="Timers still pending at teardown are freed",
+    area=AREA,
+    severity="medium",
+    proves="Timers cancelled at context teardown leak their control block. Control case for LEAK-04.",
+    refs=["src/polyfills/quickjs/timer.c:118"],
+)
 def test_no_leak_with_timers_that_never_fire():
     """Timers still pending at teardown are deleted correctly; this is the
     control case for the test below."""
     _assert_no_growth("timers.js", low=20, high=150, label="timers-pending")
 
 
+@pytest.mark.case(
+    id="LEAK-04",
+    title="Timers that fire are freed",
+    area=AREA,
+    severity="medium",
+    proves="polyfill_timer_callback() clears the slot without xTimerDelete(), so teardown skips it and the control block leaks on every fired timer.",
+    refs=["src/polyfills/quickjs/timer.c:42", "src/polyfills/quickjs/timer.c:123"],
+    known_issue="Fails today, but not for the leak: under valgrind thread serialisation the drain loop busy-waits without yielding and starves the timer task, so the server stops accepting before the measurement completes. Passes without valgrind.",
+)
 def test_no_leak_with_timers_that_fire():
     """The leak is on the fire path: the callback clears the slot without
     deleting the timer, so teardown skips it."""
     _assert_no_growth("firing_timer.js", low=20, high=150, label="timers-fired")
 
 
+@pytest.mark.case(
+    id="LEAK-05",
+    title="No atoms retained when a handler returns 40 headers",
+    area=AREA,
+    severity="medium",
+    proves="JS_FreeAtom only runs for the clamped 16, so atoms past the clamp leak on every response. Handler-controlled.",
+    refs=["src/runtimes/quickjs/quickjs.c:245"],
+)
 def test_no_leak_with_many_response_headers():
     """Property-name atoms past the 16-header clamp are never freed."""
     _assert_no_growth("many_headers.js", low=20, high=150, label="many-headers")
 
 
+@pytest.mark.case(
+    id="LEAK-06",
+    title="No memory retained when the handler throws",
+    area=AREA,
+    severity="high",
+    proves="The exception path skips teardown, so a handler that always fails leaks a runtime per request.",
+    refs=["src/runtimes/quickjs/quickjs.c:190"],
+)
 def test_no_leak_on_throwing_handler():
+    """Compare retained bytes across two soaks of a handler that always
+    throws."""
     _assert_no_growth("throws.js", low=20, high=150, label="throws")
 
 
+@pytest.mark.case(
+    id="LEAK-07",
+    title="No invalid reads or writes under valgrind",
+    area=AREA,
+    severity="critical",
+    proves="The server reads or writes memory it does not own. Distinct from leak accounting -- these are corruption bugs.",
+    refs=["src/httpd.c", "src/runtimes/quickjs/quickjs.c"],
+)
 def test_no_memory_errors_under_valgrind():
     """Invalid reads/writes are always a bug, regardless of leak accounting."""
     report = _measure("hello.js", 30)

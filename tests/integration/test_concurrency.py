@@ -14,6 +14,8 @@ import pytest
 
 import harness
 
+AREA = "concurrency"
+
 
 def _hammer(n_clients, n_each, path="/", timeout=20.0):
     """Run n_clients threads issuing n_each requests, collecting outcomes."""
@@ -75,6 +77,15 @@ def _report(name, latencies, failures, wall, total):
         print("  first failures: %r" % (failures[:5],))
 
 
+@pytest.mark.case(
+    id="CONC-01",
+    title="Serial latency baseline",
+    area=AREA,
+    severity="info",
+    proves="Per-request latency regressed badly, or the server is doing "
+    "something blocking on the happy path.",
+    refs=["src/httpd.c:423"],
+)
 def test_serial_latency_baseline(server):
     """One client, no concurrency -- the floor for per-request latency."""
     latencies, failures, wall = _hammer(1, 50)
@@ -87,6 +98,14 @@ def test_serial_latency_baseline(server):
     )
 
 
+@pytest.mark.case(
+    id="CONC-02",
+    title="Eight concurrent clients all succeed",
+    area=AREA,
+    severity="high",
+    proves="The server drops requests below its own connection cap.",
+    refs=["portable/linux/src/tcp.c:123", "include/tcp.h:28"],
+)
 def test_moderate_concurrency_all_succeed(server):
     """8 concurrent clients stays under the 12-connection cap."""
     n_clients, n_each = 8, 10
@@ -100,6 +119,15 @@ def test_moderate_concurrency_all_succeed(server):
     )
 
 
+@pytest.mark.case(
+    id="CONC-03",
+    title="Load beyond the connection cap does not crash or wedge",
+    area=AREA,
+    severity="critical",
+    proves="Overload can kill the server or leave it permanently unable to "
+    "accept -- a remote denial of service.",
+    refs=["portable/linux/src/tcp.c:74", "portable/linux/src/tcp.c:147"],
+)
 def test_high_concurrency_does_not_crash(server):
     """More clients than the connection cap: failures are acceptable, a dead
     or wedged server is not."""
@@ -115,6 +143,15 @@ def test_high_concurrency_does_not_crash(server):
     )
 
 
+@pytest.mark.case(
+    id="CONC-04",
+    title="File descriptors are not leaked",
+    area=AREA,
+    severity="high",
+    proves="Sockets are not closed on teardown; the server will hit its fd "
+    "limit and stop accepting.",
+    refs=["src/httpd.c:379", "portable/linux/src/tcp.c:71"],
+)
 def test_file_descriptors_are_not_leaked(server):
     """Sockets must be closed as connections are torn down."""
     harness.request("/")
@@ -130,6 +167,16 @@ def test_file_descriptors_are_not_leaked(server):
     )
 
 
+@pytest.mark.case(
+    id="CONC-05",
+    title="Server recovers after an overload burst",
+    area=AREA,
+    severity="critical",
+    proves="Connection accounting is wedged. __num_of_tcp_conns is unsigned "
+    "and decremented on every close including sockets it never counted, so it "
+    "can underflow and reject everything from then on.",
+    refs=["portable/linux/src/tcp.c:19", "portable/linux/src/tcp.c:124"],
+)
 def test_burst_then_recover(server):
     """After a burst well over the cap, the server should return to normal."""
     _hammer(30, 3)
@@ -144,6 +191,18 @@ def test_burst_then_recover(server):
 
 
 @pytest.mark.slow
+@pytest.mark.case(
+    id="CONC-06",
+    title="A slow handler must not block unrelated clients",
+    area=AREA,
+    severity="high",
+    proves="One slow function stalls every other client. The drain loop "
+    "re-queues unfinished connections onto the queue it is iterating, so "
+    "uv__io_poll() never gets back to accept().",
+    refs=["src/httpd.c:432", "include/httpd.h:26"],
+    known_issue="Fails today: an unrelated client waits several seconds. "
+    "ISERE_HTTPD_HANDLER_TIMEOUT_MS is declared but never read.",
+)
 def test_slow_handler_blocks_the_event_loop(server_factory):
     """A handler with a pending timer starves accept().
 

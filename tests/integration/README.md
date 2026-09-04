@@ -25,6 +25,54 @@ here is a finding, not a broken test.
 - A built `linux` target (`build/isere`)
 - `python3`, `pytest`, `cc`, `xxd`
 
+## Reports
+
+Two artifacts, and the HTML one is the one to read.
+
+**JUnit XML** is standard and consumed by CI directly. Each `<testcase>` carries
+the case metadata as `<properties>` (id, title, area, severity, description,
+what a failure means, source refs), so the standard report is self-describing
+on its own.
+
+**HTML** merges the JUnit results with a catalogue of every collected test — so
+it documents the whole suite, including cases a given run skipped or
+deselected. Each entry shows its id, title, severity, description, what a
+failure would mean, the source it exercises, and any captured output (the
+latency and soak numbers land here). Failures are listed up front, ordered by
+severity.
+
+```bash
+python3 -m pytest tests/integration \
+  --catalog-out reports/catalog.json \
+  --junitxml=reports/results.xml
+
+python3 tests/integration/report.py \
+  --catalog reports/catalog.json \
+  --junit reports/results.xml \
+  --out reports/index.html
+```
+
+`--junit` is repeatable, so the fast and slow runs can be merged into one
+report. CI does exactly that and uploads it as the `test-report-html` artifact.
+
+## Adding a test
+
+Give it a `case` marker so it shows up properly in the report:
+
+```python
+@pytest.mark.case(
+    id="MEM-09",
+    title="Short human-readable title",
+    area="memory",                 # smoke | concurrency | memory | risky-js | leaks
+    severity="high",               # critical | high | medium | low | info
+    proves="What it means if this fails.",
+    refs=["src/httpd.c:279"],      # source the test exercises
+    known_issue="Optional: why it fails today.",
+)
+def test_something(server):
+    """What the test actually does. Becomes the description in the report."""
+```
+
 ## Running
 
 Build first, then:

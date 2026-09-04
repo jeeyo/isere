@@ -8,7 +8,11 @@ context, or take the process down.
 import json
 import time
 
+import pytest
+
 import harness
+
+AREA = "risky-js"
 
 
 def _run_many(n=60):
@@ -21,7 +25,17 @@ def _run_many(n=60):
     return statuses
 
 
+@pytest.mark.case(
+    id="RISK-01",
+    title="Throwing handler does not leak its JS context",
+    area=AREA,
+    severity="high",
+    proves="An exception path skips runtime teardown, so every failing request keeps a whole QuickJS runtime alive.",
+    refs=["src/runtimes/quickjs/quickjs.c:190", "src/runtimes/quickjs/quickjs.c:358"],
+)
 def test_throwing_handler_does_not_leak_context(server_factory, rss_tolerance_kb):
+    """Deploy a handler that throws on every request, warm up, then measure
+    RSS across 150 more failing requests."""
     srv = server_factory("throws.js")
     _run_many(30)
     time.sleep(0.2)
@@ -38,6 +52,15 @@ def test_throwing_handler_does_not_leak_context(server_factory, rss_tolerance_kb
     )
 
 
+@pytest.mark.case(
+    id="RISK-02",
+    title="Response body with an embedded NUL does not disclose heap",
+    area=AREA,
+    severity="critical",
+    proves="The server sends adjacent process memory to the client. body_len comes from the JS string (counting the NUL) while the buffer comes from strdup() (stopping at it), so writeback reads past the allocation.",
+    refs=["src/runtimes/quickjs/quickjs.c:284", "src/httpd.c:514"],
+    known_issue="Fails today: the response contains live heap pointers. Remotely observable and enough to defeat ASLR.",
+)
 def test_embedded_nul_in_body_does_not_leak_memory(server_factory):
     """The response length is taken from the JS string (which counts the NUL)
     while the copy stops at the NUL, so the server can send adjacent heap
@@ -59,7 +82,17 @@ def test_embedded_nul_in_body_does_not_leak_memory(server_factory):
     )
 
 
+@pytest.mark.case(
+    id="RISK-03",
+    title="Non-string header values do not crash writeback",
+    area=AREA,
+    severity="high",
+    proves="num_header_fields counts a slot whose pointer was never assigned, so writeback calls strlen(NULL).",
+    refs=["src/runtimes/jerryscript/jerryscript.c:334", "src/httpd.c:499"],
+)
 def test_nonstring_header_values_are_handled(server_factory):
+    """Return headers whose values are a number, an object and null, then
+    check the server answered every request and stayed up."""
     srv = server_factory("nonstring_header.js")
     statuses = _run_many(20)
 
@@ -72,7 +105,17 @@ def test_nonstring_header_values_are_handled(server_factory):
     )
 
 
+@pytest.mark.case(
+    id="RISK-04",
+    title="Excess response headers are clamped, not overflowed",
+    area=AREA,
+    severity="high",
+    proves="A handler can write past the 16-slot header array in the connection object.",
+    refs=["src/runtimes/quickjs/quickjs.c:245", "include/httpd.h:56"],
+)
 def test_many_response_headers_are_clamped(server_factory):
+    """Return 40 response headers and confirm no more than the 16-slot array
+    holds are emitted."""
     srv = server_factory("many_headers.js")
     res = harness.request("/")
 
@@ -86,7 +129,17 @@ def test_many_response_headers_are_clamped(server_factory):
     )
 
 
+@pytest.mark.case(
+    id="RISK-05",
+    title="Out-of-range status code does not corrupt the status line",
+    area=AREA,
+    severity="medium",
+    proves="statusCode is handler-controlled and formatted into char[4]; a 5-digit code truncates or overflows.",
+    refs=["src/httpd.c:491", "include/httpd.h:54"],
+)
 def test_out_of_range_status_code(server_factory):
+    """Return statusCode 12345 and confirm the status line is still
+    parseable."""
     srv = server_factory("weird_status.js")
     res = harness.request("/")
 
@@ -95,6 +148,14 @@ def test_out_of_range_status_code(server_factory):
     assert res.status is not None, "no parseable status line: %r" % res.raw[:64]
 
 
+@pytest.mark.case(
+    id="RISK-06",
+    title="Allocation-heavy handler does not take the server down",
+    area=AREA,
+    severity="high",
+    proves="One function can exhaust the whole system heap. JS_SetMemoryLimit is inert because js_def_malloc_usable_size() returns 0.",
+    refs=["src/runtimes/quickjs/quickjs.c:30", "src/runtimes/quickjs/quickjs.c:309"],
+)
 def test_allocating_handler_is_bounded(server_factory):
     """No per-handler memory limit is enforced today; at minimum the server
     must survive and keep answering."""
@@ -109,7 +170,16 @@ def test_allocating_handler_is_bounded(server_factory):
     )
 
 
+@pytest.mark.case(
+    id="RISK-07",
+    title="Large response body is delivered intact",
+    area=AREA,
+    severity="medium",
+    proves="Large bodies are truncated or corrupted by the blocking writeback loop.",
+    refs=["src/httpd.c:513"],
+)
 def test_large_body_is_delivered_intact(server_factory):
+    """Return 64KiB and check every byte arrives unmodified."""
     srv = server_factory("big_body.js")
     res = harness.request("/")
 
@@ -125,6 +195,14 @@ def test_large_body_is_delivered_intact(server_factory):
     assert set(body) == {ord("Z")}, "large body was corrupted in transit"
 
 
+@pytest.mark.case(
+    id="RISK-08",
+    title="Oversized request header is truncated, not overflowed",
+    area=AREA,
+    severity="high",
+    proves="A 4KiB header value overruns the 512-byte per-header buffer in the connection object.",
+    refs=["src/httpd.c:118", "include/httpd.h:34"],
+)
 def test_oversized_request_header_is_rejected_or_truncated(server_factory):
     """A header value far beyond ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN."""
     srv = server_factory("echo.js")
@@ -140,6 +218,14 @@ def test_oversized_request_header_is_rejected_or_truncated(server_factory):
         assert len(got) < 4096, "oversized header was not truncated"
 
 
+@pytest.mark.case(
+    id="RISK-09",
+    title="More request headers than the array holds",
+    area=AREA,
+    severity="high",
+    proves="The parser writes past headers[16] in the connection object.",
+    refs=["src/httpd.c:81", "include/httpd.h:32"],
+)
 def test_many_request_headers(server_factory):
     """More request headers than the 16-slot array."""
     srv = server_factory("echo.js")
@@ -150,6 +236,14 @@ def test_many_request_headers(server_factory):
     assert res.status is not None
 
 
+@pytest.mark.case(
+    id="RISK-10",
+    title="Empty header name does not cause an out-of-bounds scan",
+    area=AREA,
+    severity="critical",
+    proves="The runtimes walk the packed header arrays scanning for NUL runs. An empty name is accepted and counted by the parser, so the scan can run off the end of the 9KiB stack array.",
+    refs=["src/httpd.c:105", "src/runtimes/quickjs/quickjs.c:148"],
+)
 def test_empty_header_name_is_survivable(server):
     """An empty header field name is accepted and counted by the parser, and
     the runtimes then walk the packed header arrays looking for NUL runs."""
@@ -162,6 +256,15 @@ def test_empty_header_name_is_survivable(server):
     assert harness.request("/").status == 200
 
 
+@pytest.mark.case(
+    id="RISK-11",
+    title="Two pipelined requests in one TCP segment",
+    area=AREA,
+    severity="critical",
+    proves="Use-after-free in the parser path. __on_message_complete frees the connection from inside an llhttp callback while llhttp_execute still holds a pointer to it.",
+    refs=["src/httpd.c:196", "src/httpd.c:252"],
+    known_issue="Fails today: aborts in JS_FreeRuntime with list_empty(&rt->gc_obj_list). An earlier run of the same input instead left the process alive but no longer accepting -- timing-dependent, the usual signature of corruption.",
+)
 def test_pipelined_requests_in_one_segment(server):
     """Two requests in a single TCP segment.
 
@@ -195,7 +298,17 @@ def test_pipelined_requests_in_one_segment(server):
     assert status == 200
 
 
+@pytest.mark.case(
+    id="RISK-12",
+    title="Cycling through hostile handlers keeps the server healthy",
+    area=AREA,
+    severity="medium",
+    proves="State from one bad handler carries over and destabilises the next deployment.",
+    refs=["src/runtimes/quickjs/quickjs.c:294"],
+)
 def test_mixed_hostile_handlers_in_sequence(server_factory, rss_tolerance_kb):
+    """Deploy each awkward handler in turn, hitting every one 20 times, and
+    confirm the process stays healthy across the whole sequence."""
     """Cycle through the awkward handlers; the process must stay healthy."""
     for name in (
         "throws.js",
