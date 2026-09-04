@@ -25,82 +25,78 @@ static JSValue __console_log(JSContext *ctx, JSValueConst this_val, int argc, JS
 static JSValue __console_warn(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 static JSValue __console_error(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 
-#define MALLOC_OVERHEAD 0
-
+/* quickjs-ng does its own malloc accounting and limit enforcement; the port only
+ * has to route allocation through the FreeRTOS heap.
+ *
+ * TODO: js_def_malloc_usable_size() returning 0 means JS_SetMemoryLimit() cannot
+ * actually bound a handler. Fixing that needs a size header on every block. */
 static size_t js_def_malloc_usable_size(const void *ptr)
 {
   return 0;
 }
 
-static void *js_def_malloc(JSMallocState *s, size_t size)
+static void *js_def_malloc(void *opaque, size_t size)
 {
-  void *ptr;
-
-  // /* Do not allocate zero bytes: behavior is platform dependent */
-  // assert(size != 0);
+  /* Do not allocate zero bytes: behavior is platform dependent */
   if (size == 0) {
     return NULL;
   }
 
-  // TODO: unlikely
-  if (s->malloc_size + size > s->malloc_limit) {
+  return pvPortMalloc(size);
+}
+
+static void *js_def_calloc(void *opaque, size_t count, size_t size)
+{
+  void *ptr;
+
+  if (count == 0 || size == 0) {
     return NULL;
   }
 
-  ptr = pvPortMalloc(size);
+  /* reject a count * size that would wrap */
+  if (count > (size_t)-1 / size) {
+    return NULL;
+  }
+
+  ptr = pvPortMalloc(count * size);
   if (!ptr) {
     return NULL;
   }
 
-  s->malloc_count++;
-  s->malloc_size += js_def_malloc_usable_size(ptr) + MALLOC_OVERHEAD;
+  memset(ptr, 0, count * size);
   return ptr;
 }
 
-static void js_def_free(JSMallocState *s, void *ptr)
+static void js_def_free(void *opaque, void *ptr)
 {
   if (!ptr)
     return;
 
-  s->malloc_count--;
-  s->malloc_size -= js_def_malloc_usable_size(ptr) + MALLOC_OVERHEAD;
   vPortFree(ptr);
 }
 
-static void *js_def_realloc(JSMallocState *s, void *ptr, size_t size)
+static void *js_def_realloc(void *opaque, void *ptr, size_t size)
 {
-  size_t old_size;
-
   if (!ptr) {
     if (size == 0)
       return NULL;
-    return js_def_malloc(s, size);
+    return js_def_malloc(opaque, size);
   }
-  old_size = js_def_malloc_usable_size(ptr);
+
   if (size == 0) {
-    s->malloc_count--;
-    s->malloc_size -= old_size + MALLOC_OVERHEAD;
     vPortFree(ptr);
     return NULL;
   }
-  if (s->malloc_size + size - old_size > s->malloc_limit) {
-    return NULL;
-  }
 
-  ptr = pvPortRealloc(ptr, size);
-  if (!ptr) {
-    return NULL;
-  }
-
-  s->malloc_size += js_def_malloc_usable_size(ptr) - old_size;
-  return ptr;
+  return pvPortRealloc(ptr, size);
 }
 
 static const JSMallocFunctions __mf = {
+  js_def_calloc,
   js_def_malloc,
   js_def_free,
   js_def_realloc,
-  NULL,
+  js_def_malloc_usable_size,
 };
 
 int js_runtime_init(isere_js_t *js)
