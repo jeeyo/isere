@@ -9,3 +9,8 @@ isere
 Makefile
 CMakeCache.txt
 cmake_install.cmake
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
