@@ -9,8 +9,8 @@ on:
       - main
 
 jobs:
-  build_and_test:
-    name: Build and Test (Linux)
+  build:
+    name: Build (Linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,46 +18,144 @@ jobs:
           submodules: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc g++ make cmake xxd autoconf
-
-      - uses: actions/checkout@v4
-        with:
-          repository: cpputest/cpputest
-          path: ./cpputest
-
-      - name: Restore cached CppUTest
-        id: cache-cpputest-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: cpputest
-          key: ${{ runner.os }}-cpputest
-
-      - name: Install CppUTest from source
-        if: steps.cache-cpputest-restore.outputs.cache-hit != 'true'
-        run: autoreconf -i . && ./configure && make tdd
-        working-directory: cpputest
-
-      - name: Save CppUTest
-        id: cache-cpputest-save
-        uses: actions/cache/save@v4
-        with:
-          path: cpputest
-          key: ${{ steps.cache-cpputest-restore.outputs.cache-primary-key }}
-
-      - run: mkdir build
+        run: sudo apt-get update && sudo apt-get install -y gcc g++ make cmake xxd
 
       - name: Build
-        run: cmake .. && make VERBOSE=1 -j4
+        run: |
+          mkdir -p build
+          cd build
+          cmake -DTARGET_PLATFORM=linux -DJS_RUNTIME=quickjs ..
+          make -j4
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: isere-linux
+          path: build/isere
+          retention-days: 7
+
+  integration:
+    name: Integration tests (Linux)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc xxd python3 python3-pytest
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: isere-linux
+          path: build
+
+      - name: Run integration tests
         env:
-          CPPUTEST_HOME: ${{ github.workspace }}/cpputest
-        working-directory: build
+          ISERE_BIN: ${{ github.workspace }}/build/isere
+        run: |
+          chmod +x "$ISERE_BIN"
+          python3 -m pytest tests/integration \
+            -v -m "not slow" \
+            --catalog-out reports/catalog.json \
+            --junitxml=reports/integration-results.xml
 
-      - name: Run unit tests
-        run: ./unittests -ojunit
-        working-directory: build
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: results-integration
+          path: reports/
+          retention-days: 14
 
-      - name: Publish Test Report
+      - name: Publish test report
         uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
-          report_paths: './build/cpputest_*.xml'
+          report_paths: reports/integration-results.xml
+          check_name: Integration test report
+
+  leaks:
+    name: Leak and soak tests (valgrind)
+    runs-on: ubuntu-latest
+    needs: build
+    # valgrind runs the soaks at roughly 30x slowdown
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc xxd python3 python3-pytest valgrind
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: isere-linux
+          path: build
+
+      - name: Run leak and soak tests
+        env:
+          ISERE_BIN: ${{ github.workspace }}/build/isere
+        run: |
+          chmod +x "$ISERE_BIN"
+          python3 -m pytest tests/integration \
+            -v -m "slow" \
+            --junitxml=reports/leak-results.xml
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: results-leaks
+          path: reports/
+          retention-days: 14
+
+      - name: Publish leak report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: reports/leak-results.xml
+          check_name: Leak test report
+
+  report:
+    name: HTML report
+    runs-on: ubuntu-latest
+    needs: [integration, leaks]
+    # the report is most useful precisely when something failed
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: results-*
+          path: downloaded
+          merge-multiple: true
+
+      - name: Build HTML report
+        run: |
+          python3 tests/integration/report.py \
+            --catalog downloaded/catalog.json \
+            --junit downloaded/integration-results.xml \
+            --junit downloaded/leak-results.xml \
+            --title "isère integration tests — ${GITHUB_REF_NAME} @ ${GITHUB_SHA:0:7}" \
+            --out report/index.html
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-html
+          path: report/
+          retention-days: 30
+
+      - name: Summarise
+        run: |
+          {
+            echo "## Integration test report"
+            echo
+            echo "Download the **test-report-html** artifact from this run for the"
+            echo "full catalogue: every test with its purpose, what a failure means,"
+            echo "and the source it exercises."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -82,10 +82,9 @@ endif()
 if(JS_RUNTIME STREQUAL quickjs)
   list(APPEND SOURCES
     ${QUICKJS_DIR}/quickjs.c
-    ${QUICKJS_DIR}/libbf.c
+    ${QUICKJS_DIR}/dtoa.c
     ${QUICKJS_DIR}/libregexp.c
     ${QUICKJS_DIR}/libunicode.c
-    ${QUICKJS_DIR}/cutils.c
     ./src/runtimes/quickjs/quickjs.c
     ./src/runtimes/quickjs/quickjs-libc.c
     ./src/polyfills/quickjs/fetch.c
@@ -163,7 +162,7 @@ endif()
 
 find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
-target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
+target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_VERSION="${COMMIT_ID}")
 
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
