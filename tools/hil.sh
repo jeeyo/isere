@@ -60,8 +60,7 @@ done
 BASE_URL="http://${PICO_HOST}:${PICO_PORT}"
 RESULTS_ROOT="${HIL_RESULTS_DIR:-${REPO}/hil-results}"
 LOG_TAG=hil
-# the build dir must sit directly under the repo: CMakeLists.txt reads ../js/handler.js
-BUILD_DIR="${REPO}/build-pico2-${RUNTIME}"
+BUILD_DIR="${BUILD_DIR:-${REPO}/build-pico2-${RUNTIME}}"
 
 # shellcheck source=tools/common.sh
 . "$REPO/tools/common.sh"
@@ -95,7 +94,7 @@ iface_ipv4() { ifconfig "$1" 2>/dev/null | awk '/inet / { sub("addr:", "", $2); 
 
 do_preflight() {
   local tools="curl awk node"
-  [ $SKIP_BUILD -eq 1 ] || tools="$tools cmake make arm-none-eabi-gcc xxd"
+  [ $SKIP_BUILD -eq 1 ] || tools="$tools cmake make arm-none-eabi-gcc"
   # shellcheck disable=SC2086
   require_tools $tools || return 1
   if [ $SKIP_FLASH -eq 0 ]; then
@@ -107,7 +106,8 @@ do_preflight() {
 do_build() {
   mkdir -p "$BUILD_DIR"
   ( cd "$BUILD_DIR" \
-    && cmake .. -DTARGET_PLATFORM=pico2 -DJS_RUNTIME="$RUNTIME" -DISERE_BUILD_ID="$BUILD_ID" \
+    && cmake "$REPO" -DTARGET_PLATFORM=pico2 -DJS_RUNTIME="$RUNTIME" -DISERE_BUILD_ID="$BUILD_ID" \
+       -DISERE_APP_DIRS="$REPO/app;$REPO/tests/e2e/app" \
     && make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)" ) > "$RESULTS/build.log" 2>&1
 }
 

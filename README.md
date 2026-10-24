@@ -2,151 +2,92 @@
 
 ![workflow](https://github.com/jeeyo/isere/actions/workflows/ci.yml/badge.svg)
 
-A serverless platform aimed to be running on Microcontrollers, powered by FreeRTOS, LwIP, and QuickJS
+A small serverless runtime for microcontrollers: JavaScript endpoints on FreeRTOS, with QuickJS (quickjs-ng) or JerryScript, an HTTP server and a TLS client. It runs on the Raspberry Pi Pico 2 and, for development, as a Linux process.
 
-### Current progress
+The goal ([GOAL.md](GOAL.md)) is a small real-world service on a Pico 2: JWT verification against a cached JWKS, its own JWKS endpoint, and live per-request CPU and memory metrics, all with published benchmarks.
 
-- [x] FreeRTOS as Kernel
-- [x] JavaScript runtime
-  - [x] QuickJS
-  - [x] JerryScript
-- [ ] Python runtime (?)
-  - [ ] MicroPython
-- [x] HTTP server
-  - [x] Event Loop (no Keep-Alive support)
-    - [x] Socket
-    - [x] JavaScript Runtime
-  - [ ] Static Files (?)
-- [ ] Unit tests
-  - [ ] loader
-  - [ ] js
-  - [ ] httpd
-  - [ ] http handler
-  - [ ] logger
-- [x] Unit tests on CI
-- [ ] File System
-- [ ] Configuration File
-- [ ] Watchdog timer
-- [ ] Integration tests
-- [ ] Integration tests on CI
-- [ ] [Cloudflare Workers API](https://developers.cloudflare.com/workers/runtime-apis/) (on QuickJS)
-  - [ ] crypto
-  - [ ] fetch
-  - [x] process (env)
-  - [x] console (log, warn, error)
-  - [x] setTimeout / clearTimeout (FreeRTOS Timer)
-  - [ ] performance (?)
-  - [ ] ~~WebAssembly~~
-- [ ] OpenTelemetry
-  - [x] Metrics
-    - [x] Sum (Counter)
-      - [x] Cumulative
-      - [ ] ~~Delta~~ (see [Prometheus and OpenMetrics Compatibility](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#sums))
-    - [x] Gauge
-  - [ ] ~~Logs~~
-  - [ ] Trace
-- [ ] LogStash
-  - [ ] unbuffered printf()
-  - [ ] NDJSON logs
-  - [ ] Serial-to-LogStash integration
-- [ ] Memory Leak Check
-- [ ] Valgrind
-- [ ] Project Template
-- [ ] Low-power mode
-- [x] Benchmark
-- [ ] Doxygen
-- [ ] Port
-  - [x] Raspberry Pi Pico 2 (RP2350)
-  - [ ] ESP32 Ethernet Kit (ESP32-WROVER-E) [Pull Request #28](https://github.com/jeeyo/isere/pull/28)
-- [ ] Monitoring
-  - [ ] CPU Usage ([vTaskGetRunTimeStats](https://www.freertos.org/rtos-run-time-stats.html))
-  - [ ] Memory Usage ([vPortGetHeapStats](https://www.freertos.org/a00111.html))
+## What it does
 
-### Limitations
+- **Several endpoints**, each a JS module, routed by method and exact path ([`app/routes.json`](app/routes.json)).
+  - Unknown routes answer 404 without touching an engine.
+  - Static files are served without JS.
+  - A failing, slow or runaway endpoint gets a 5xx and doesn't affect the others:
+    - a throw gives 500
+    - a busy loop or an endless `await` is interrupted at the handler deadline (504)
+    - unbounded recursion gives 500
+    - JerryScript running out of heap gives 500, and its instance is replaced
+- **Warm engines.** Each module is evaluated once, and every request is a fresh call. On Linux, `ISERE_JS_MODE=cold` restores the old engine-per-request mode for comparison.
+- **The Cloudflare Workers API shape**, the same for both engines, from one prelude ([`src/prelude.js`](src/prelude.js)):
+  - `export default { fetch(request, env, ctx) }`
+  - `Request`, `Response`, `Headers`, `URL`
+  - `fetch` (HTTP and HTTPS)
+  - `crypto.subtle` (`importKey('jwk')`, `verify` for RS256 and ES256, `digest`), `crypto.getRandomValues`
+  - `TextEncoder`, `TextDecoder`, `atob`, `btoa`, timers
+  - The older Lambda-style `export const handler` still works.
+- **HTTP parsed in place** ([`src/http_parser.c`](src/http_parser.c)):
+  - Each connection receives into its own buffer, and fields are `{offset, len}` spans into it.
+  - The only limits are a head budget and a body budget (431 and 413).
+  - Keep-alive, pipelining and chunked bodies are supported.
+  - Ambiguous framing is rejected.
+  - The parser is fuzzed with libFuzzer under ASan.
+- **Per-request metrics**:
+  - wall time, CPU time, bytes allocated, peak heap, net heap change and connection memory, in a `Server-Timing` header
+  - per-endpoint p50/p99 and device CPU and heap at `/__metrics`
+  - NDJSON on stdout or serial
+  - calibration endpoints that show the figures are accurate within 10%
+- **The reference service**, in [`app/`](app):
+  - `GET /verify` checks `Authorization: Bearer <jwt>` against a JWKS cached in memory (TTL, one refetch for an unknown `kid`, single-flight). It works with the board's own `/.well-known/jwks.json` over loopback, or any JWKS over HTTPS.
+  - `GET /.well-known/jwks.json` serves the board's own keys.
 
-- No Keep-Alive support
-- JavaScript handler function needs to be stored sequentially and addressible in a memory
-- Pico 2 may act as DHCP Server, but it doesn't have any routing information, making it unable to connect to external OpenTelemetry Collector
-
-### Porting
-
-See [PORTING.md](PORTING.md)
-
-### Building and Running
-
-Prerequisites:
-- cmake
-- make
-- gcc
-- cpputest
-- xxd
-- [protoc](https://grpc.io/docs/protoc-installation/)
-- python3
-  - [protobuf package](https://pypi.org/project/protobuf/)
-  - [grpcio-tools package](https://pypi.org/project/grpcio-tools/)
-
-### Install dependencies
-
-#### macOS
-
-```zsh
-brew install gcc cmake make libtool protobuf
-```
-
-If you want to build unit tests, you also need to install CppUTest
-
-```zsh
-brew install cpputest
-export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
-```
-
-#### Debian / Ubuntu
-
-```bash
-sudo apt-get install -y build-essential make cmake xxd protobuf-compiler
-```
-
-For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk and gcc](https://cpputest.github.io/) section on CppUTest website.
-
-### Building
+## Build and run (Linux)
 
 ```sh
-git clone https://github.com/jeeyo/isere.git
-git submodule update --init --recursive
-
-mkdir build
-cd build
-cmake -DTARGET_PLATFORM=linux -DDEBUG=on .. # see Build configurations for more options
-make -j
+git submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls
+cmake -B build -DJS_RUNTIME=quickjs      # or jerryscript
+cmake --build build -j
+./build/isere                             # http://127.0.0.1:8080
 ```
 
-#### Build configurations
-
-|Name|Description|Supported values|Default value|
-|-|-|-|-|
-|TARGET_PLATFORM|Target platform to build isère executable for|linux, pico2|linux|
-|DEBUG|Whether to build isère executable with debug symbol|off, on|off|
-|JS_RUNTIME|JavaScript runtime to execute handler function|quickjs, jerryscript|quickjs|
-|WITH_OTEL|Whether to send metrics to OpenTelemetry Collector|off, on|on|
-|OTEL_HOST|OpenTelemetry Collector OLTP/HTTP Host||"127.0.0.1"|
-|OTEL_PORT|OpenTelemetry Collector OLTP/HTTP Port||4318|
-
-### Running
+On macOS, the FreeRTOS POSIX port and valgrind need Linux. Use the container that CI uses:
 
 ```sh
-./isere
+docker build -t isere-linux -f tools/linux.Dockerfile tools
+docker run --rm -v "$PWD":/app -w /app isere-linux tools/linux.sh
 ```
 
-A web server will start on port 8080 with the function defined in [js/handler.js](js/handler.js)
+| CMake option | Values | Default |
+|---|---|---|
+| `TARGET_PLATFORM` | `linux`, `pico2` | `linux` |
+| `JS_RUNTIME` | `quickjs`, `jerryscript` | `quickjs` |
+| `ISERE_APP_DIRS` | app directories to embed (`;`-separated) | `app` |
+| `CMAKE_BUILD_TYPE` | | `RelWithDebInfo` |
 
-### Benchmark
+| Environment (Linux) | Meaning |
+|---|---|
+| `ISERE_CONFIG` | JSON merged over the app's `config` (passed to handlers as `env`), e.g. `{"jwks_url":"https://…"}` |
+| `ISERE_JS_MODE` | `warm` (default) or `cold` |
+| `ISERE_JS_BYTECODE=1` | QuickJS: compile once and load instances from bytecode |
+| `ISERE_JS_LAZY=0` | load all of the prelude up front |
+| `ISERE_HANDLER_TIMEOUT_MS` | handler deadline (default 5000) |
+| `ISERE_HEAD_BUDGET`, `ISERE_BODY_BUDGET` | per-connection budgets (default 8 KB and 16 KB) |
+| `ISERE_MAX_CONNECTIONS` | connection pool (default 12; the Pico 2 has 4) |
+| `ISERE_HEAP_SIZE` | heap budget (default 16 MB) |
+| `ISERE_CA_FILE` | CA bundle for HTTPS `fetch` |
+| `ISERE_METRICS=0`, `ISERE_NDJSON=0`, `ISERE_CPU_CLOCK=thread` | metrics switches |
 
-See [BENCHMARK.md](BENCHMARK.md)
+## Validation and documents
 
-### Acknowledgment
+- [tools/README.md](tools/README.md): the Linux and hardware validation loops, and the test suite
+- [BENCHMARK.md](BENCHMARK.md): benchmarks with commit hashes
+- [docs/FREERTOS_CONFIG.md](docs/FREERTOS_CONFIG.md): every FreeRTOS setting, classified and measured
+- [docs/PLATFORM_DECISION.md](docs/PLATFORM_DECISION.md): FreeRTOS/C against the Zephyr/Rust spike
+- [PORTING.md](PORTING.md)
+
+## Acknowledgment
 
 Special thanks to
 
-- [maxnet](https://github.com/maxnet/pico-webserver/) for tinyusb RNDIS to LwIP glue for Raspberry Pi Pico
+- [maxnet](https://github.com/maxnet/pico-webserver/) for the TinyUSB RNDIS to lwIP glue for the Raspberry Pi Pico
 - [libuv](https://github.com/libuv/libuv) for [src/internals/uv_poll.c](src/internals/uv_poll.c)
+- [picohttpparser](https://github.com/h2o/picohttpparser), whose stateless design the HTTP parser follows
 - [librdkafka](https://github.com/confluentinc/librdkafka) for OpenTelemetry nanopb encoding

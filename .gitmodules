@@ -23,3 +23,6 @@
 	path = 3rdparty/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
 	branch = mbedtls-3.6
+[submodule "spikes/zephyr-rust/c_libs/quickjs"]
+	path = spikes/zephyr-rust/c_libs/quickjs
+	url = https://github.com/bellard/quickjs.git

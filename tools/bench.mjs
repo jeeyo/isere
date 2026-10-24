@@ -7,7 +7,9 @@
 // Options:
 //   --duration SEC     seconds per cell (default 50: 12 cells, about 10 minutes per engine)
 //   --conns "1 2 4"    concurrency levels; the Pico 2 accepts 4 connections
-//   --scenarios LIST   comma-separated: hello, jwks-hit, jwks-miss, mix (default all)
+//   --scenarios LIST   comma-separated: hello, jwks-hit, jwks-miss, mix, builtin
+//                      (default: all but builtin, which involves no JS at all)
+//   --close            a new connection for every request (for servers without keep-alive)
 //   --overhead SEC     also measure what metrics cost: hello at 4 connections with
 //                      ISERE_METRICS=1 and =0, alternated twice (Linux only; default 20, 0 = off)
 //   --json FILE        write every figure as JSON
@@ -33,7 +35,7 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // ------------------------------------------------------------------ options
 
-const opts = { builds: [], url: null, duration: 50, conns: [1, 2, 4], scenarios: null, overhead: 20, json: null, md: null, port: 8080 };
+const opts = { builds: [], url: null, duration: 50, conns: [1, 2, 4], scenarios: null, overhead: 20, json: null, md: null, port: 8080, close: false };
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
   const v = () => process.argv[++i];
@@ -46,6 +48,7 @@ for (let i = 2; i < process.argv.length; i++) {
   else if (a === '--json') opts.json = v();
   else if (a === '--md') opts.md = v();
   else if (a === '--port') opts.port = Number(v());
+  else if (a === '--close') opts.close = true;
   else { console.error(`unknown option ${a}`); process.exit(2); }
 }
 if (!opts.url && opts.builds.length === 0) {
@@ -64,6 +67,8 @@ const SCENARIOS = {
   'jwks-hit': { requests: [verify] },
   // every verification refetches the JWKS from this same server (TTL 0)
   'jwks-miss': { requests: [verify], config: { jwks_ttl_ms: 0 } },
+  // the event loop and HTTP path alone: an endpoint built into the server, no JS
+  builtin: { requests: [{ path: '/__version', status: 200 }] },
   // a mix across endpoints
   mix: {
     requests: [
@@ -125,7 +130,7 @@ function connection(url) {
       await ready;
       return new Promise((resolve, reject) => {
         pending = { resolve, reject };
-        let head = `GET ${req.path} HTTP/1.1\r\nHost: bench\r\n`;
+        let head = `GET ${req.path} HTTP/1.1\r\nHost: bench\r\n${opts.close ? 'Connection: close\r\n' : ''}`;
         for (const [k, v] of Object.entries(req.headers || {})) head += `${k}: ${v}\r\n`;
         socket.write(head + '\r\n');
       });
@@ -166,6 +171,10 @@ async function load(url, scenario, conns, seconds) {
       const req = scenario.requests[i++ % scenario.requests.length];
       const t0 = process.hrtime.bigint();
       try {
+        if (opts.close) {
+          c.close();
+          c = connection(url);
+        }
         const res = await c.send(req);
         latencies.push(Number(process.hrtime.bigint() - t0) / 1000);
         if (res.status !== req.status) {
@@ -242,13 +251,17 @@ async function cell(target, name, conns) {
   }
   try {
     await load(server.url, scenario, conns, Math.min(2, opts.duration / 10)); // warm-up: JWKS fetched, caches primed
-    const before = await getJson(server.url, '/__metrics?gc=1');
+    // a server without /__metrics (the Zephyr spike) gets the client-side figures only
+    const serverMetrics = () => getJson(server.url, '/__metrics?gc=1').catch(() => null);
+    const before = await serverMetrics();
     const r = await load(server.url, scenario, conns, opts.duration);
-    const after = await getJson(server.url, '/__metrics?gc=1');
-    r.heap_min_free = after.device.heap_min_free;
-    r.heap_change_per_request = (after.device.heap_in_use - before.device.heap_in_use) / Math.max(1, r.requests);
-    r.engine_heap_change_per_request = (after.js.heap_used - before.js.heap_used) / Math.max(1, r.requests);
-    r.engine_restarts = after.js.restarts - before.js.restarts;
+    const after = await serverMetrics();
+    if (before && after) {
+      r.heap_min_free = after.device.heap_min_free;
+      r.heap_change_per_request = (after.device.heap_in_use - before.device.heap_in_use) / Math.max(1, r.requests);
+      r.engine_heap_change_per_request = (after.js.heap_used - before.js.heap_used) / Math.max(1, r.requests);
+      r.engine_restarts = after.js.restarts - before.js.restarts;
+    }
     const alive = await getJson(server.url, '/__version').then(() => true, () => false);
     const stopped = await server.stop();
     r.crashed = !alive || stopped.crashed;
@@ -284,13 +297,13 @@ const commit = (() => {
 })();
 
 const targets = opts.url ? [{ url: opts.url }] : opts.builds;
-const scenarioNames = opts.scenarios || Object.keys(SCENARIOS);
+const scenarioNames = opts.scenarios || Object.keys(SCENARIOS).filter((n) => n !== 'builtin');
 const results = { commit, date: new Date().toISOString(), duration_s: opts.duration, host: process.platform + '/' + process.arch, engines: [] };
 let failed = false;
 
 for (const target of targets) {
   const version = target.url ? await getJson(target.url, '/__version') : null;
-  const runtime = target.runtime || version.runtime;
+  const runtime = target.runtime || (version.build === 'zephyr-rust-spike' ? 'zephyr-rust spike' : version.runtime);
   const engine = { runtime, cells: [] };
   results.engines.push(engine);
   for (const name of scenarioNames) {
@@ -322,7 +335,8 @@ function markdown() {
       if (c.skipped || c.error) { lines.push(`| ${c.scenario} | ${c.conns} | ${c.skipped || c.error} |||||||||| |`); continue; }
       lines.push(`| ${c.scenario} | ${c.conns} | ${c.rps.toFixed(0)} | ${(c.p50_us / 1000).toFixed(3)} ms | ${(c.p99_us / 1000).toFixed(3)} ms | ` +
         `${c.mean_cpu_us.toFixed(1)} µs | ${c.mean_alloc.toFixed(0)} B | ${(c.max_peak / 1024).toFixed(0)} KB | ${c.mean_net.toFixed(1)} B | ` +
-        `${c.heap_change_per_request.toFixed(3)} B | ${(c.heap_min_free / 1024).toFixed(0)} KB | ${c.errors}${c.crashed ? ' (crashed)' : ''} |`);
+        `${c.heap_change_per_request === undefined ? '–' : c.heap_change_per_request.toFixed(3) + ' B'} | ` +
+        `${c.heap_min_free === undefined ? '–' : (c.heap_min_free / 1024).toFixed(0) + ' KB'} | ${c.errors}${c.crashed ? ' (crashed)' : ''} |`);
     }
     if (e.overhead) {
       lines.push('', `Metrics cost: ${e.overhead.rps_metrics_on.toFixed(0)} req/s with, ${e.overhead.rps_metrics_off.toFixed(0)} req/s without (${e.overhead.cost_percent.toFixed(1)}%).`);

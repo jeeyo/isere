@@ -4,7 +4,7 @@ Two scripts run the same black-box test suite, `tests/e2e/*.test.mjs`. It's writ
 
 | Script | Target | Use it |
 |---|---|---|
-| `tools/linux.sh` | Linux build on this machine | first, on every change: about a minute per iteration, including valgrind |
+| `tools/linux.sh` | Linux build on this machine | first, on every change: about three minutes per iteration, including fuzzing and valgrind |
 | `tools/hil.sh` | Raspberry Pi Pico 2 through a Debug Probe | once the Linux loop is green |
 
 Both write `hil-results/<build-id>/`, containing:
@@ -21,31 +21,54 @@ The exit codes are 0 for passed, 1 for failed tests, and 2 for a build, flash or
 
 | File | Covers |
 |---|---|
-| `smoke.test.mjs` | `/__version`, the JS handler, 404, sequential requests, malformed and pipelined requests, clients disconnecting mid-request |
-| `load.test.mjs` | 1, 2 and 4 concurrent clients, and still accepting connections afterwards |
-| `leak.test.mjs` | valgrind on the Linux build: memory errors, plus lost and retained memory growth per request |
+| `smoke.test.mjs` | `/__version`, the JS handler, 404, sequential and keep-alive requests, malformed requests, clients disconnecting mid-request, HEAD |
+| `http.test.mjs` | in-place parsing (criterion 3): long header values, many headers, chunked bodies, 431/413 budgets, ambiguous framing (400), two requests in one segment, a request a few bytes at a time, memory proportional to the request |
+| `routing.test.mjs` | endpoints routed by method and path, 405, exact paths, warm module state, resident memory per endpoint, a failing endpoint freeing its memory, no engine instance for unknown routes (cold mode) |
+| `risky.test.mjs` | handlers that throw, never answer, loop, recurse without end, allocate a lot, return NUL bytes, bad headers or statuses, leave timers behind (after #33's findings) |
+| `metrics.test.mjs` | `Server-Timing`, `/__metrics`, NDJSON, and calibration within ±10% (criterion 6) |
+| `jwt.test.mjs` | JWT verification (criterion 2) against the server's own JWKS over loopback, an external JWKS over HTTP and over HTTPS: valid, bad signature, expired, malformed, unknown `kid`, rotation, cooldown, TTL, unreachable host, ≥1 KB tokens, RS256 and ES256 |
+| `loopback.test.mjs` | verifying through the server's own endpoint with the connection pool full (criterion 4) |
+| `cleanup.test.mjs` | one test per way a request can leave objects behind in a cold engine, plus a clean warm shutdown (criterion 10) |
+| `load.test.mjs` | 1, 2 and 4 concurrent clients over a mix of endpoints, keep-alive and not |
+| `endurance.test.mjs` | 45,000 requests, past where JerryScript used to hang, with the heap ending where it started |
+| `leak.test.mjs` | valgrind in warm and cold mode: memory errors, and lost or retained memory that grows with the request count |
 
-You can run it directly with Node 22 or newer:
+Test-only endpoints live in `tests/e2e/app/`, which both loops build in. Tests that need the Linux build skip themselves on a board: environment variables, valgrind, server output.
+
+You can run the suite directly with Node 22 or newer:
 
 ```sh
-node --test --test-concurrency=1 'tests/e2e/*.test.mjs'                      # against build/ (Linux)
 ISERE_BUILD_DIR=build-linux-quickjs node --test --test-concurrency=1 'tests/e2e/*.test.mjs'
 ISERE_URL=http://192.168.7.1:8080 node --test --test-concurrency=1 'tests/e2e/*.test.mjs'   # a running board
 ```
 
-Against the Linux build, each file starts its own `isere` on port 8080 (override with `ISERE_PORT`) and stops it with SIGINT. With `ISERE_URL` set, nothing is started and the valgrind tests skip themselves. Set `ISERE_VALGRIND=0` to skip valgrind on Linux.
+Against the Linux build, each file starts its own `isere` on port 8080 (override it with `ISERE_PORT`) and stops it with SIGINT; a non-zero exit fails the file. Set `ISERE_VALGRIND=0` to skip valgrind.
 
 ## `tools/linux.sh`
 
 ```sh
-tools/linux.sh                          # QuickJS: build, tests with valgrind, 10 s benchmark per level
+tools/linux.sh                          # QuickJS: build, 30 s fuzz, tests with valgrind, 10 s wrk per level
 tools/linux.sh --runtime jerryscript
-tools/linux.sh --no-valgrind --no-bench # quickest iteration
+tools/linux.sh --no-valgrind --no-bench --fuzz 0   # quickest iteration
 ```
 
-The build goes to `build-linux-<runtime>/`. You need cmake, make, xxd, curl, Node 22+, and valgrind. `wrk` is optional; without it the benchmark is skipped.
+The build goes to `build-linux-<runtime>/`, with `app/` and `tests/e2e/app/` embedded. You need cmake, make, curl, Node 22+, valgrind, clang (for the fuzzer) and wrk. [`linux.Dockerfile`](linux.Dockerfile) has all of them, and CI uses the same list:
 
-valgrind doesn't run natively on Apple silicon Macs. There, run `tools/linux.sh` in a Linux container or VM, or use `--no-valgrind` and rely on CI.
+```sh
+docker build -t isere-linux -f tools/linux.Dockerfile tools
+docker run --rm -v "$PWD":/app -w /app isere-linux tools/linux.sh
+```
+
+`wrk` fails the step on any socket error or non-2xx response. Connections stay alive, so there should be none.
+
+## Other tools
+
+| Script | What it does |
+|---|---|
+| [`bench.mjs`](bench.mjs) | The benchmark (criterion 7): each engine at 1, 2 and 4 connections over hello, JWKS cache hit, cache miss and a mix, plus what metrics cost. It writes `BENCHMARK.md` tables. |
+| [`startup.mjs`](startup.mjs) | Boot time and per-request phase timings for each engine and mode (criterion 10). |
+| [`fuzz.sh`](fuzz.sh) | libFuzzer with ASan/UBSan on the HTTP parser. |
+| [`freertos_measure.sh`](freertos_measure.sh) | The FreeRTOS tick and preemption measurements in `docs/FREERTOS_CONFIG.md`. |
 
 ## `tools/hil.sh`
 
