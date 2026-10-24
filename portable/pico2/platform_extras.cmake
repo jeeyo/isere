@@ -38,10 +38,7 @@ if(JS_RUNTIME STREQUAL quickjs)
     ${QUICKJS_DIR}/dtoa.c
     ${QUICKJS_DIR}/libregexp.c
     ${QUICKJS_DIR}/libunicode.c
-    ./src/runtimes/quickjs/quickjs.c
-    ./src/runtimes/quickjs/quickjs-libc.c
-    ./src/polyfills/quickjs/fetch.c
-    ./src/polyfills/quickjs/timer.c
+    ${ROOT}/src/runtimes/quickjs/vm.c
     PROPERTIES
       COMPILE_DEFINITIONS "EMSCRIPTEN;_POSIX_MONOTONIC_CLOCK=200112L"
       COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/portable/pico2/include/quickjs_compat.h"

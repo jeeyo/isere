@@ -1,0 +1,21 @@
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "kid": "isere-rs256-1",
+      "use": "sig",
+      "alg": "RS256",
+      "n": "s6j4H7DJzANQxcM6gz2I29PT1FLoILU6ZEnw6J7RrIYx_eQmhojabKFCtrlVetrioGfuHlBtaKmFKgiHMBSb4qDV-kVNWvNpGBabwEYb6xSNdJzb-MzxqUoLrySGv3HDdLHzdmJT8JJaaJMGToHrWu1pVLSLaMd8jb7of_1WnJohT9KRsDvYzXfNPq75GpOg2p2J-rglNivLW8ip5gQ2lucsjpMi3aNQtasWy-I6l_Thcj2f8Ip1zDwvDYnrPAtZxS4A6ZWweMZgpxCUpRlLjqqVfFORWXArMnMCN-sUE0VpDZjQ_xEpui302MQikqh3RifxmTrEbAllB2xqWEhBQw",
+      "e": "AQAB"
+    },
+    {
+      "kty": "EC",
+      "kid": "isere-es256-1",
+      "use": "sig",
+      "alg": "ES256",
+      "crv": "P-256",
+      "x": "mQjhsmiJiKbC1NCh-8eia-oxQ6IjuzhKXhuS9qmVuik",
+      "y": "Wks_-rXHfDg24mAkQKUjaVYSPYMeLfi41MvbQb4LCUc"
+    }
+  ]
+}

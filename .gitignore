@@ -11,3 +11,5 @@ CMakeCache.txt
 cmake_install.cmake
 build-*/
 hil-results/
+build-fuzz/
+tools/.run-tests.sh

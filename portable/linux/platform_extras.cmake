@@ -5,4 +5,4 @@ target_include_directories(isere PRIVATE
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-target_link_libraries(isere PRIVATE Threads::Threads m ${CMAKE_DL_LIBS})
+target_link_libraries(isere PRIVATE Threads::Threads m)

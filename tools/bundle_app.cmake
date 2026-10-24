@@ -1,0 +1,159 @@
+# Embeds isère's application into C: cmake -DAPP_DIRS="dir1|dir2" -DPRELUDE=file -DOUTPUT=app_bundle.c -P bundle_app.cmake
+#
+# Each app directory holds a routes.json:
+#   {
+#     "config": { ... },                                         merged into env, later directories win
+#     "routes": [
+#       { "method": "GET", "path": "/verify", "module": "verify.js" },
+#       { "method": "GET", "path": "/.well-known/jwks.json", "static": "jwks.json", "type": "application/json" }
+#     ]
+#   }
+# and every *.js file in it becomes an importable module named after the file.
+
+cmake_minimum_required(VERSION 3.19)
+
+# the list arrives |-separated, since ; doesn't survive the custom command
+string(REPLACE "|" ";" APP_DIRS "${APP_DIRS}")
+
+function(c_bytes file out_var)
+  file(READ "${file}" hex HEX)
+  string(LENGTH "${hex}" hex_len)
+  math(EXPR n "${hex_len} / 2")
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+  # one NUL after the data, so engines that want a terminated source get one; lengths exclude it
+  set(${out_var} "${bytes}0x00" PARENT_SCOPE)
+  set(${out_var}_LEN ${n} PARENT_SCOPE)
+endfunction()
+
+function(c_string value out_var)
+  string(REPLACE "\\" "\\\\" value "${value}")
+  string(REPLACE "\"" "\\\"" value "${value}")
+  set(${out_var} "\"${value}\"" PARENT_SCOPE)
+endfunction()
+
+set(arrays "")
+set(module_entries "")
+set(route_entries "")
+set(module_names "")
+set(config "{}")
+set(index 0)
+
+foreach(dir IN LISTS APP_DIRS)
+  file(GLOB js_files RELATIVE "${dir}" "${dir}/*.js")
+  list(SORT js_files)
+  foreach(js IN LISTS js_files)
+    if("${js}" IN_LIST module_names)
+      message(FATAL_ERROR "module ${js} is defined in more than one app directory")
+    endif()
+    list(APPEND module_names "${js}")
+    c_bytes("${dir}/${js}" bytes)
+    string(APPEND arrays "static const char __module_${index}[] = { ${bytes} };\n")
+    c_string("${js}" name)
+    string(APPEND module_entries "  { ${name}, __module_${index}, ${bytes_LEN} },\n")
+    math(EXPR index "${index} + 1")
+  endforeach()
+endforeach()
+
+set(static_index 0)
+set(num_routes 0)
+foreach(dir IN LISTS APP_DIRS)
+  if(NOT EXISTS "${dir}/routes.json")
+    message(FATAL_ERROR "${dir}/routes.json is missing")
+  endif()
+  file(READ "${dir}/routes.json" json)
+
+  string(JSON dir_config ERROR_VARIABLE err GET "${json}" config)
+  if(NOT err)
+    string(JSON n LENGTH "${dir_config}")
+    if(n GREATER 0)
+      math(EXPR last "${n} - 1")
+      foreach(i RANGE ${last})
+        string(JSON key MEMBER "${dir_config}" ${i})
+        string(JSON value GET "${dir_config}" "${key}")
+        string(JSON type TYPE "${dir_config}" "${key}")
+        if(type STREQUAL "STRING")
+          # GET unquotes strings; SET wants JSON
+          string(REPLACE "\\" "\\\\" value "${value}")
+          string(REPLACE "\"" "\\\"" value "${value}")
+          set(value "\"${value}\"")
+        endif()
+        string(JSON config SET "${config}" "${key}" "${value}")
+      endforeach()
+    endif()
+  endif()
+
+  string(JSON routes ERROR_VARIABLE err GET "${json}" routes)
+  if(err)
+    continue()
+  endif()
+  string(JSON n LENGTH "${routes}")
+  if(n EQUAL 0)
+    continue()
+  endif()
+  math(EXPR last "${n} - 1")
+  foreach(i RANGE ${last})
+    string(JSON method GET "${routes}" ${i} method)
+    string(JSON path GET "${routes}" ${i} path)
+    c_string("${method}" method)
+    c_string("${path}" path)
+    string(JSON module ERROR_VARIABLE no_module GET "${routes}" ${i} module)
+    if(NOT no_module)
+      list(FIND module_names "${module}" module_index)
+      if(module_index LESS 0)
+        message(FATAL_ERROR "route ${path} names module ${module}, which is not in any app directory")
+      endif()
+      string(APPEND route_entries "  { ${method}, ${path}, ISERE_ROUTE_JS, ${module_index}, NULL, NULL, 0 },\n")
+    else()
+      string(JSON static_file GET "${routes}" ${i} static)
+      string(JSON type ERROR_VARIABLE no_type GET "${routes}" ${i} type)
+      if(no_type)
+        set(type "application/octet-stream")
+      endif()
+      c_string("${type}" type)
+      c_bytes("${dir}/${static_file}" bytes)
+      string(APPEND arrays "static const char __static_${static_index}[] = { ${bytes} };\n")
+      string(APPEND route_entries "  { ${method}, ${path}, ISERE_ROUTE_STATIC, -1, ${type}, __static_${static_index}, ${bytes_LEN} },\n")
+      math(EXPR static_index "${static_index} + 1")
+    endif()
+    math(EXPR num_routes "${num_routes} + 1")
+  endforeach()
+endforeach()
+
+list(LENGTH module_names num_modules)
+
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/config.json.tmp" "${config}")
+c_bytes("${CMAKE_CURRENT_BINARY_DIR}/config.json.tmp" config_bytes)
+file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/config.json.tmp")
+c_bytes("${PRELUDE}" prelude_bytes)
+
+if(num_modules EQUAL 0)
+  set(module_entries "  { NULL, NULL, 0 },\n")
+endif()
+if(num_routes EQUAL 0)
+  set(route_entries "  { NULL, NULL, ISERE_ROUTE_STATIC, -1, NULL, NULL, 0 },\n")
+endif()
+
+file(WRITE "${OUTPUT}.tmp" "/* generated by tools/bundle_app.cmake from: ${APP_DIRS} */
+#include <stddef.h>
+#include \"app.h\"
+
+${arrays}
+static const char __config[] = { ${config_bytes} };
+static const char __prelude[] = { ${prelude_bytes} };
+
+static const isere_app_module_t __modules[] = {
+${module_entries}};
+
+static const isere_app_route_t __routes[] = {
+${route_entries}};
+
+const isere_app_t isere_app = {
+  __modules, ${num_modules},
+  __routes, ${num_routes},
+  __config, ${config_bytes_LEN},
+  __prelude, ${prelude_bytes_LEN},
+};
+")
+# only touch the output when it changes, so unrelated edits don't rebuild it
+file(COPY_FILE "${OUTPUT}.tmp" "${OUTPUT}" ONLY_IF_DIFFERENT)
+file(REMOVE "${OUTPUT}.tmp")

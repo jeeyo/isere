@@ -26,3 +26,7 @@
 [submodule "3rdparty/opentelemetry-proto"]
 	path = 3rdparty/opentelemetry-proto
 	url = https://github.com/open-telemetry/opentelemetry-proto.git
+[submodule "3rdparty/mbedtls"]
+	path = 3rdparty/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
+	branch = mbedtls-3.6

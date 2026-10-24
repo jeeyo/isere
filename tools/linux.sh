@@ -46,8 +46,7 @@ PORT="${ISERE_PORT:-8080}"
 BASE_URL="http://127.0.0.1:${PORT}"
 RESULTS_ROOT="${HIL_RESULTS_DIR:-${REPO}/hil-results}"
 LOG_TAG=linux
-# the build dir must sit directly under the repo: CMakeLists.txt reads ../js/handler.js
-BUILD_DIR="${REPO}/build-linux-${RUNTIME}"
+BUILD_DIR="${BUILD_DIR:-${REPO}/build-linux-${RUNTIME}}"
 
 # shellcheck source=tools/common.sh
 . "$REPO/tools/common.sh"
@@ -55,13 +54,14 @@ BUILD_DIR="${REPO}/build-linux-${RUNTIME}"
 do_build() {
   mkdir -p "$BUILD_DIR"
   ( cd "$BUILD_DIR" \
-    && cmake .. -DTARGET_PLATFORM=linux -DJS_RUNTIME="$RUNTIME" -DISERE_BUILD_ID="$BUILD_ID" \
+    && cmake "$REPO" -DTARGET_PLATFORM=linux -DJS_RUNTIME="$RUNTIME" -DISERE_BUILD_ID="$BUILD_ID" \
+       -DISERE_APP_DIRS="$REPO/app;$REPO/tests/e2e/app" \
     && make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)" ) > "$RESULTS/build.log" 2>&1
 }
 
 # the test suite starts and stops its own servers; the benchmark needs one of its own
 start_server() {
-  ( cd "$BUILD_DIR" && LD_LIBRARY_PATH="$BUILD_DIR" exec ./isere ) > "$RESULTS/server.log" 2>&1 &
+  ( cd "$BUILD_DIR" && ISERE_NDJSON=0 exec ./isere ) > "$RESULTS/server.log" 2>&1 &
   SERVER_PID=$!
   CLEANUP_PIDS="$CLEANUP_PIDS $SERVER_PID"
   wait_for_build 10
