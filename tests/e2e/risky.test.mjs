@@ -130,6 +130,12 @@ describe('risky handlers', () => {
     await stillServing();
   });
 
+  it('endless recursion is stopped before the C stack runs out (500)', async () => {
+    const res = await request(server.url, '/__test/recursion', { timeoutMs: 10000 });
+    assert.equal(res.status, 500);
+    await stillServing();
+  });
+
   it('a slow endpoint does not hold up other endpoints', async () => {
     const slow = request(server.url, '/__test/slow?ms=600', { timeoutMs: 5000 });
     const start = Date.now();

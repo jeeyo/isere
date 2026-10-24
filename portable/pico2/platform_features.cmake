@@ -10,3 +10,6 @@ if(WITH_OTEL)
 endif()
 
 SET(JERRY_GLOBAL_HEAP_SIZE "(70)" CACHE STRING "")
+
+# C stack a JS engine may use on the httpd task (ISERE_HTTPD_TASK_STACK_SIZE: 24 KB)
+set(ISERE_JS_STACK_KB 16)

@@ -767,6 +767,8 @@ int js_vm_dead(js_vm_t *vm)
 
 void js_vm_enter(js_vm_t *vm)
 {
+  // the stack limit counts from where this stretch of JS work starts
+  JS_UpdateStackTop(vm->rt);
 }
 
 void js_vm_leave(js_vm_t *vm)

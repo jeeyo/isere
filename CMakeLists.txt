@@ -117,6 +117,7 @@ add_executable(isere ${SOURCES} ${ROOT}/src/main.c)
 
 target_compile_definitions(isere PRIVATE
   ISERE_RUNTIME_NAME="${JS_RUNTIME}"
+  ISERE_JS_STACK_SIZE=\(${ISERE_JS_STACK_KB}*1024\)
   __STDC_FORMAT_MACROS=1)
 
 if(WITH_OTEL)
@@ -147,6 +148,8 @@ elseif(JS_RUNTIME STREQUAL jerryscript)
   # lets the handler deadline stop a script that never yields
   set(JERRY_VM_HALT ON CACHE BOOL "" FORCE)
   set(JERRY_LINE_INFO ON CACHE BOOL "" FORCE)
+  # deep recursion raises a RangeError instead of overflowing the httpd task's stack
+  set(JERRY_STACK_LIMIT ${ISERE_JS_STACK_KB} CACHE STRING "" FORCE)
 
   add_custom_target(amalgam)
   add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core ${CMAKE_CURRENT_BINARY_DIR}/jerry-core)
@@ -155,6 +158,11 @@ elseif(JS_RUNTIME STREQUAL jerryscript)
     jerry-core
     jerry-ext
   )
+  # src/runtimes/jerryscript/stack.c needs JerryScript's private headers
+  add_library(isere_jerry_internal OBJECT ${ROOT}/src/runtimes/jerryscript/stack.c)
+  target_link_libraries(isere_jerry_internal PRIVATE jerry-core)
+  target_include_directories(isere_jerry_internal PRIVATE $<TARGET_PROPERTY:jerry-core,INCLUDE_DIRECTORIES>)
+  target_sources(isere PRIVATE $<TARGET_OBJECTS:isere_jerry_internal>)
   target_compile_definitions(isere PRIVATE ISERE_RUNTIME_JERRYSCRIPT)
   target_include_directories(isere PRIVATE
     ${JERRYSCRIPT_DIR}/jerry-core/include

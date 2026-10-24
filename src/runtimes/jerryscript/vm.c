@@ -39,6 +39,10 @@ typedef struct {
 } jerry_ref_t;
 
 static jerry_context_t *__current = NULL;
+
+// moves JerryScript's stack base to the caller's frame (src/runtimes/jerryscript/stack.c)
+void isere_jerry_set_stack_base(uintptr_t base);
+#define STACK_HERE() ((uintptr_t)__builtin_frame_address(0))
 static int __crypto_ready = 0;
 
 // Running out of its heap is fatal to JerryScript. Every call into the engine is
@@ -681,6 +685,7 @@ void js_vm_enter(js_vm_t *vm)
   __current_vm = vm;
   __current = vm->context;
   if (!vm->dead) {
+    isere_jerry_set_stack_base(STACK_HERE());
     vm->arena_used = __heap_used();
   }
 }
@@ -732,6 +737,7 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
   }
   vm->prev = outer;
   __current_vm = vm;
+  isere_jerry_set_stack_base(STACK_HERE());
   jerry_halt_handler(HALT_INTERVAL, __halt, NULL);
   jerry_arraybuffer_allocator(__arraybuffer_alloc, __arraybuffer_free, NULL);
   phase_us[ISERE_PHASE_RUNTIME] += __elapsed(&t);

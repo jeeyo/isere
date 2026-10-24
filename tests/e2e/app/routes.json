@@ -24,6 +24,7 @@
     { "method": "GET", "path": "/__test/never", "module": "t_never.js" },
     { "method": "GET", "path": "/__test/busy-loop", "module": "t_busy_loop.js" },
     { "method": "GET", "path": "/__test/await-loop", "module": "t_await_loop.js" },
+    { "method": "GET", "path": "/__test/recursion", "module": "t_recursion.js" },
     { "method": "*", "path": "/__test/fetch", "module": "t_fetch.js" },
     { "method": "GET", "path": "/__test/fetch-pending", "module": "t_fetch_pending.js" },
     { "method": "GET", "path": "/__test/crypto", "module": "t_crypto.js" },
