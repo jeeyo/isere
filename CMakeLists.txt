@@ -165,6 +165,9 @@ find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD OUTPUT_VARIABLE COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
 target_compile_definitions(isere PRIVATE _GNU_SOURCE CONFIG_BIGNUM EMSCRIPTEN CONFIG_VERSION="${COMMIT_ID}")
 
+set(ISERE_BUILD_ID "${COMMIT_ID}" CACHE STRING "Build identifier served at /__version")
+target_compile_definitions(isere PRIVATE ISERE_BUILD_ID="${ISERE_BUILD_ID}")
+
 if(DEBUG)
   target_compile_options(isere PRIVATE -O0 -g)
 

@@ -185,6 +185,20 @@ static int __on_message_complete(llhttp_t *parser)
   // stop receiving
   uv__io_stop(&__httpd->loop, &conn->w, UV_POLLIN);
 
+  // built-in endpoint answered without touching the JS engine,
+  // used by tools/hil.sh to check which firmware is running
+  if (conn->url_parser.path != NULL && strcmp(conn->url_parser.path, "__version") == 0) {
+    char body[128];
+    int body_len = snprintf(body, sizeof(body), "{\"build\":\"%s\",\"runtime\":\"%s\"}\n", ISERE_BUILD_ID, ISERE_RUNTIME_NAME);
+    char head[128];
+    int head_len = snprintf(head, sizeof(head),
+      "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", body_len);
+    isere_tcp_write(conn->fd, head, head_len);
+    isere_tcp_write(conn->fd, body, body_len);
+    __httpd_cleanup_conn(conn);
+    return 0;
+  }
+
   // execute request handler function
   // if the request was done parsing
   // TODO: HTTP path

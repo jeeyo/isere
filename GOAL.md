@@ -94,7 +94,8 @@ All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unle
 ## Known gaps on `main` (as of this writing)
 
 - **The build doesn't work from a clean clone.**
-  - The `3rdparty/quickjs` submodule URL returns 404.
+  - The `3rdparty/quickjs` submodule URL returns 404, so for now only JerryScript builds work.
+  - Build directories must sit directly under the repo, because `CMakeLists.txt` reads `../js/handler.js`.
   - CI runs a `unittests` target that no longer exists.
   - [jeeyo/isere#33](https://github.com/jeeyo/isere/pull/33) fixes both and adds a black-box test suite.
 - **The HTTP server has open bugs.** These were found by #33:
@@ -126,12 +127,13 @@ All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unle
   - A runtime is created and freed per connection, and `JS_FreeRuntime` trips the `gc_obj_list` assertion.
 - **There are no per-request metrics.**
   - Only process-level OpenTelemetry counters and gauges exist.
-- **The Pico 2 produces no logs.**
-  - The logger is a no-op (`portable/pico2/src/logger.c`).
-  - stdio is set to semihosting, which needs a debugger attached.
-- **There is no software path back to BOOTSEL.**
-  - The USB descriptor exposes only RNDIS. There is no picotool reset interface.
-  - Every reflash therefore needs the BOOTSEL button pressed by hand.
+- **The server hangs under load.**
+  - On the Linux/JerryScript build, `wrk` at 1, 2, then 4 connections followed by 1 again leaves the process alive but no longer accepting connections.
+  - Its log stops partway through a handler's `console.log`.
+  - The bug is already on `main`. `tools/hil.sh` caught it on its first run.
+- **Every response counts as a socket error in `wrk`.**
+  - Responses are sent with `Connection: close`, and `wrk` counts each close as a read error.
+  - "Zero socket errors" therefore needs keep-alive support, or a benchmark that counts closed connections separately.
 
 ## Design directions
 
@@ -164,38 +166,27 @@ These are directions, not decisions.
 
 ## Hardware validation loop
 
-Every Pico 2 iteration runs this loop on the developer PC, with the board attached by USB:
+Every Pico 2 iteration runs `tools/hil.sh` on the developer's Mac. A Raspberry Pi Debug Probe is attached to the Pico 2 over SWD and UART, and the Pico 2 is attached to the Mac over USB for networking. Setup is in `tools/README.md`.
 
-1. **Build** the UF2 with `TARGET_PLATFORM=pico2`, stamping it with a build ID (git hash plus a counter).
-2. **Get the board into BOOTSEL without touching it.** Try these in order:
-   - **Debug Probe (recommended)**
-     - A Raspberry Pi Debug Probe on SWD flashes and resets through `openocd`, so no BOOTSEL or drive copy is needed.
-     - It works even after the firmware has crashed.
-     - It also provides the UART for logs and GDB for crash backtraces.
-     - With a probe, steps 3–4 are replaced by `openocd … program isere.elf verify reset`.
-   - **`POST /__bootsel`**
-     - A dev-build endpoint that calls `reset_usb_boot()`.
-   - **On a crash**
-     - In dev builds, the HardFault handler and a watchdog timeout reboot the board into BOOTSEL.
-     - This means a crashing build never needs a hand on the button.
-   - **Last resort: a human holds BOOTSEL and replugs the board.**
-     - The script detects this case and asks for it, rather than hanging.
-3. **Wait for the drive** (label `RP2350`) to mount, with a timeout. Copy the UF2 and `sync`.
-4. **Wait for the board to reboot.** The drive should disappear, then the RNDIS interface should appear. Identify the interface by its MAC address `02:02:84:6A:96:00`, not by its name, since names differ between OSes.
-5. **Wait until the board is ready.** That means `GET http://192.168.7.1:8080/__version` returns the build ID from step 1. Interface-up is not enough, and the ID check proves the board isn't running stale firmware.
-6. **Run the end-to-end test suite and the benchmark** against `192.168.7.1`. Capture the device logs (UART or NDJSON) next to the results.
-7. **Record everything.** Write a results file with the build ID, timings for each step, pass/fail, benchmark numbers and the log path. Any step that times out fails the iteration with a clear reason.
+1. **Build** the firmware, stamping it with a unique build ID (git hash, a dirty flag and a timestamp).
+2. **Flash** it over SWD with `openocd … program isere.elf verify reset`. This needs no BOOTSEL button and no drive copy, and it works even if the previous build crashed.
+3. **Capture** the board's UART output through the probe from the moment it boots.
+4. **Wait** for the board's network interface, identified by MAC `02:02:84:6a:96:00` because interface names vary, to get an IPv4 address from the board's DHCP server.
+5. **Wait until the board is ready**: `GET /__version` must return the build ID from step 1. This proves the board isn't running stale firmware.
+6. **Run** the smoke tests, the end-to-end suite (`HIL_TEST_CMD`) and the benchmark, then check the board still answers.
+7. **Record** the build ID, timing and outcome of each step, test results, benchmark output and the UART log in `hil-results/<build-id>/summary.json` and the files next to it. A step that times out fails the run with a clear reason.
 
-The loop is one script (e.g. `tools/hil.sh`) that exits non-zero on failure, so a local agent can run it in a loop.
+The exit codes are 0 for passed, 1 for failed tests, and 2 for build, flash or boot problems, so a local agent can run the loop repeatedly.
 
-It needs the physical PC, so it can't run in a cloud session. Run it from a local Claude Code session, or register the PC as a self-hosted GitHub Actions runner to get hardware-in-the-loop CI.
+It needs the physical Mac, so it can't run in a cloud session. Run it from a local Claude Code session, or register the Mac as a self-hosted GitHub Actions runner to get hardware-in-the-loop CI.
 
 ## Milestones
 
 - [ ] **M1 Baseline**
   - Merge #33 and get a clean-clone build and green CI.
   - Write the benchmark script.
-  - Build the hardware validation loop: logging on the Pico 2, a `/__version` endpoint, a software path back to BOOTSEL, and `tools/hil.sh`.
+  - [x] Build the hardware validation loop: UART logging on the Pico 2, a build ID and `/__version` endpoint, and `tools/hil.sh` flashing through the Debug Probe.
+  - [ ] Run the loop for the first time on real hardware.
   - Record today's Pico 2 numbers through the loop.
 - [ ] **M2 Correct core**
   - Replace the HTTP request path with in-place parsing, and add the fuzzer. This structurally removes the crash on two requests sent together and the header truncation. Applying the same length-aware rule to the response path, instead of `strdup`, removes the NUL-body leak.

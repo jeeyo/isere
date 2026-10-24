@@ -2,10 +2,10 @@
 
 #include "hardware/gpio.h"
 #include "hardware/watchdog.h"
-#include "pico/stdio_semihosting.h"
+#include "pico/stdio_uart.h"
 
 void platform_init() {
-  stdio_semihosting_init();
+  stdio_uart_init();
 
   // if (watchdog_caused_reboot()) {
   //   // TODO: Log the watchdog reboot
