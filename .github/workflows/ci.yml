@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check out the submodules the Linux build needs
-        run: git submodule update --init --depth 1 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls
+        run: git submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls
 
       - name: Install tools (as in tools/linux.Dockerfile)
         run: |
