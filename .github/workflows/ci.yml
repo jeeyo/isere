@@ -9,55 +9,44 @@ on:
       - main
 
 jobs:
-  build_and_test:
-    name: Build and Test (Linux)
-    runs-on: ubuntu-latest
+  linux:
+    # tools/linux.sh: build, fuzz the HTTP parser under ASan, the node:test suite
+    # (with valgrind), and wrk. The same loop runs locally and on the Pico 2.
+    name: Linux loop (${{ matrix.runtime }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [quickjs, jerryscript]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check out the submodules the Linux build needs
+        run: git submodule update --init --depth 1 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls
+
+      - name: Install tools (as in tools/linux.Dockerfile)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git xxd curl ca-certificates valgrind wrk clang libclang-rt-18-dev openssl
+
+      - uses: actions/setup-node@v4
         with:
-          submodules: true
+          node-version: 22
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y gcc g++ make cmake xxd autoconf
+      - name: tools/linux.sh
+        run: tools/linux.sh --runtime ${{ matrix.runtime }} --fuzz 60 --bench-duration 5
 
-      - uses: actions/checkout@v4
+      - name: Upload results
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
         with:
-          repository: cpputest/cpputest
-          path: ./cpputest
+          name: linux-${{ matrix.runtime }}
+          path: hil-results/
 
-      - name: Restore cached CppUTest
-        id: cache-cpputest-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: cpputest
-          key: ${{ runner.os }}-cpputest
-
-      - name: Install CppUTest from source
-        if: steps.cache-cpputest-restore.outputs.cache-hit != 'true'
-        run: autoreconf -i . && ./configure && make tdd
-        working-directory: cpputest
-
-      - name: Save CppUTest
-        id: cache-cpputest-save
-        uses: actions/cache/save@v4
-        with:
-          path: cpputest
-          key: ${{ steps.cache-cpputest-restore.outputs.cache-primary-key }}
-
-      - run: mkdir build
-
-      - name: Build
-        run: cmake .. && make VERBOSE=1 -j4
-        env:
-          CPPUTEST_HOME: ${{ github.workspace }}/cpputest
-        working-directory: build
-
-      - name: Run unit tests
-        run: ./unittests -ojunit
-        working-directory: build
-
-      - name: Publish Test Report
+      - name: Publish test report
         uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
-          report_paths: './build/cpputest_*.xml'
+          report_paths: 'hil-results/*/tests.xml'
+          check_name: Tests (${{ matrix.runtime }})

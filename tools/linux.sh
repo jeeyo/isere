@@ -2,15 +2,20 @@
 #
 # Fast validation loop on the Linux build. Run this until it's green, then tools/hil.sh.
 #
-#   build -> start isère -> wait for /__version -> node:test suite (incl. valgrind) -> benchmark
+#   build -> fuzz the HTTP parser -> node:test suite (incl. valgrind) -> benchmark
 #
 # Usage: tools/linux.sh [options]
 #   --runtime NAME        quickjs (default) or jerryscript
 #   --skip-build          test the existing build in build-linux-<runtime>/
 #   --no-valgrind         skip the valgrind memory tests
+#   --fuzz SEC            seconds of libFuzzer on the HTTP parser (default 30, 0 = skip; needs clang)
 #   --bench-duration SEC  wrk duration per concurrency level (default 10)
 #   --bench-conns "N..."  concurrency levels (default "1 2 4")
 #   --no-bench            skip the benchmark
+#
+# In a container, from the repository root (this is how CI runs it):
+#   docker build -t isere-linux -f tools/linux.Dockerfile tools
+#   docker run --rm -v "$PWD":/app -w /app isere-linux tools/linux.sh
 #
 # Environment overrides:
 #   ISERE_PORT       port to listen on (default 8080)
@@ -28,6 +33,7 @@ VALGRIND=1
 BENCH=1
 BENCH_DURATION=10
 BENCH_CONNS="1 2 4"
+FUZZ=30
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -37,7 +43,8 @@ while [ $# -gt 0 ]; do
     --bench-duration) BENCH_DURATION="$2"; shift 2 ;;
     --bench-conns) BENCH_CONNS="$2"; shift 2 ;;
     --no-bench) BENCH=0; shift ;;
-    -h|--help) sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --fuzz) FUZZ="$2"; shift 2 ;;
+    -h|--help) sed -n '3,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -77,6 +84,21 @@ if [ $SKIP_BUILD -eq 1 ]; then
   [ -n "$BUILD_ID" ] || fail 2 build "no existing build in $BUILD_DIR"
 else
   step build do_build || fail 2 build "build failed, see build.log"
+fi
+
+run_fuzz() {
+  if ! command -v clang >/dev/null; then
+    log "clang not installed; skipping the fuzzer"
+    return 0
+  fi
+  FUZZ_OUT="$RESULTS/fuzz" "$REPO/tools/fuzz.sh" "$FUZZ" > "$RESULTS/fuzz.log" 2>&1
+  local rc=$?
+  grep -E "^Done [0-9]+ runs" "$RESULTS/fuzz.log" | sed 's/^/      /' | tee -a "$RESULTS/run.log"
+  return $rc
+}
+
+if [ "$FUZZ" -gt 0 ]; then
+  step fuzz run_fuzz || fail 1 fuzz "the HTTP parser fuzzer found a problem, see fuzz.log"
 fi
 
 TEST_ENV="ISERE_BUILD_DIR=$BUILD_DIR ISERE_PORT=$PORT"

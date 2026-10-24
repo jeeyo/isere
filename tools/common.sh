@@ -132,17 +132,23 @@ run_tests() {
   return $rc
 }
 
-# run_bench <duration seconds> <connection levels>: wrk against /, then the server must still answer
+# run_bench <duration seconds> <connection levels>: wrk against / with keep-alive,
+# then the server must still answer. Any socket error or non-2xx response fails it.
 run_bench() {
   if ! command -v wrk >/dev/null; then
     log "wrk not installed (brew install wrk); skipping benchmark"
     return 0
   fi
-  local c
+  local c out
   for c in $2; do
     log "   wrk -t1 -c$c -d${1}s"
-    wrk -t1 -c"$c" -d"${1}s" --latency "$BASE_URL/" > "$RESULTS/bench-c$c.txt" 2>&1 || return 1
-    grep -E "Requests/sec|Socket errors|Non-2xx" "$RESULTS/bench-c$c.txt" | sed 's/^/      /' | tee -a "$RESULTS/run.log"
+    out="$RESULTS/bench-c$c.txt"
+    wrk -t1 -c"$c" -d"${1}s" --latency "$BASE_URL/" > "$out" 2>&1 || return 1
+    grep -E "Requests/sec|Socket errors|Non-2xx" "$out" | sed 's/^/      /' | tee -a "$RESULTS/run.log"
+    if grep -qE "Socket errors|Non-2xx" "$out"; then
+      log "wrk saw errors at $c connections"
+      return 1
+    fi
   done
   if ! curl -s -o /dev/null -m 5 "$BASE_URL/__version"; then
     log "server stopped answering after the benchmark"
