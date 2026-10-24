@@ -66,6 +66,7 @@ typedef struct {
   char linebuf[ISERE_HTTPD_LINE_BUFFER_LEN];
   int linebuflen;
   int32_t recvd;  // total number of bytes received
+  int close_after_parse;  // answered from a parser callback, free once llhttp_execute() returns
 
   uv__io_t w;
   isere_js_context_t js;

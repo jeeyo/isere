@@ -195,8 +195,8 @@ static int __on_message_complete(llhttp_t *parser)
       "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", body_len);
     isere_tcp_write(conn->fd, head, head_len);
     isere_tcp_write(conn->fd, body, body_len);
-    __httpd_cleanup_conn(conn);
-    return 0;
+    conn->close_after_parse = 1;
+    return HPE_PAUSED;
   }
 
   // execute request handler function
@@ -207,15 +207,15 @@ static int __on_message_complete(llhttp_t *parser)
   {
     const char *buf = "HTTP/1.1 404 Not Found\r\n\r\n";
     isere_tcp_write(conn->fd, buf, strlen(buf));
-    __httpd_cleanup_conn(conn);
-    return 0;
+    conn->close_after_parse = 1;
+    return HPE_PAUSED;
   }
 
   if (__httpd->http_handler == NULL) {
     const char *buf = "HTTP/1.1 200 OK\r\n\r\n";
     isere_tcp_write(conn->fd, buf, strlen(buf));
-    __httpd_cleanup_conn(conn);
-    return 0;
+    conn->close_after_parse = 1;
+    return HPE_PAUSED;
   }
 
   isere_js_new_context(__httpd->js, &conn->js);
@@ -227,7 +227,9 @@ static int __on_message_complete(llhttp_t *parser)
   __httpd->http_handler(__httpd->loader, conn, conn->method, conn->url_parser.path, conn->url_parser.query, conn->headers, nbr_of_headers, conn->body);
 
   uv__queue_insert_tail(&__httpd->js_queue, &conn->js_queue);
-  return 0;
+
+  // one request per connection (Connection: close), so ignore anything pipelined after it
+  return HPE_PAUSED;
 }
 
 static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int events)
@@ -264,6 +266,13 @@ static void __on_poll(struct uv_loop_s* loop, struct uv__io_s* w, unsigned int e
   // TODO: make this async
   // pass the new data to http parser
   enum llhttp_errno err = llhttp_execute(&conn->llhttp, linebuf, len);
+  if (err == HPE_PAUSED) {
+    // the request is complete; either it was answered already or the JS handler owns it now
+    if (conn->close_after_parse) {
+      __httpd_cleanup_conn(conn);
+    }
+    return;
+  }
   if (err != HPE_OK) {
     __httpd->logger->error(ISERE_HTTPD_LOG_TAG, "llhttp_execute() error: %s %s", llhttp_errno_name(err), conn->llhttp.reason);
     __httpd_cleanup_conn(conn);
