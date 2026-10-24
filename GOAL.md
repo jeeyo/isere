@@ -198,7 +198,7 @@ It needs the physical PC, so it can't run in a cloud session. Run it from a loca
   - Build the hardware validation loop: logging on the Pico 2, a `/__version` endpoint, a software path back to BOOTSEL, and `tools/hil.sh`.
   - Record today's Pico 2 numbers through the loop.
 - [ ] **M2 Correct core**
-  - Replace the HTTP request path with in-place parsing, and add the fuzzer. This structurally removes the crash on two requests sent together, the NUL-body leak and the header truncation.
+  - Replace the HTTP request path with in-place parsing, and add the fuzzer. This structurally removes the crash on two requests sent together and the header truncation. Applying the same length-aware rule to the response path, instead of `strdup`, removes the NUL-body leak.
   - Fix the timeout, the busy-wait loop and the QuickJS cleanup leak.
   - Each fix starts with a failing test, and every fix is validated on the Pico 2 through the loop.
 - [ ] **M3 Multi-endpoint**
