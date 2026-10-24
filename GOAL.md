@@ -40,11 +40,21 @@ All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unle
    - RS256 is required and ES256 is a stretch goal.
    - Realistic token sizes (≥ 1 KB `Authorization` header) are accepted.
 
-3. **The board can verify tokens using its own endpoint**
+3. **HTTP is parsed in place, safely**
+   - Each connection receives bytes directly into its own buffer, and the request is parsed there.
+   - The method, path, headers and body are stored as `{offset, len}` spans into that buffer. Nothing in the request path copies them into fixed-size fields.
+   - There are no per-field limits. The only limits are two configurable budgets per connection: one for the request head and one for the body. Exceeding them returns `431` or `413`.
+   - From the receive buffer to the JS engine, the request is copied exactly once, into the engine's own strings, using length-aware calls. Nothing in the request path uses `strlen`, `strcpy`, `strncpy` or `strdup`.
+   - Two requests arriving in one TCP segment are parsed one after another from the same buffer.
+   - Ambiguous framing is rejected with `400`: both `Content-Length` and `Transfer-Encoding`, or duplicate `Content-Length` headers.
+   - The parser is fuzzed with AddressSanitizer in CI on the Linux build. The same C code runs on the Pico 2.
+   - The memory each connection uses is measured. It is proportional to the actual request, not to a worst-case layout.
+
+4. **The board can verify tokens using its own endpoint**
    - The verifier can fetch the JWKS from the same board while the board is serving other requests.
    - It does not deadlock or run out of connections when the connection pool is full.
 
-4. **Per-request metrics, live**
+5. **Per-request metrics, live**
    - Every request reports:
      - wall time
      - CPU time spent executing that request's code (time waiting on I/O and timers is excluded)
@@ -56,27 +66,27 @@ All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unle
    - Per-endpoint aggregates (count, p50/p99 latency, mean CPU, mean allocation) are reported.
    - All of these are exposed live via `/__metrics` and as NDJSON over serial.
 
-5. **The metrics are shown to be accurate**
+6. **The metrics are shown to be accurate**
    - Calibration endpoints with known costs (≈5 ms CPU busy-loop, 32 KB allocate/free, 100 ms sleep) report within ±10% of the expected value.
    - The sleep endpoint reports CPU time ≈ 0.
    - Enabling metrics costs < 5% throughput.
 
-6. **The benchmarks are honest and repeatable**
+7. **The benchmarks are honest and repeatable**
    - One script benchmarks:
      - each engine
      - concurrency 1, 2 and 4 (the board's real connection limit)
      - JWKS cache hit and cache miss
      - a mix of requests across endpoints
    - Each run lasts 10 minutes.
-   - Reported figures: req/s, p50/p99 latency, per-request CPU and heap from criterion 4, and the lowest free heap.
+   - Reported figures: req/s, p50/p99 latency, per-request CPU and heap from criterion 5, and the lowest free heap.
    - The same script runs against the Linux build for comparison.
    - Results are published in `BENCHMARK.md` with the commit hash.
 
-7. **It's reliable**
+8. **It's reliable**
    - The 10-minute runs have zero crashes and zero socket errors.
    - Over 10k+ requests, the net heap change per request stays at about zero, with both engines.
 
-8. **The platform decision rests on data**
+9. **The platform decision rests on data**
    - FreeRTOS/C and Zephyr/Rust are evaluated against the same black-box test suite and benchmark script.
    - Whichever stack is chosen must own its event loop (scheduling) and HTTP parsing.
    - The decision and its numbers are written down.
@@ -100,6 +110,10 @@ All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unle
   - `src/http_handler.c` copies header values with `ISERE_HTTPD_MAX_HTTP_HEADER_NAME_LEN`.
   - `ISERE_HTTPD_MAX_HTTP_HEADER_VALUE_LEN` is 512 anyway.
   - Either limit breaks real JWTs.
+- **Every request is copied about three times.**
+  - The server reads 64-byte chunks, and llhttp `strncpy`s them into fixed per-connection fields: method 16, path 256, 16 × (64 + 512) for headers, and 512 for the body. That reserves about 10 KB per connection whatever the request.
+  - `src/http_handler.c` copies the headers again onto the stack (about 9 KB).
+  - The values are then `strdup`ed on their way into the engine.
 - **There's no outbound HTTP or TLS.**
   - `fetch` is a stub (`src/polyfills/quickjs/fetch.c`).
   - There's no TLS client.
@@ -112,10 +126,25 @@ All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unle
   - A runtime is created and freed per connection, and `JS_FreeRuntime` trips the `gc_obj_list` assertion.
 - **There are no per-request metrics.**
   - Only process-level OpenTelemetry counters and gauges exist.
+- **The Pico 2 produces no logs.**
+  - The logger is a no-op (`portable/pico2/src/logger.c`).
+  - stdio is set to semihosting, which needs a debugger attached.
+- **There is no software path back to BOOTSEL.**
+  - The USB descriptor exposes only RNDIS. There is no picotool reset interface.
+  - Every reflash therefore needs the BOOTSEL button pressed by hand.
 
 ## Design directions
 
 These are directions, not decisions.
+
+- **In-place parser**
+  - Use a stateless parser in the style of [picohttpparser](https://github.com/h2o/picohttpparser).
+    - On each `recv`, it re-parses the request head from the start of the connection buffer and returns pointer and length spans. This costs very little for a few KB.
+    - It is about 700 lines of C, it decodes chunked bodies in place, and it is the design that Rust's `httparse` copies. That keeps the C stack and the Zephyr/Rust spike comparable.
+  - Alternatively, keep llhttp but feed it from the contiguous connection buffer. Its callbacks then already point into that buffer, and a field split across two reads can be merged by extending the span.
+  - Store offsets, not pointers, so the buffer can grow by `realloc` up to its budget.
+  - The spans stay valid until the response is sent.
+  - The connection is never freed from inside a parser callback.
 
 - **Warm runtime**
   - Keep one long-lived runtime and a module instance per endpoint.
@@ -133,14 +162,45 @@ These are directions, not decisions.
   - The RP2350 has 520 KB of SRAM, and a TLS handshake needs roughly 40–60 KB next to the engine and N endpoints.
   - The "lowest free heap so far" metric is the evidence for whether this fits.
 
+## Hardware validation loop
+
+Every Pico 2 iteration runs this loop on the developer PC, with the board attached by USB:
+
+1. **Build** the UF2 with `TARGET_PLATFORM=pico2`, stamping it with a build ID (git hash plus a counter).
+2. **Get the board into BOOTSEL without touching it.** Try these in order:
+   - **Debug Probe (recommended)**
+     - A Raspberry Pi Debug Probe on SWD flashes and resets through `openocd`, so no BOOTSEL or drive copy is needed.
+     - It works even after the firmware has crashed.
+     - It also provides the UART for logs and GDB for crash backtraces.
+     - With a probe, steps 3–4 are replaced by `openocd … program isere.elf verify reset`.
+   - **`POST /__bootsel`**
+     - A dev-build endpoint that calls `reset_usb_boot()`.
+   - **On a crash**
+     - In dev builds, the HardFault handler and a watchdog timeout reboot the board into BOOTSEL.
+     - This means a crashing build never needs a hand on the button.
+   - **Last resort: a human holds BOOTSEL and replugs the board.**
+     - The script detects this case and asks for it, rather than hanging.
+3. **Wait for the drive** (label `RP2350`) to mount, with a timeout. Copy the UF2 and `sync`.
+4. **Wait for the board to reboot.** The drive should disappear, then the RNDIS interface should appear. Identify the interface by its MAC address `02:02:84:6A:96:00`, not by its name, since names differ between OSes.
+5. **Wait until the board is ready.** That means `GET http://192.168.7.1:8080/__version` returns the build ID from step 1. Interface-up is not enough, and the ID check proves the board isn't running stale firmware.
+6. **Run the end-to-end test suite and the benchmark** against `192.168.7.1`. Capture the device logs (UART or NDJSON) next to the results.
+7. **Record everything.** Write a results file with the build ID, timings for each step, pass/fail, benchmark numbers and the log path. Any step that times out fails the iteration with a clear reason.
+
+The loop is one script (e.g. `tools/hil.sh`) that exits non-zero on failure, so a local agent can run it in a loop.
+
+It needs the physical PC, so it can't run in a cloud session. Run it from a local Claude Code session, or register the PC as a self-hosted GitHub Actions runner to get hardware-in-the-loop CI.
+
 ## Milestones
 
 - [ ] **M1 Baseline**
   - Merge #33 and get a clean-clone build and green CI.
   - Write the benchmark script.
-  - Record today's Pico 2 numbers.
+  - Build the hardware validation loop: logging on the Pico 2, a `/__version` endpoint, a software path back to BOOTSEL, and `tools/hil.sh`.
+  - Record today's Pico 2 numbers through the loop.
 - [ ] **M2 Correct core**
-  - Fix the four #33 bugs, the header truncation and the QuickJS cleanup leak, each with a failing-first test.
+  - Replace the HTTP request path with in-place parsing, and add the fuzzer. This structurally removes the crash on two requests sent together, the NUL-body leak and the header truncation.
+  - Fix the timeout, the busy-wait loop and the QuickJS cleanup leak.
+  - Each fix starts with a failing test, and every fix is validated on the Pico 2 through the loop.
 - [ ] **M3 Multi-endpoint**
   - Add the router, warm runtime, per-endpoint isolation and timeouts, and serve `/.well-known/jwks.json`.
 - [ ] **M4 Metrics**
