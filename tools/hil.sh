@@ -6,7 +6,7 @@
 #   -> wait for /__version to report this build -> smoke tests -> benchmark
 #
 # Usage: tools/hil.sh [options]
-#   --runtime NAME        jerryscript (default) or quickjs
+#   --runtime NAME        quickjs (default) or jerryscript
 #   --skip-build          flash the existing build in build-pico2-<runtime>/
 #   --skip-flash          don't build or flash; test whatever is already running
 #   --bench-duration SEC  wrk duration per concurrency level (default 30)
@@ -31,7 +31,7 @@ set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
-RUNTIME=jerryscript
+RUNTIME=quickjs
 SKIP_BUILD=0
 SKIP_FLASH=0
 BENCH=1
