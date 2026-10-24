@@ -27,6 +27,8 @@ void isere_engine_deinit(void);
 const char *isere_engine_mode(void);
 // runs the garbage collector of the warm instance (for /__metrics?gc=1)
 void isere_engine_gc(void);
+// bytes the warm instance's engine holds on its heap (0 in cold mode)
+size_t isere_engine_heap_used(void);
 
 // starts handling a JS route; the engine queues a response and calls
 // isere_request_complete() later. Returns <0 if it could not start.
@@ -61,6 +63,8 @@ int js_vm_run_job(js_vm_t *vm);
 int js_vm_call(js_vm_t *vm, js_ref_t fn);
 void js_vm_release(js_vm_t *vm, js_ref_t fn);
 void js_vm_gc(js_vm_t *vm);
+// bytes the engine holds (QuickJS: its allocations; JerryScript: used part of its arena)
+size_t js_vm_heap_used(js_vm_t *vm);
 
 struct isere_fetch_result_s;
 // hands a finished fetch (or its error) to the JS callback `fn`

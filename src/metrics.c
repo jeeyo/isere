@@ -8,6 +8,7 @@
 
 #include "platform.h"
 #include "mem.h"
+#include "engine.h"
 
 const char *isere_phase_names[ISERE_PHASE_COUNT] = {
   "runtime", "context", "polyfills", "module", "call", "teardown",
@@ -371,10 +372,10 @@ char *isere_metrics_json(size_t *len)
   }
   __append(&b, "}},");
 
-  __append(&b, "\"js\":{\"instances_created\":%" PRIu64 ",\"instances_freed\":%" PRIu64
+  __append(&b, "\"js\":{\"heap_used\":%zu,\"instances_created\":%" PRIu64 ",\"instances_freed\":%" PRIu64
     ",\"leftover_objects\":%" PRIu64 ",\"leftover_teardowns\":%" PRIu64 ",\"restarts\":%" PRIu64 "},",
-    __m.js_instances_created, __m.js_instances_freed, __m.js_leftover_objects, __m.js_leftover_teardowns,
-    __m.js_restarts);
+    isere_engine_heap_used(), __m.js_instances_created, __m.js_instances_freed, __m.js_leftover_objects,
+    __m.js_leftover_teardowns, __m.js_restarts);
 
   __append(&b, "\"connections\":{\"accepted\":%" PRIu64 ",\"closed\":%" PRIu64 ",\"rejected\":%" PRIu64
     ",\"evicted\":%" PRIu64 ",\"timed_out\":%" PRIu64 "},",

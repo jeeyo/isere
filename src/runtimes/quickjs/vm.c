@@ -461,6 +461,8 @@ static const JSCFunctionListEntry __natives[] = {
 
 // ------------------------------------------------------------------ instance
 
+size_t js_vm_heap_used(js_vm_t *vm);
+
 static uint32_t __elapsed(uint64_t *since)
 {
   uint64_t now = platform_now_us();
@@ -621,17 +623,19 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
   phase_us[ISERE_PHASE_POLYFILLS] += __elapsed(&t);
 
   if (ok) {
-    isere_mem_stats_t before, after;
     for (uint32_t i = 0; i < isere_app.num_routes; i++) {
       const isere_app_route_t *r = &isere_app.routes[i];
       if (r->kind != ISERE_ROUTE_JS || (module >= 0 && r->module != module)) {
         continue;
       }
-      isere_mem_get_stats(&before);
+      // what the engine holds after loading the module, garbage collected on both sides
+      JS_RunGC(vm->rt);
+      size_t before = js_vm_heap_used(vm);
       __load_route_module(vm, i);
-      isere_mem_get_stats(&after);
-      if (vm->resident[r->module] == 0 && after.in_use > before.in_use) {
-        vm->resident[r->module] = after.in_use - before.in_use;
+      JS_RunGC(vm->rt);
+      size_t after = js_vm_heap_used(vm);
+      if (vm->resident[r->module] == 0 && after > before) {
+        vm->resident[r->module] = after - before;
       }
     }
   }
@@ -768,6 +772,13 @@ void js_vm_release(js_vm_t *vm, js_ref_t fn)
 void js_vm_gc(js_vm_t *vm)
 {
   JS_RunGC(vm->rt);
+}
+
+size_t js_vm_heap_used(js_vm_t *vm)
+{
+  JSMemoryUsage usage;
+  JS_ComputeMemoryUsage(vm->rt, &usage);
+  return (size_t)usage.malloc_size;
 }
 
 void js_vm_fetch_done(js_vm_t *vm, js_ref_t fn, const isere_fetch_result_t *result)

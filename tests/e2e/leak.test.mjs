@@ -1,9 +1,9 @@
-// Memory errors and leaks under valgrind. Linux build only.
+// Memory errors and leaks under valgrind (criterion 8). Linux build only.
 //
-// isère exits without freeing its long-lived state, so a single run's leak report
-// mixes start-up allocations with per-request leaks. Instead, run twice with different
-// request counts and compare: anything that grows with the request count is a leak,
-// whether valgrind classifies it as lost or still reachable.
+// Each mode runs twice with different request counts. A single report can't tell
+// start-up allocations from per-request leaks, but anything that grows with the
+// request count is a leak, whether valgrind calls it lost or still reachable.
+// isère frees everything at shutdown, so a clean run retains next to nothing.
 //
 //   ISERE_VALGRIND=0  skip this file
 
@@ -16,6 +16,7 @@ import path from 'node:path';
 
 import { isRemote, startServer } from './lib/target.mjs';
 import { request } from './lib/http.mjs';
+import { sign } from './lib/jwt.mjs';
 
 const SMALL = 20;
 const LARGE = 120;
@@ -41,19 +42,39 @@ function bytes(report, kind) {
   return m ? Number(m[1].replace(/,/g, '')) : 0;
 }
 
-// Runs `requests` rounds of mixed traffic under valgrind and returns the parsed report.
-async function run(requests) {
+// the JS handler, built-ins, 404, static files, JWT verification with its loopback
+// fetch, failures and requests that leave timers or promises behind
+function mix(i) {
+  const token = sign();
+  return [
+    ['/'],
+    ['/__version'],
+    ['/does-not-exist'],
+    ['/.well-known/jwks.json'],
+    ['/verify', { headers: { authorization: `Bearer ${token}` } }],
+    ['/verify', { headers: { authorization: 'Bearer bad.token.here' } }],
+    ['/__test/throw'],
+    ['/__test/timers-pending'],
+    ['/__test/promise-pending'],
+    ['/__test/echo', { method: 'POST', body: 'x'.repeat(100 + i) }],
+    ['/__calibrate/alloc'],
+    ['/__test/crypto'],
+  ][i % 12];
+}
+
+async function run(requests, mode) {
   const logFile = path.join(mkdtempSync(path.join(tmpdir(), 'isere-vg-')), 'valgrind.log');
   const server = await startServer({
     valgrind: ['--leak-check=full', '--show-leak-kinds=all', '--errors-for-leak-kinds=none', `--log-file=${logFile}`],
+    env: { ISERE_JS_MODE: mode, ISERE_HANDLER_TIMEOUT_MS: '30000', ISERE_NDJSON: '0' },
   });
   for (let i = 0; i < requests; i++) {
-    // the JS handler, the built-in endpoint and the 404 path each exercise different cleanup
-    const path = ['/', '/__version', '/does-not-exist'][i % 3];
-    await request(server.url, path, { timeoutMs: 10_000 });
+    const [p, opts] = mix(i);
+    await request(server.url, p, { timeoutMs: 30_000, ...opts });
   }
   const result = await server.stop();
   assert.ok(!result.hung, 'server did not shut down on SIGINT under valgrind');
+  assert.equal(result.code, 0, `exit code ${result.code}\n${result.stderr.slice(-2000)}`);
 
   const report = readFileSync(logFile, 'utf8');
   const errors = Number(report.match(/ERROR SUMMARY: (\d+) errors/)?.[1] ?? NaN);
@@ -66,26 +87,29 @@ async function run(requests) {
   };
 }
 
-describe('memory (valgrind)', { skip }, () => {
-  let small;
-  let large;
-  before(async () => {
-    small = await run(SMALL);
-    large = await run(LARGE);
-  });
+for (const mode of ['warm', 'cold']) {
+  describe(`memory under valgrind (${mode} engine)`, { skip }, () => {
+    let small;
+    let large;
+    before(async () => {
+      small = await run(SMALL, mode);
+      large = await run(LARGE, mode);
+    });
 
-  it('makes no invalid reads, writes or frees', () => {
-    assert.equal(large.errors, 0, `valgrind reported ${large.errors} errors, see ${large.logFile}`);
-  });
+    it('makes no invalid reads, writes or frees', () => {
+      assert.equal(small.errors, 0, `valgrind reported ${small.errors} errors, see ${small.logFile}`);
+      assert.equal(large.errors, 0, `valgrind reported ${large.errors} errors, see ${large.logFile}`);
+    });
 
-  it('loses no memory per request', () => {
-    assert.equal(large.lost - small.lost, 0,
-      `definitely/indirectly lost grew by ${large.lost - small.lost} bytes over ${LARGE - SMALL} requests, see ${large.logFile}`);
-  });
+    it('loses no memory per request', () => {
+      assert.equal(large.lost - small.lost, 0,
+        `definitely/indirectly lost grew by ${large.lost - small.lost} bytes over ${LARGE - SMALL} requests, see ${large.logFile}`);
+    });
 
-  it('retains no memory per request', () => {
-    const perRequest = (large.retained - small.retained) / (LARGE - SMALL);
-    assert.ok(perRequest <= MAX_GROWTH_PER_REQUEST,
-      `retained memory grew by ${perRequest.toFixed(1)} bytes per request, see ${large.logFile}`);
+    it(`retains no more than ${MAX_GROWTH_PER_REQUEST} bytes per request`, () => {
+      const perRequest = (large.retained - small.retained) / (LARGE - SMALL);
+      assert.ok(perRequest <= MAX_GROWTH_PER_REQUEST,
+        `retained memory grew by ${perRequest.toFixed(1)} bytes per request, see ${large.logFile}`);
+    });
   });
-});
+}

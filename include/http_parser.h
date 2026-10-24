@@ -83,8 +83,10 @@ int64_t http_chunked_length(const char *buf, size_t len);
 // Only call it once http_chunked_length() has returned a length.
 size_t http_chunked_decode(char *buf, size_t len);
 
-// case-insensitive comparison of a span with a NUL-terminated literal
+// case-insensitive comparison of a span with a NUL-terminated literal (header names, tokens)
 int http_span_equals(const char *buf, http_span_t span, const char *literal);
+// exact comparison (methods and paths are case-sensitive)
+int http_span_is(const char *buf, http_span_t span, const char *literal);
 
 // first header named `name` (case-insensitive), or NULL
 const http_header_t *http_find_header(const char *buf, const http_header_t *headers,

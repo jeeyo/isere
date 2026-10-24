@@ -46,6 +46,17 @@ int http_span_equals(const char *buf, http_span_t span, const char *literal)
   return i == span.len;
 }
 
+int http_span_is(const char *buf, http_span_t span, const char *literal)
+{
+  size_t i = 0;
+  for (; literal[i] != '\0'; i++) {
+    if (i >= span.len || buf[span.off + i] != literal[i]) {
+      return 0;
+    }
+  }
+  return i == span.len;
+}
+
 const http_header_t *http_find_header(const char *buf, const http_header_t *headers,
   size_t num_headers, const char *name)
 {

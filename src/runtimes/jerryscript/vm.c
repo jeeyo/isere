@@ -199,6 +199,18 @@ static void __print_exception(jerry_value_t v, const char *where)
   jerry_value_free(err);
 }
 
+// ArrayBuffer storage beyond a few hundred bytes lives outside the arena; route it
+// through isère's heap so it is accounted and bounded like everything else
+static uint8_t *__arraybuffer_alloc(jerry_arraybuffer_type_t type, uint32_t size, void **buffer_user, void *user)
+{
+  return isere_malloc(size > 0 ? size : 1);
+}
+
+static void __arraybuffer_free(jerry_arraybuffer_type_t type, uint8_t *buffer, uint32_t size, void *buffer_user, void *user)
+{
+  isere_free(buffer);
+}
+
 static jerry_value_t __halt(void *user)
 {
   if (isere_js_should_interrupt()) {
@@ -492,6 +504,8 @@ NATIVE(__n_alloc)
     }
     uint8_t *p = jerry_arraybuffer_data(buffer);
     if (p != NULL) memset(p, 1, (size_t)bytes);
+    // free the storage now, as QuickJS's js_free() does, rather than at the next GC
+    jerry_value_free(jerry_arraybuffer_detach(buffer));
     jerry_value_free(buffer);
   }
   return jerry_undefined();
@@ -669,6 +683,7 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
   vm->prev = outer;
   __current_vm = vm;
   jerry_halt_handler(HALT_INTERVAL, __halt, NULL);
+  jerry_arraybuffer_allocator(__arraybuffer_alloc, __arraybuffer_free, NULL);
   phase_us[ISERE_PHASE_RUNTIME] += __elapsed(&t);
 
   // a JerryScript context comes with its realm and built-ins
@@ -731,11 +746,14 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
       if (r->kind != ISERE_ROUTE_JS || (module >= 0 && r->module != module)) {
         continue;
       }
+      // collect around the load, so garbage from earlier work doesn't hide its cost
+      jerry_heap_gc(JERRY_GC_PRESSURE_HIGH);
       size_t before = __heap_used();
       GUARD(vm, __load_route_module(vm, i), (void)0);
       if (vm->dead) {
         break;
       }
+      jerry_heap_gc(JERRY_GC_PRESSURE_HIGH);
       size_t after = __heap_used();
       if (vm->resident[r->module] == 0 && after > before) {
         vm->resident[r->module] = after - before;
@@ -874,6 +892,18 @@ void js_vm_release(js_vm_t *vm, js_ref_t fn)
     __current = outer;
   }
   isere_free(fn);
+}
+
+size_t js_vm_heap_used(js_vm_t *vm)
+{
+  if (vm->dead) {
+    return 0;
+  }
+  jerry_context_t *outer = __current;
+  __current = vm->context;
+  size_t used = __heap_used();
+  __current = outer;
+  return used;
 }
 
 void js_vm_gc(js_vm_t *vm)

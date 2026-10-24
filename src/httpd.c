@@ -425,7 +425,7 @@ static int __method_matches(const char *route_method, int is_head, const char *b
   if (route_method[0] == '*' && route_method[1] == '\0') {
     return 1;
   }
-  if (http_span_equals(buf, method, route_method)) {
+  if (http_span_is(buf, method, route_method)) {
     return 1;
   }
   // HEAD is served by GET routes, without the body
@@ -458,12 +458,12 @@ static void __handle(httpd_conn_t *conn)
   const char *buf = conn->buf;
   http_span_t path = conn->head.path;
   http_span_t method = conn->head.method;
-  conn->is_head = http_span_equals(buf, method, "HEAD");
-  int get = conn->is_head || http_span_equals(buf, method, "GET");
+  conn->is_head = http_span_is(buf, method, "HEAD");
+  int get = conn->is_head || http_span_is(buf, method, "GET");
 
   // built-in endpoints, answered without touching a JS engine
-  int version = http_span_equals(buf, path, "/__version");
-  if (version || http_span_equals(buf, path, "/__metrics")) {
+  int version = http_span_is(buf, path, "/__version");
+  if (version || http_span_is(buf, path, "/__metrics")) {
     __begin_request(conn, ISERE_METRICS_ROUTE_NONE);
     if (!get) {
       isere_response_start(&conn->req, 405);
@@ -473,7 +473,7 @@ static void __handle(httpd_conn_t *conn)
       __builtin_version(&conn->req);
     } else {
       // ?gc=1 collects garbage first, so heap figures don't depend on when the GC last ran
-      if (http_span_equals(buf, conn->head.query, "gc=1")) {
+      if (http_span_is(buf, conn->head.query, "gc=1")) {
         isere_engine_gc();
       }
       __builtin_metrics(&conn->req);
@@ -486,7 +486,7 @@ static void __handle(httpd_conn_t *conn)
   int path_known = 0;
   for (uint32_t i = 0; i < isere_app.num_routes; i++) {
     const isere_app_route_t *r = &isere_app.routes[i];
-    if (!http_span_equals(buf, path, r->path)) {
+    if (!http_span_is(buf, path, r->path)) {
       continue;
     }
     path_known = 1;

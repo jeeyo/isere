@@ -428,6 +428,11 @@ void isere_engine_gc(void)
   }
 }
 
+size_t isere_engine_heap_used(void)
+{
+  return __e.warm != NULL ? js_vm_heap_used(__e.warm) : 0;
+}
+
 const char *isere_engine_mode(void)
 {
   return __e.cold ? "cold" : "warm";
