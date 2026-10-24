@@ -57,11 +57,23 @@ static struct {
   uint64_t last_busy_ns;
   double cpu_utilisation;
 
+  // ISERE_CPU_CLOCK=thread: the kernel's per-thread CPU clock (exact, a syscall per reading)
+  int thread_clock;
+
   // the running stretch
   isere_request_metrics_t *current;
   uint64_t stretch_cpu_start;
   isere_mem_account_t *saved_account;
 } __m;
+
+// CPU time of a stretch. A stretch never blocks (waiting happens between
+// stretches, in poll), so the time it holds the httpd task is its CPU time, as
+// the cycle counter measures it on the board. The monotonic clock is a vDSO call;
+// the thread CPU clock is a syscall, which costs several percent of throughput.
+static inline uint64_t __cpu_now(void)
+{
+  return __m.thread_clock ? platform_task_cpu_ns() : platform_now_ns();
+}
 
 static int __env_flag(const char *name, int fallback)
 {
@@ -78,6 +90,8 @@ void isere_metrics_init(uint32_t num_routes, const char *const *methods, const c
   // ISERE_METRICS=0 turns accounting off, to measure what it costs (criterion 6)
   __m.enabled = __env_flag("ISERE_METRICS", 1);
   __m.ndjson = __m.enabled && __env_flag("ISERE_NDJSON", 1);
+  const char *clock = getenv("ISERE_CPU_CLOCK");
+  __m.thread_clock = clock != NULL && strcmp(clock, "thread") == 0;
   __m.num_routes = num_routes;
   __m.methods = methods;
   __m.paths = paths;
@@ -109,7 +123,7 @@ void isere_metrics_stretch_begin(isere_request_metrics_t *m)
   __m.current = m;
   __m.saved_account = isere_mem_get_account();
   isere_mem_set_account(&m->mem);
-  __m.stretch_cpu_start = platform_task_cpu_ns();
+  __m.stretch_cpu_start = __cpu_now();
 }
 
 void isere_metrics_stretch_end(void)
@@ -117,7 +131,7 @@ void isere_metrics_stretch_end(void)
   if (__m.current == NULL) {
     return;
   }
-  __m.current->cpu_ns += platform_task_cpu_ns() - __m.stretch_cpu_start;
+  __m.current->cpu_ns += __cpu_now() - __m.stretch_cpu_start;
   isere_mem_set_account(__m.saved_account);
   __m.saved_account = NULL;
   __m.current = NULL;

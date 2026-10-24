@@ -91,36 +91,12 @@
   };
   g.TextDecoder = TextDecoder;
 
-  var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-  g.btoa = function (s) {
-    s = String(s);
-    var out = '';
-    for (var i = 0; i < s.length; i += 3) {
-      var a = s.charCodeAt(i), b = s.charCodeAt(i + 1), c = s.charCodeAt(i + 2);
-      if (a > 255 || b > 255 || c > 255) throw new Error('InvalidCharacterError');
-      var n = (a << 16) | ((b || 0) << 8) | (c || 0);
-      out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] +
-        (i + 1 < s.length ? B64[(n >> 6) & 63] : '=') + (i + 2 < s.length ? B64[n & 63] : '=');
-    }
-    return out;
-  };
-
+  // binary strings <-> base64, in C: a JS loop over every character is slow on both engines
   g.atob = function (s) {
-    s = String(s).replace(/[\t\n\f\r ]/g, '');
-    if (s.length % 4 === 0) s = s.replace(/==?$/, '');
-    if (s.length % 4 === 1 || /[^A-Za-z0-9+/]/.test(s)) throw new Error('InvalidCharacterError');
-    var out = '';
-    var bits = 0, value = 0;
-    for (var i = 0; i < s.length; i++) {
-      value = (value << 6) | B64.indexOf(s[i]);
-      bits += 6;
-      if (bits >= 8) {
-        bits -= 8;
-        out += String.fromCharCode((value >> bits) & 255);
-      }
-    }
-    return out;
+    try { return native.atob(String(s)); } catch (e) { throw DOMException('invalid base64', 'InvalidCharacterError'); }
+  };
+  g.btoa = function (s) {
+    try { return native.btoa(String(s)); } catch (e) { throw DOMException('characters outside Latin-1', 'InvalidCharacterError'); }
   };
 
   // ---------------------------------------------------------------- Headers

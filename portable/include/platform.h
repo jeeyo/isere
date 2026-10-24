@@ -6,8 +6,9 @@
 
 void platform_init();
 
-// monotonic wall clock, microseconds since an arbitrary point
+// monotonic wall clock, microseconds / nanoseconds since an arbitrary point
 uint64_t platform_now_us(void);
+uint64_t platform_now_ns(void);
 
 // wall-clock time, milliseconds since the Unix epoch
 uint64_t platform_time_ms(void);

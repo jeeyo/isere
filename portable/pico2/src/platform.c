@@ -52,6 +52,11 @@ static uint64_t __cycles(void)
   return high | now;
 }
 
+uint64_t platform_now_ns(void)
+{
+  return __cycles() * 1000000000ull / clock_get_hz(clk_sys);
+}
+
 uint64_t platform_task_cpu_ns(void)
 {
   // isère runs all request work on the httpd task, and it measures only stretches

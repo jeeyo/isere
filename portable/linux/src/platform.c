@@ -26,6 +26,11 @@ uint64_t platform_now_us(void)
   return __clock_ns(CLOCK_MONOTONIC) / 1000;
 }
 
+uint64_t platform_now_ns(void)
+{
+  return __clock_ns(CLOCK_MONOTONIC);
+}
+
 uint64_t platform_time_ms(void)
 {
   return __clock_ns(CLOCK_REALTIME) / 1000000;

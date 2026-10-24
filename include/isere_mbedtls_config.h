@@ -8,6 +8,8 @@
 #define MBEDTLS_PLATFORM_C
 #define MBEDTLS_PLATFORM_MEMORY
 
+// inline assembly for bignum arithmetic where mbedTLS has it (aarch64, x86-64, Arm Thumb-2)
+#define MBEDTLS_HAVE_ASM
 #define MBEDTLS_BIGNUM_C
 #define MBEDTLS_OID_C
 #define MBEDTLS_ASN1_PARSE_C

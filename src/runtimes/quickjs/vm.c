@@ -240,6 +240,36 @@ static JSValue __n_utf8_decode(JSContext *ctx, JSValueConst this_val, int argc, 
   return JS_NewStringLen(ctx, (const char *)p, len);
 }
 
+static JSValue __n_base64(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int decode)
+{
+  size_t len = 0;
+  const char *in = JS_ToCStringLen(ctx, &len, argv[0]);
+  if (in == NULL) {
+    return JS_EXCEPTION;
+  }
+  size_t cap = decode ? len * 2 + 4 : len * 2 + 8;
+  char *out = isere_malloc(cap);
+  if (out == NULL) {
+    JS_FreeCString(ctx, in);
+    return JS_ThrowOutOfMemory(ctx);
+  }
+  int n = decode ? isere_atob_utf8(in, len, out, cap) : isere_btoa_utf8(in, len, out, cap);
+  JS_FreeCString(ctx, in);
+  JSValue r = n < 0 ? JS_ThrowTypeError(ctx, "InvalidCharacterError") : JS_NewStringLen(ctx, out, (size_t)n);
+  isere_free(out);
+  return r;
+}
+
+static JSValue __n_atob(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+  return __n_base64(ctx, this_val, argc, argv, 1);
+}
+
+static JSValue __n_btoa(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+  return __n_base64(ctx, this_val, argc, argv, 0);
+}
+
 static JSValue __n_respond(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
   uint32_t id = 0;
@@ -450,6 +480,8 @@ static const JSCFunctionListEntry __natives[] = {
   JS_CFUNC_DEF("now", 0, __n_now),
   JS_CFUNC_DEF("utf8Encode", 1, __n_utf8_encode),
   JS_CFUNC_DEF("utf8Decode", 1, __n_utf8_decode),
+  JS_CFUNC_DEF("atob", 1, __n_atob),
+  JS_CFUNC_DEF("btoa", 1, __n_btoa),
   JS_CFUNC_DEF("respond", 4, __n_respond),
   JS_CFUNC_DEF("verify", 6, __n_verify),
   JS_CFUNC_DEF("digest", 2, __n_digest),

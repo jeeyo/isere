@@ -304,6 +304,33 @@ NATIVE(__n_utf8_decode)
   return __string((const char *)p, len);
 }
 
+static jerry_value_t __base64(const jerry_value_t args[], jerry_length_t argc, int decode)
+{
+  size_t len = 0;
+  char *in = __cstring(__arg(args, argc, 0), &len);
+  if (in == NULL) {
+    return jerry_throw_sz(JERRY_ERROR_TYPE, "not a string");
+  }
+  size_t cap = decode ? len * 2 + 4 : len * 2 + 8;
+  char *out = isere_malloc(cap);
+  int n = out != NULL ? (decode ? isere_atob_utf8(in, len, out, cap) : isere_btoa_utf8(in, len, out, cap)) : -1;
+  isere_free(in);
+  jerry_value_t r = n < 0 ? jerry_throw_sz(JERRY_ERROR_TYPE, "InvalidCharacterError")
+    : jerry_string((const jerry_char_t *)out, (jerry_size_t)n, JERRY_ENCODING_UTF8);
+  isere_free(out);
+  return r;
+}
+
+NATIVE(__n_atob)
+{
+  return __base64(args, argc, 1);
+}
+
+NATIVE(__n_btoa)
+{
+  return __base64(args, argc, 0);
+}
+
 NATIVE(__n_respond)
 {
   isere_request_t *req = isere_js_find_request(__arg_u32(args, argc, 0));
@@ -697,6 +724,8 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
   __set_native(natives, "now", __n_now);
   __set_native(natives, "utf8Encode", __n_utf8_encode);
   __set_native(natives, "utf8Decode", __n_utf8_decode);
+  __set_native(natives, "atob", __n_atob);
+  __set_native(natives, "btoa", __n_btoa);
   __set_native(natives, "respond", __n_respond);
   __set_native(natives, "verify", __n_verify);
   __set_native(natives, "digest", __n_digest);

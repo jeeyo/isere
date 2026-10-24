@@ -36,6 +36,14 @@ void *isere_crypto_drbg(void);
 // base64url (or base64) without padding requirements; returns the decoded length or <0
 int isere_base64url_decode(const char *in, size_t in_len, uint8_t *out, size_t out_cap);
 
+// atob()/btoa() on "binary strings" (one byte per code point 0-255), which the
+// engines take and give as UTF-8: these convert between that and raw bytes.
+// atob: base64 text -> the UTF-8 form of the binary string; returns its length or <0
+int isere_atob_utf8(const char *in, size_t in_len, char *out, size_t out_cap);
+// btoa: the UTF-8 form of a binary string -> base64 text; returns its length, or <0
+// if a code point is above 255
+int isere_btoa_utf8(const char *in, size_t in_len, char *out, size_t out_cap);
+
 #ifdef __cplusplus
 }
 #endif

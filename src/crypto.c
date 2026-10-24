@@ -111,6 +111,80 @@ int isere_base64url_decode(const char *in, size_t in_len, uint8_t *out, size_t o
   return (int)n;
 }
 
+int isere_atob_utf8(const char *in, size_t in_len, char *out, size_t out_cap)
+{
+  // forgiving-base64 decode: ASCII whitespace is ignored, padding is optional
+  size_t n = 0, digits = 0;
+  uint32_t acc = 0;
+  int bits = 0, padding = 0;
+  for (size_t i = 0; i < in_len; i++) {
+    char c = in[i];
+    if (c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r') continue;
+    if (c == '=') { padding++; continue; }
+    if (padding > 0 || c == '-' || c == '_') return -1;
+    int v = __b64_value(c);
+    if (v < 0) return -1;
+    digits++;
+    acc = (acc << 6) | (uint32_t)v;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      uint8_t byte = (uint8_t)(acc >> bits);
+      if (byte < 0x80) {
+        if (n + 1 > out_cap) return -1;
+        out[n++] = (char)byte;
+      } else {
+        if (n + 2 > out_cap) return -1;
+        out[n++] = (char)(0xC0 | (byte >> 6));
+        out[n++] = (char)(0x80 | (byte & 0x3F));
+      }
+    }
+  }
+  if (digits % 4 == 1 || padding > 2 || (padding > 0 && (digits + (size_t)padding) % 4 != 0)) {
+    return -1;
+  }
+  return (int)n;
+}
+
+int isere_btoa_utf8(const char *in, size_t in_len, char *out, size_t out_cap)
+{
+  static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  size_t n = 0;
+  uint32_t acc = 0;
+  int count = 0;
+  for (size_t i = 0; i < in_len; i++) {
+    uint8_t c = (uint8_t)in[i];
+    uint32_t cp;
+    if (c < 0x80) {
+      cp = c;
+    } else if ((c & 0xE0) == 0xC0 && i + 1 < in_len) {
+      cp = ((uint32_t)(c & 0x1F) << 6) | ((uint8_t)in[++i] & 0x3F);
+    } else {
+      return -1;
+    }
+    if (cp > 0xFF) return -1;
+    acc = (acc << 8) | cp;
+    if (++count == 3) {
+      if (n + 4 > out_cap) return -1;
+      out[n++] = b64[(acc >> 18) & 63];
+      out[n++] = b64[(acc >> 12) & 63];
+      out[n++] = b64[(acc >> 6) & 63];
+      out[n++] = b64[acc & 63];
+      acc = 0;
+      count = 0;
+    }
+  }
+  if (count > 0) {
+    if (n + 4 > out_cap) return -1;
+    acc <<= 8 * (3 - count);
+    out[n++] = b64[(acc >> 18) & 63];
+    out[n++] = b64[(acc >> 12) & 63];
+    out[n++] = count == 2 ? b64[(acc >> 6) & 63] : '=';
+    out[n++] = '=';
+  }
+  return (int)n;
+}
+
 static mbedtls_md_type_t __md_type(int hash)
 {
   switch (hash) {

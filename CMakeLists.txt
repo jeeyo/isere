@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.19)
 
 set(TARGET_PLATFORM linux CACHE STRING "Platform to compile isere for")
 
+# optimised with debug info unless asked otherwise; this applies to the engines and mbedTLS too
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+endif()
+
 # build configuration
 option(DEBUG "Debug mode" OFF)
 set(JS_RUNTIME quickjs CACHE STRING "JavaScript runtime") # quickjs (default), jerryscript
@@ -171,8 +176,6 @@ if(DEBUG)
     target_compile_options(jerry-core PRIVATE -O0 -g)
     target_compile_options(jerry-ext PRIVATE -O0 -g)
   endif()
-else()
-  target_compile_options(isere PRIVATE -O2 -g)
 endif()
 
 include(portable/${TARGET_PLATFORM}/platform_extras.cmake OPTIONAL)
