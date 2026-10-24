@@ -78,3 +78,22 @@ size_t platform_heap_size(void)
   extern char __StackLimit, __bss_end__;
   return (size_t)(&__StackLimit - &__bss_end__);
 }
+
+static TaskHandle_t __watched = NULL;
+static size_t __watched_bytes = 0;
+
+void platform_stack_watch(size_t stack_bytes)
+{
+  // FreeRTOS fills new task stacks with a known value; the kernel reports the mark
+  __watched = xTaskGetCurrentTaskHandle();
+  __watched_bytes = stack_bytes;
+}
+
+size_t platform_stack_used(void)
+{
+  if (__watched == NULL) {
+    return 0;
+  }
+  size_t free_bytes = (size_t)uxTaskGetStackHighWaterMark(__watched) * sizeof(StackType_t);
+  return __watched_bytes > free_bytes ? __watched_bytes - free_bytes : 0;
+}

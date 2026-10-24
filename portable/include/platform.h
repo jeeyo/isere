@@ -24,4 +24,10 @@ uint64_t platform_busy_cpu_ns(void);
 // bytes of heap the platform reserves for isère, 0 when unbounded
 size_t platform_heap_size(void);
 
+// Stack high-water mark of the calling task. platform_stack_watch() starts
+// watching (call it first thing in the task, with the task's stack size in
+// bytes); platform_stack_used() is the most it has used since, in bytes.
+void platform_stack_watch(size_t stack_bytes);
+size_t platform_stack_used(void);
+
 #endif /* ISERE_PLATFORM_H_ */

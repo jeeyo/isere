@@ -1,5 +1,6 @@
 #include "platform.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -50,4 +51,38 @@ uint64_t platform_busy_cpu_ns(void)
 size_t platform_heap_size(void)
 {
   return __heap_size;
+}
+
+// The POSIX port runs each task on a pthread whose stack FreeRTOS never sees, so
+// the high-water mark is found the classic way: paint the unused part of the
+// stack below the current frame, and later find the deepest byte that changed.
+#define STACK_PATTERN 0xA5
+#define STACK_MARGIN 1024
+
+static volatile uint8_t *__watch_low = NULL;
+static volatile uint8_t *__watch_top = NULL;
+
+__attribute__((noinline)) void platform_stack_watch(size_t stack_bytes)
+{
+  volatile uint8_t *sp = (volatile uint8_t *)__builtin_frame_address(0);
+  // stay clear of the guard page and of this frame
+  size_t depth = stack_bytes > 2 * 8192 ? stack_bytes - 8192 : stack_bytes / 2;
+  __watch_top = sp;
+  __watch_low = sp - depth;
+  for (volatile uint8_t *p = __watch_low; p < sp - STACK_MARGIN; p++) {
+    *p = STACK_PATTERN;
+  }
+}
+
+size_t platform_stack_used(void)
+{
+  if (__watch_low == NULL) {
+    return 0;
+  }
+  volatile uint8_t *p = __watch_low;
+  while (p < __watch_top - STACK_MARGIN && *p == STACK_PATTERN) {
+    p++;
+  }
+  // measured from the frame that started watching, near the top of the task
+  return (size_t)(__watch_top - p);
 }

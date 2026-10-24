@@ -17,6 +17,7 @@
 #include "platform.h"
 #include "request.h"
 #include "tcp.h"
+#include "isere_config.h"
 
 // Connection lifecycle:
 //
@@ -905,6 +906,9 @@ static void __httpd_task(void *param)
 {
   isere_httpd_t *httpd = __s.httpd;
   int failed = 1;
+
+  // measures how much of its stack this task uses (reported at /__metrics)
+  platform_stack_watch(ISERE_HTTPD_TASK_STACK_SIZE * sizeof(StackType_t));
 
   while (!isere_tcp_is_initialized()) {
     vTaskDelay(100 / portTICK_PERIOD_MS);

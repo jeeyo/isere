@@ -375,9 +375,10 @@ char *isere_metrics_json(size_t *len)
   __append(&b, "{\"build\":\"%s\",\"runtime\":\"%s\",\"js_mode\":\"%s\",\"metrics_enabled\":%s,",
     ISERE_BUILD_ID, ISERE_RUNTIME_NAME, __m.js_mode, __m.enabled ? "true" : "false");
   __append(&b, "\"device\":{\"uptime_ms\":%" PRIu64 ",\"cpu_utilisation\":%.4f,\"heap_size\":%zu,"
-    "\"heap_free\":%zu,\"heap_min_free\":%zu,\"heap_in_use\":%zu,\"heap_peak\":%zu,\"allocations\":%" PRIu64 "},",
+    "\"heap_free\":%zu,\"heap_min_free\":%zu,\"heap_in_use\":%zu,\"heap_peak\":%zu,\"allocations\":%" PRIu64
+    ",\"httpd_stack_used\":%zu},",
     (now - __m.boot_us) / 1000, __m.cpu_utilisation, mem.heap_size, isere_mem_free(), isere_mem_min_free(),
-    mem.in_use, mem.peak_in_use, mem.allocations);
+    mem.in_use, mem.peak_in_use, mem.allocations, platform_stack_used());
 
   __append(&b, "\"boot\":{\"to_first_request_ms\":%.3f,\"phases_us\":{",
     __m.first_request_us ? (double)(__m.first_request_us - __m.boot_us) / 1000.0 : 0.0);
