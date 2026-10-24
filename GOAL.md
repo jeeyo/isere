@@ -246,13 +246,15 @@ This runs on the developer's Mac. A Raspberry Pi Debug Probe is attached to the 
 
 ## Milestones
 
+Status (Linux): M2–M6 are done and green on the Linux loop for both engines (122 tests including valgrind, fuzzing, wrk). Pico 2 confirmation is still open for every milestone. M7: the Zephyr/Rust spike is vendored in `spikes/zephyr-rust/` and builds for `native_sim`; its JS path aborts in `JS_FreeRuntime` on the first request, and its full evaluation, `docs/PLATFORM_DECISION.md` and the 10-minute `BENCHMARK.md` runs are not written yet.
+
 - [ ] **M1 Baseline**
   - [x] Move to quickjs-ng (the port adaptation follows #33's approach) and build it for the Pico 2.
   - [x] Build the hardware validation loop: UART logging on the Pico 2, a build ID and `/__version` endpoint, and `tools/hil.sh` flashing through the Debug Probe.
   - [x] Build the Linux validation loop: the `node:test` suite, valgrind memory checks, and `tools/linux.sh`.
   - [x] Stop freeing the connection inside the llhttp callback. This fixes the crash on two requests sent together, and valgrind now reports 0 memory errors.
-  - [ ] Write the remaining risky-handler cases on this branch in `node:test`, using #33's findings as a reference. Some need test-specific handlers, such as throwing, NUL bodies and timers.
-  - [ ] Run `tools/linux.sh` in CI, replacing the dead `unittests` step.
+  - [x] Write the remaining risky-handler cases on this branch in `node:test`, using #33's findings as a reference. Some need test-specific handlers, such as throwing, NUL bodies and timers.
+  - [x] Run `tools/linux.sh` in CI, replacing the dead `unittests` step.
   - [ ] Run the hardware loop for the first time on real hardware.
   - [ ] Record today's Pico 2 numbers through the loop.
 - [ ] **M2 QuickJS cleanup and startup first**

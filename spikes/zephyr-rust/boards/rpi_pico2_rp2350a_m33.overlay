@@ -1,0 +1,18 @@
+/*
+ * Device tree overlay for Raspberry Pi Pico 2 (RP2350)
+ * Enables USB CDC-ECM Ethernet networking
+ */
+
+/ {
+	chosen {
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+	};
+};
+
+&zephyr_udc0 {
+	cdc_ecm {
+		compatible = "zephyr,cdc-ecm-ethernet";
+		remote-mac-address = "00:00:5E:00:53:01";
+	};
+};
