@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
 # Hardware-in-the-loop validation for isère on a Raspberry Pi Pico 2.
+# Run tools/linux.sh first: it's the same test suite with a much faster loop.
 #
 #   build firmware -> flash over SWD (Debug Probe) -> wait for USB network
-#   -> wait for /__version to report this build -> smoke tests -> benchmark
+#   -> wait for /__version to report this build -> node:test suite -> benchmark
 #
 # Usage: tools/hil.sh [options]
 #   --runtime NAME        quickjs (default) or jerryscript
@@ -20,12 +21,9 @@
 #   PICO_PORT        board HTTP port (default 8080)
 #   PICO_MAC         host-side MAC of the board's USB interface (default 02:02:84:6a:96:00,
 #                    from tud_network_mac_address); empty skips the interface wait
-#   HIL_TEST_CMD     extra end-to-end test command, run with ISERE_URL set
 #   HIL_RESULTS_DIR  where results go (default <repo>/hil-results)
 #
 # Exit codes: 0 passed, 1 tests failed, 2 build/flash/boot failed.
-#
-# Written for the bash 3.2 that ships with macOS; also runs on Linux.
 
 set -u
 
@@ -54,99 +52,19 @@ while [ $# -gt 0 ]; do
     --bench-duration) BENCH_DURATION="$2"; shift 2 ;;
     --bench-conns) BENCH_CONNS="$2"; shift 2 ;;
     --no-bench) BENCH=0; shift ;;
-    -h|--help) sed -n '3,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
 
 BASE_URL="http://${PICO_HOST}:${PICO_PORT}"
+RESULTS_ROOT="${HIL_RESULTS_DIR:-${REPO}/hil-results}"
+LOG_TAG=hil
+# the build dir must sit directly under the repo: CMakeLists.txt reads ../js/handler.js
 BUILD_DIR="${REPO}/build-pico2-${RUNTIME}"
 
-# a build ID unique to this iteration, so a stale firmware can't pass the ready check
-GIT_REV="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo nogit)"
-if ! git -C "$REPO" diff --quiet HEAD 2>/dev/null; then
-  GIT_REV="${GIT_REV}-dirty"
-fi
-BUILD_ID="${GIT_REV}-$(date +%Y%m%d-%H%M%S)"
-
-RESULTS="${HIL_RESULTS_DIR:-${REPO}/hil-results}/${BUILD_ID}"
-mkdir -p "$RESULTS"
-
-STEPS=""          # "name:status:seconds" entries for the summary
-FAILED_STEP=""
-FAIL_REASON=""
-SERIAL_PID=""
-
-log() { printf '[hil %s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$RESULTS/hil.log"; }
-
-record() { STEPS="${STEPS}${STEPS:+ }$1:$2:$3"; }
-
-json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr -d '\n'; }
-
-write_summary() {
-  local status="$1" first=1 entry name rest st secs
-  {
-    printf '{\n'
-    printf '  "build_id": "%s",\n' "$BUILD_ID"
-    printf '  "runtime": "%s",\n' "$RUNTIME"
-    printf '  "url": "%s",\n' "$BASE_URL"
-    printf '  "status": "%s",\n' "$status"
-    printf '  "failed_step": "%s",\n' "$FAILED_STEP"
-    printf '  "reason": "%s",\n' "$(json_escape "$FAIL_REASON")"
-    printf '  "steps": ['
-    for entry in $STEPS; do
-      name="${entry%%:*}"; rest="${entry#*:}"; st="${rest%%:*}"; secs="${rest#*:}"
-      [ $first -eq 1 ] || printf ','
-      printf '\n    {"name": "%s", "status": "%s", "seconds": %s}' "$name" "$st" "$secs"
-      first=0
-    done
-    printf '\n  ]\n}\n'
-  } > "$RESULTS/summary.json"
-}
-
-cleanup() {
-  if [ -n "$SERIAL_PID" ]; then
-    kill "$SERIAL_PID" 2>/dev/null
-    wait "$SERIAL_PID" 2>/dev/null
-  fi
-}
-trap cleanup EXIT
-
-# fail <exit code> <step> <reason>
-fail() {
-  FAILED_STEP="$2"; FAIL_REASON="$3"
-  log "FAILED at $2: $3"
-  log "results: $RESULTS"
-  if [ "$1" -eq 1 ]; then write_summary failed; else write_summary error; fi
-  exit "$1"
-}
-
-# run_with_timeout <seconds> <command...>  (macOS has no coreutils timeout)
-run_with_timeout() {
-  local secs="$1"; shift
-  "$@" &
-  local pid=$!
-  ( sleep "$secs"; kill -TERM "$pid" 2>/dev/null ) &
-  local watcher=$!
-  wait "$pid"
-  local rc=$?
-  kill "$watcher" 2>/dev/null
-  wait "$watcher" 2>/dev/null
-  return $rc
-}
-
-# step <name> <command...>: times a step and records its outcome
-step() {
-  local name="$1"; shift
-  local start
-  start=$(date +%s)
-  log "-> $name"
-  "$@"
-  local rc=$?
-  local secs=$(( $(date +%s) - start ))
-  if [ $rc -eq 0 ]; then record "$name" ok "$secs"; else record "$name" failed "$secs"; fi
-  return $rc
-}
+# shellcheck source=tools/common.sh
+. "$REPO/tools/common.sh"
 
 find_openocd() {
   if [ -n "${OPENOCD:-}" ]; then echo "$OPENOCD"; return 0; fi
@@ -175,28 +93,19 @@ find_iface() {
 
 iface_ipv4() { ifconfig "$1" 2>/dev/null | awk '/inet / { sub("addr:", "", $2); print $2; exit }'; }
 
-# --- steps -------------------------------------------------------------------
-
 do_preflight() {
-  local missing=""
-  for t in curl awk; do command -v "$t" >/dev/null || missing="$missing $t"; done
-  if [ $SKIP_BUILD -eq 0 ]; then
-    for t in cmake make arm-none-eabi-gcc xxd; do command -v "$t" >/dev/null || missing="$missing $t"; done
-  fi
+  local tools="curl awk node"
+  [ $SKIP_BUILD -eq 1 ] || tools="$tools cmake make arm-none-eabi-gcc xxd"
+  # shellcheck disable=SC2086
+  require_tools $tools || return 1
   if [ $SKIP_FLASH -eq 0 ]; then
     OPENOCD_BIN="$(find_openocd)"
-    [ -n "$OPENOCD_BIN" ] || missing="$missing openocd"
+    [ -n "$OPENOCD_BIN" ] || { log "missing tools: openocd (see tools/README.md)"; return 1; }
   fi
-  if [ -n "$missing" ]; then
-    log "missing tools:$missing (see tools/README.md)"
-    return 1
-  fi
-  return 0
 }
 
 do_build() {
   mkdir -p "$BUILD_DIR"
-  # the build dir must sit directly under the repo: CMakeLists.txt reads ../js/handler.js
   ( cd "$BUILD_DIR" \
     && cmake .. -DTARGET_PLATFORM=pico2 -DJS_RUNTIME="$RUNTIME" -DISERE_BUILD_ID="$BUILD_ID" \
     && make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)" ) > "$RESULTS/build.log" 2>&1
@@ -212,8 +121,7 @@ start_serial() {
   log "capturing $dev to serial.log"
   # configure and read on the same descriptor; macOS resets settings when the port closes
   ( stty 115200 raw -echo 2>/dev/null; exec cat ) < "$dev" > "$RESULTS/serial.log" 2>/dev/null &
-  SERIAL_PID=$!
-  return 0
+  CLEANUP_PIDS="$CLEANUP_PIDS $!"
 }
 
 do_flash() {
@@ -245,87 +153,21 @@ do_wait_iface() {
   return 1
 }
 
-do_wait_ready() {
-  local deadline=$(( $(date +%s) + READY_TIMEOUT )) body=""
-  while [ "$(date +%s)" -lt "$deadline" ]; do
-    body="$(curl -s -m 2 "$BASE_URL/__version" 2>/dev/null)"
-    if [ $SKIP_FLASH -eq 1 ] && [ -n "$body" ]; then
-      log "running: $body"
-      return 0
-    fi
-    case "$body" in
-      *"\"build\":\"$BUILD_ID\""*) log "running: $body"; return 0 ;;
-    esac
-    sleep 1
-  done
-  log "/__version never reported build $BUILD_ID (last answer: ${body:-none})"
-  return 1
-}
-
-# expect <name> <expected status> <path>
-expect() {
-  local code
-  code="$(curl -s -o /dev/null -w '%{http_code}' -m 5 "$BASE_URL$3")"
-  if [ "$code" = "$2" ]; then
-    log "   pass  $1 ($code)"
-    echo "pass $1" >> "$RESULTS/tests.txt"
-    return 0
-  fi
-  log "   FAIL  $1: expected $2, got $code"
-  echo "fail $1 expected=$2 got=$code" >> "$RESULTS/tests.txt"
-  return 1
-}
-
-do_smoke() {
-  local rc=0
-  expect "version endpoint" 200 /__version || rc=1
-  expect "handler at /" 200 / || rc=1
-  expect "unknown path" 404 /does-not-exist || rc=1
-  # the board must still answer after a burst of sequential requests
-  local failures=0
-  for _ in $(seq 1 50); do
-    curl -s -o /dev/null -m 5 "$BASE_URL/" || failures=$((failures + 1))
-  done
-  if [ $failures -eq 0 ]; then
-    log "   pass  50 sequential requests"
-    echo "pass 50 sequential requests" >> "$RESULTS/tests.txt"
-  else
-    log "   FAIL  50 sequential requests: $failures failed"
-    echo "fail 50 sequential requests failures=$failures" >> "$RESULTS/tests.txt"
-    rc=1
-  fi
-  expect "alive after burst" 200 /__version || rc=1
-  return $rc
-}
-
-do_e2e() {
-  ISERE_URL="$BASE_URL" sh -c "$HIL_TEST_CMD" > "$RESULTS/e2e.log" 2>&1
-}
-
-do_bench() {
-  if ! command -v wrk >/dev/null; then
-    log "wrk not installed (brew install wrk); skipping benchmark"
-    return 0
-  fi
-  local c
-  for c in $BENCH_CONNS; do
-    log "   wrk -t1 -c$c -d${BENCH_DURATION}s"
-    wrk -t1 -c"$c" -d"${BENCH_DURATION}s" --latency "$BASE_URL/" > "$RESULTS/bench-c$c.txt" 2>&1 || return 1
-    grep -E "Requests/sec|Socket errors|Non-2xx" "$RESULTS/bench-c$c.txt" | sed 's/^/      /' | tee -a "$RESULTS/hil.log"
-  done
-}
-
-# --- main --------------------------------------------------------------------
-
 log "build $BUILD_ID, runtime $RUNTIME, results in $RESULTS"
 
 step preflight do_preflight || fail 2 preflight "required tools are missing"
 
-if [ $SKIP_BUILD -eq 0 ]; then
-  step build do_build || fail 2 build "firmware build failed, see build.log"
-fi
-
-if [ $SKIP_FLASH -eq 0 ]; then
+if [ $SKIP_FLASH -eq 1 ]; then
+  # test whatever is running, so take its build ID as the expected one
+  BUILD_ID="$(curl -s -m 5 "$BASE_URL/__version" | sed -n 's/.*"build":"\([^"]*\)".*/\1/p')"
+  [ -n "$BUILD_ID" ] || fail 2 wait-ready "nothing answered $BASE_URL/__version"
+else
+  if [ $SKIP_BUILD -eq 0 ]; then
+    step build do_build || fail 2 build "firmware build failed, see build.log"
+  else
+    BUILD_ID="$(sed -n 's/^ISERE_BUILD_ID:STRING=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null)"
+    [ -n "$BUILD_ID" ] || fail 2 build "no existing build in $BUILD_DIR"
+  fi
   start_serial
   step flash do_flash || fail 2 flash "openocd could not program the board, see openocd.log"
   if [ -n "$PICO_MAC" ]; then
@@ -333,20 +175,12 @@ if [ $SKIP_FLASH -eq 0 ]; then
   fi
 fi
 
-step wait-ready do_wait_ready || fail 2 wait-ready "board did not serve this build's /__version"
+step wait-ready wait_for_build "$READY_TIMEOUT" || fail 2 wait-ready "board did not serve this build's /__version"
 
-step smoke do_smoke || fail 1 smoke "smoke tests failed, see tests.txt"
-
-if [ -n "${HIL_TEST_CMD:-}" ]; then
-  step e2e do_e2e || fail 1 e2e "end-to-end tests failed, see e2e.log"
-fi
+step tests run_tests "ISERE_URL=$BASE_URL" || fail 1 tests "tests failed, see tests.log"
 
 if [ $BENCH -eq 1 ]; then
-  step bench do_bench || fail 1 bench "benchmark failed, see bench-*.txt"
-  # the board must survive the benchmark
-  step post-bench-alive do_wait_ready || fail 1 post-bench-alive "board stopped answering after the benchmark"
+  step bench run_bench "$BENCH_DURATION" "$BENCH_CONNS" || fail 1 bench "benchmark failed, see bench-*.txt and serial.log"
 fi
 
-write_summary passed
-log "PASSED, results: $RESULTS"
-exit 0
+pass

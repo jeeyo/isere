@@ -6,7 +6,7 @@ isère is a personal project. Its purpose is to show that a microcontroller can 
 
 ## Reference service
 
-One Pico 2 (non-W, networked over USB RNDIS) serves at least these endpoints:
+One Pico 2 (non-W, networked over USB: CDC-ECM on macOS, RNDIS on Windows) serves at least these endpoints:
 
 | Endpoint | Behaviour |
 |---|---|
@@ -21,7 +21,7 @@ The verifier's JWKS URL is configurable and must work against both:
 
 ## Definition of done
 
-All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unless stated otherwise.
+All criteria are checked for both QuickJS (quickjs-ng) and JerryScript unless stated otherwise. Each one passes on the Linux build first (`tools/linux.sh`) and is then confirmed on a real Pico 2 (`tools/hil.sh`).
 
 1. **Multiple endpoints**
    - Endpoints are defined independently and routed by method and path inside isère. There is no single catch-all handler.
@@ -85,21 +85,35 @@ All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unle
 8. **It's reliable**
    - The 10-minute runs have zero crashes and zero socket errors.
    - Over 10k+ requests, the net heap change per request stays at about zero, with both engines.
+   - On the Linux build, under valgrind, with both engines:
+     - zero invalid reads, writes or frees
+     - no growth in lost memory between a short and a long run
+     - no more than 8 bytes of retained memory per request
+   - The tests cover the JS handler, the built-in endpoints and the 404 path.
 
-9. **The platform decision rests on data**
+9. **FreeRTOS configuration is understood and documented**
+   - Every setting in `portable/*/include/FreeRTOSConfig.h` is listed in `docs/FREERTOS_CONFIG.md`.
+   - Each setting is classified as one of:
+     - **essential**: isère does not build or work correctly without this value. For example, `configUSE_MUTEXES` is needed by the logger. The doc says what breaks without it.
+     - **effective**: a tunable value that measurably changes performance or memory, such as tick rate, task stack sizes, timer queue length or priorities. The doc records the chosen value and the measurement behind it (Linux and Pico 2 numbers from the validation loops).
+     - **default**: should stay at FreeRTOS's default. The setting is removed from the file, or kept only with a comment saying why.
+   - Differences between the Linux and Pico 2 configs are explained, not accidental.
+
+10. **The platform decision rests on data**
    - FreeRTOS/C and Zephyr/Rust are evaluated against the same black-box test suite and benchmark script.
    - Whichever stack is chosen must own its event loop (scheduling) and HTTP parsing.
    - The decision and its numbers are written down.
 
 ## Known gaps on `main` (as of this writing)
 
-- **The build doesn't work from a clean clone.**
-  - The `3rdparty/quickjs` submodule URL returns 404, so for now only JerryScript builds work.
+- **The build is fragile.**
   - Build directories must sit directly under the repo, because `CMakeLists.txt` reads `../js/handler.js`.
   - CI runs a `unittests` target that no longer exists.
-  - [jeeyo/isere#33](https://github.com/jeeyo/isere/pull/33) fixes both and adds a black-box test suite.
-- **The HTTP server has open bugs.** These were found by #33:
-  - two requests sent in one TCP segment crash the server (use-after-free)
+- **quickjs-ng on the Pico 2 runs without computed-goto dispatch.**
+  - It is built with `EMSCRIPTEN` defined, which turns off pthreads and C11 atomics, as the old QuickJS build also did.
+  - The same define also turns off computed-goto dispatch, which costs interpreter speed.
+  - Worth measuring once the benchmarks run on hardware.
+- **The HTTP server has open bugs.** These were found by [jeeyo/isere#33](https://github.com/jeeyo/isere/pull/33):
   - a response body containing a NUL leaks adjacent heap memory to the client
   - `ISERE_HTTPD_HANDLER_TIMEOUT_MS` is defined but never used
   - the wait loop busy-waits without yielding to other tasks
@@ -124,13 +138,16 @@ All criteria are checked on a real Pico 2, for both QuickJS and JerryScript unle
   - The host needs IP forwarding and NAT.
   - Fixing this also unblocks exporting to an OpenTelemetry collector.
 - **The QuickJS engine leaks on cleanup.**
-  - A runtime is created and freed per connection, and `JS_FreeRuntime` trips the `gc_obj_list` assertion.
+  - A runtime is created and freed per connection.
+  - `JS_FreeRuntime` used to trip the `gc_obj_list` assertion when two requests were parsed into one connection. That path is fixed, but the cleanup itself still needs checking.
 - **There are no per-request metrics.**
   - Only process-level OpenTelemetry counters and gauges exist.
-- **The server hangs under load.**
-  - On the Linux/JerryScript build, `wrk` at 1, 2, then 4 connections followed by 1 again leaves the process alive but no longer accepting connections.
-  - Its log stops partway through a handler's `console.log`.
-  - The bug is already on `main`. `tools/hil.sh` caught it on its first run.
+- **JerryScript hangs under `wrk`.**
+  - After roughly 29,000 `wrk` requests, the process stays alive with one thread spinning but stops accepting connections.
+  - The log stops partway through a handler's `console.log`.
+  - QuickJS doesn't hang. Neither do Node clients at the same rate, with or without keep-alive. Pipelining is ruled out as the cause.
+  - The `wrk` step in `tools/linux.sh` catches it. The tests don't yet.
+  - The bug is already on `main`.
 - **Every response counts as a socket error in `wrk`.**
   - Responses are sent with `Connection: close`, and `wrk` counts each close as a read error.
   - "Zero socket errors" therefore needs keep-alive support, or a benchmark that counts closed connections separately.
@@ -164,33 +181,56 @@ These are directions, not decisions.
   - The RP2350 has 520 KB of SRAM, and a TLS handshake needs roughly 40–60 KB next to the engine and N endpoints.
   - The "lowest free heap so far" metric is the evidence for whether this fits.
 
-## Hardware validation loop
+## Validation loops
 
-Every Pico 2 iteration runs `tools/hil.sh` on the developer's Mac. A Raspberry Pi Debug Probe is attached to the Pico 2 over SWD and UART, and the Pico 2 is attached to the Mac over USB for networking. Setup is in `tools/README.md`.
+Both loops run the same black-box test suite: `tests/e2e/*.test.mjs`, written with Node's built-in `node:test` runner and needing no dependencies. Work on the Linux build until it's green, then confirm on hardware.
+
+### Linux first: `tools/linux.sh`
+
+1. **Build** the Linux binary with a unique build ID.
+2. **Run** the test suite. Each test file starts its own server, waits for `/__version`, and stops it with SIGINT. A server that ignores SIGINT counts as hung.
+3. **Check memory with valgrind** (`tests/e2e/leak.test.mjs`).
+   - The server runs twice under valgrind, once with 20 requests and once with 120, mixing `/`, `/__version` and the 404 path.
+   - The run fails on any invalid read, write or free.
+   - It also fails on any growth in lost memory between the two runs, or more than 8 bytes of retained memory per request.
+   - isère exits without freeing its long-lived state, so the test compares two runs instead of reading one report. That separates per-request leaks from start-up allocations.
+4. **Benchmark** with `wrk` at 1, 2 and 4 connections, then check the server still answers.
+
+One iteration takes about a minute, most of it spent in valgrind.
+
+### Then hardware: `tools/hil.sh`
+
+This runs on the developer's Mac. A Raspberry Pi Debug Probe is attached to the Pico 2 over SWD and UART, and the Pico 2 is attached to the Mac over USB for networking. Setup is in `tools/README.md`.
 
 1. **Build** the firmware, stamping it with a unique build ID (git hash, a dirty flag and a timestamp).
 2. **Flash** it over SWD with `openocd … program isere.elf verify reset`. This needs no BOOTSEL button and no drive copy, and it works even if the previous build crashed.
 3. **Capture** the board's UART output through the probe from the moment it boots.
 4. **Wait** for the board's network interface, identified by MAC `02:02:84:6a:96:00` because interface names vary, to get an IPv4 address from the board's DHCP server.
 5. **Wait until the board is ready**: `GET /__version` must return the build ID from step 1. This proves the board isn't running stale firmware.
-6. **Run** the smoke tests, the end-to-end suite (`HIL_TEST_CMD`) and the benchmark, then check the board still answers.
-7. **Record** the build ID, timing and outcome of each step, test results, benchmark output and the UART log in `hil-results/<build-id>/summary.json` and the files next to it. A step that times out fails the run with a clear reason.
+6. **Run** the same test suite against the board (`ISERE_URL`). The valgrind tests skip themselves on hardware.
+7. **Benchmark** the board, then check it still answers.
 
-The exit codes are 0 for passed, 1 for failed tests, and 2 for build, flash or boot problems, so a local agent can run the loop repeatedly.
+### Both loops
 
-It needs the physical Mac, so it can't run in a cloud session. Run it from a local Claude Code session, or register the Mac as a self-hosted GitHub Actions runner to get hardware-in-the-loop CI.
+- Each run writes `hil-results/<build-id>/` with `summary.json`, the logs, `tests.log` and `tests.xml` (JUnit), and the benchmark output.
+- The exit codes are 0 for passed, 1 for failed tests, and 2 for build, flash or boot problems, so a local agent can run either loop repeatedly.
+- `tools/hil.sh` needs the physical Mac, so it can't run in a cloud session. `tools/linux.sh` runs anywhere.
 
 ## Milestones
 
 - [ ] **M1 Baseline**
-  - Merge #33 and get a clean-clone build and green CI.
-  - Write the benchmark script.
+  - [x] Move to quickjs-ng (taken from #33) and build it for the Pico 2.
   - [x] Build the hardware validation loop: UART logging on the Pico 2, a build ID and `/__version` endpoint, and `tools/hil.sh` flashing through the Debug Probe.
-  - [ ] Run the loop for the first time on real hardware.
-  - Record today's Pico 2 numbers through the loop.
+  - [x] Build the Linux validation loop: the `node:test` suite, valgrind memory checks, and `tools/linux.sh`.
+  - [x] Stop freeing the connection inside the llhttp callback. This fixes the crash on two requests sent together, and valgrind now reports 0 memory errors.
+  - [ ] Port the remaining cases from #33's pytest suite into `node:test`. Some need test-specific handlers, such as throwing, NUL bodies and timers.
+  - [ ] Run `tools/linux.sh` in CI, replacing the dead `unittests` step.
+  - [ ] Run the hardware loop for the first time on real hardware.
+  - [ ] Record today's Pico 2 numbers through the loop.
 - [ ] **M2 Correct core**
   - Replace the HTTP request path with in-place parsing, and add the fuzzer. This structurally removes the crash on two requests sent together and the header truncation. Applying the same length-aware rule to the response path, instead of `strdup`, removes the NUL-body leak.
-  - Fix the timeout, the busy-wait loop and the QuickJS cleanup leak.
+  - Fix the timeout, the busy-wait loop, the JerryScript hang under `wrk`, and the QuickJS cleanup leak.
+  - Write `docs/FREERTOS_CONFIG.md` (criterion 9), using the loops to measure the settings classified as effective.
   - Each fix starts with a failing test, and every fix is validated on the Pico 2 through the loop.
 - [ ] **M3 Multi-endpoint**
   - Add the router, warm runtime, per-endpoint isolation and timeouts, and serve `/.well-known/jwks.json`.
