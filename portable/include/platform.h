@@ -21,6 +21,13 @@ uint64_t platform_task_cpu_ns(void);
 // CPU time consumed by the whole device (all tasks except idle), nanoseconds
 uint64_t platform_busy_cpu_ns(void);
 
+// The heap underneath isère's accounting allocator (src/mem.c). Linux: the C
+// library's malloc, which is thread-safe on its own; FreeRTOS's heap_3 would
+// wrap every call in a critical section, two signal-mask syscalls in the POSIX
+// port. Pico 2: pvPortMalloc, since other tasks share the heap.
+void *platform_malloc(size_t size);
+void platform_free(void *ptr);
+
 // bytes of heap the platform reserves for isère, 0 when unbounded
 size_t platform_heap_size(void);
 

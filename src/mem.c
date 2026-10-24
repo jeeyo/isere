@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#include "FreeRTOS.h"
+#include "platform.h"
 
 // 16 bytes keeps the payload as aligned as the underlying allocator's blocks
 #define HEADER_SIZE 16
@@ -58,7 +58,7 @@ void *isere_malloc(size_t size)
     return NULL;
   }
 
-  uint8_t *block = pvPortMalloc(size + HEADER_SIZE);
+  uint8_t *block = platform_malloc(size + HEADER_SIZE);
   if (block == NULL) {
     return NULL;
   }
@@ -89,7 +89,7 @@ void isere_free(void *ptr)
 
   size_t *header = __header(ptr);
   __on_free(*header);
-  vPortFree(header);
+  platform_free(header);
 }
 
 void *isere_realloc(void *ptr, size_t size)

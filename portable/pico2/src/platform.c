@@ -72,6 +72,16 @@ uint64_t platform_busy_cpu_ns(void)
   return total > idle ? total - idle : 0;
 }
 
+void *platform_malloc(size_t size)
+{
+  return pvPortMalloc(size);
+}
+
+void platform_free(void *ptr)
+{
+  vPortFree(ptr);
+}
+
 size_t platform_heap_size(void)
 {
   // heap_3 wraps newlib's malloc, whose arena runs from the end of .bss to the stack limit
