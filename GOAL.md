@@ -8,7 +8,7 @@ isère is a personal project. Its purpose is to show that a microcontroller can 
 
 - **This branch is not blocked by any other PR.** Other PRs, such as [jeeyo/isere#33](https://github.com/jeeyo/isere/pull/33) (tests and findings) and [jeeyo/isere#30](https://github.com/jeeyo/isere/pull/30) / [jeeyo/isere#31](https://github.com/jeeyo/isere/pull/31) (Zephyr/Rust), are references to learn from. Everything needed for this goal is implemented on this branch, and no milestone waits for another PR to merge.
 - **QuickJS cleanup comes first.** No new feature work starts until it is fixed (M2).
-- **One JS engine, if QuickJS earns it.** If the QuickJS cleanup fix holds and QuickJS's startup cost is acceptable (criterion 10), JerryScript is removed, so the polyfills are maintained once. Until then, both engines are kept and tested.
+- **Both JS engines stay.** QuickJS and JerryScript are both kept, built and tested. Fixes are required for both, including the QuickJS cleanup and startup work (criterion 10) and the JerryScript hang under load.
 
 ## Reference service
 
@@ -27,7 +27,7 @@ The verifier's JWKS URL is configurable and must work against both:
 
 ## Definition of done
 
-All criteria are checked for every JS engine still in the tree: QuickJS (quickjs-ng), plus JerryScript until the engine decision in criterion 10. Each one passes on the Linux build first (`tools/linux.sh`) and is then confirmed on a real Pico 2 (`tools/hil.sh`).
+All criteria are checked for both JS engines: QuickJS (quickjs-ng) and JerryScript. Each one passes on the Linux build first (`tools/linux.sh`) and is then confirmed on a real Pico 2 (`tools/hil.sh`).
 
 1. **Multiple endpoints**
    - Endpoints are defined independently and routed by method and path inside isère. There is no single catch-all handler.
@@ -105,7 +105,7 @@ All criteria are checked for every JS engine still in the tree: QuickJS (quickjs
      - **default**: should stay at FreeRTOS's default. The setting is removed from the file, or kept only with a comment saying why.
    - Differences between the Linux and Pico 2 configs are explained, not accidental.
 
-10. **QuickJS cleanup is fixed, its startup cost is understood, and the engine choice is made**
+10. **QuickJS cleanup is fixed and its startup cost is understood**
     - **Cleanup is fixed.** Creating and freeing a QuickJS runtime and context:
       - never trips the `JS_FreeRuntime` `gc_obj_list` assertion
       - leaves no objects behind
@@ -123,10 +123,7 @@ All criteria are checked for every JS engine still in the tree: QuickJS (quickjs
       - a warm runtime, so only a context is created per request
       - precompiled handler bytecode (`JS_WriteObject`/`JS_ReadObject`) instead of parsing source on each request
       - lazy polyfill setup
-    - **Then JerryScript is removed**, if both of the above hold:
-      - its runtime, polyfills and CMake option
-      - its rows in the test and benchmark matrix
-      - Until then, both engines run the same tests.
+    - Both engines keep running the same tests and benchmarks throughout.
 
 11. **The platform decision rests on data**
    - FreeRTOS/C and Zephyr/Rust are evaluated against the same black-box test suite and benchmark script.
@@ -258,14 +255,13 @@ This runs on the developer's Mac. A Raspberry Pi Debug Probe is attached to the 
   - [ ] Run `tools/linux.sh` in CI, replacing the dead `unittests` step.
   - [ ] Run the hardware loop for the first time on real hardware.
   - [ ] Record today's Pico 2 numbers through the loop.
-- [ ] **M2 QuickJS cleanup first, then the engine decision**
+- [ ] **M2 QuickJS cleanup and startup first**
   - Add per-phase startup timing (criterion 10), and record the QuickJS and JerryScript baselines on Linux and the Pico 2.
   - Fix the QuickJS runtime and context cleanup. Each leftover-object cause gets a failing test first, and both loops must be green afterwards.
   - Reduce QuickJS's startup cost: warm runtime, precompiled bytecode, lazy polyfills. Measure each change.
-  - Decide: if cleanup holds and startup is acceptable, remove JerryScript (runtime, polyfills, CMake option, test and benchmark matrix). Otherwise write down why both stay.
 - [ ] **M3 Correct core**
   - Replace the HTTP request path with in-place parsing, and add the fuzzer. This structurally removes the header truncation and the per-field limits. Applying the same length-aware rule to the response path, instead of `strdup`, removes the NUL-body leak.
-  - Fix the handler timeout and the busy-wait loop, plus the JerryScript hang under `wrk` if JerryScript is still around.
+  - Fix the handler timeout and the busy-wait loop, plus the JerryScript hang under `wrk`.
   - Write `docs/FREERTOS_CONFIG.md` (criterion 9), using the loops to measure the settings classified as effective.
   - Each fix starts with a failing test, and every fix is validated on Linux first and then on the Pico 2.
 - [ ] **M4 Multi-endpoint**
