@@ -75,7 +75,8 @@ if(WITH_LWIP)
 endif()
 
 # the app bundle: routes, modules, config and the prelude, regenerated when any of them change
-set(APP_DEPENDS ${ROOT}/src/prelude.js ${ROOT}/tools/bundle_app.cmake)
+file(GLOB PRELUDE_PARTS CONFIGURE_DEPENDS ${ROOT}/src/prelude/*.js)
+set(APP_DEPENDS ${ROOT}/src/prelude.js ${PRELUDE_PARTS} ${ROOT}/tools/bundle_app.cmake)
 foreach(dir IN LISTS ISERE_APP_DIRS)
   file(GLOB app_files CONFIGURE_DEPENDS ${dir}/*)
   list(APPEND APP_DEPENDS ${app_files})

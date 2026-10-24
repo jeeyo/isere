@@ -126,6 +126,23 @@ c_bytes("${CMAKE_CURRENT_BINARY_DIR}/config.json.tmp" config_bytes)
 file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/config.json.tmp")
 c_bytes("${PRELUDE}" prelude_bytes)
 
+# the prelude's lazily loaded parts: src/prelude/<name>.js
+get_filename_component(prelude_dir "${PRELUDE}" DIRECTORY)
+file(GLOB part_files RELATIVE "${prelude_dir}/prelude" "${prelude_dir}/prelude/*.js")
+list(SORT part_files)
+set(part_entries "")
+set(part_index 0)
+foreach(part IN LISTS part_files)
+  c_bytes("${prelude_dir}/prelude/${part}" bytes)
+  string(APPEND arrays "static const char __part_${part_index}[] = { ${bytes} };\n")
+  string(REGEX REPLACE "\\.js$" "" part_name "${part}")
+  string(APPEND part_entries "  { \"${part_name}\", __part_${part_index}, ${bytes_LEN} },\n")
+  math(EXPR part_index "${part_index} + 1")
+endforeach()
+if(part_index EQUAL 0)
+  set(part_entries "  { NULL, NULL, 0 },\n")
+endif()
+
 if(num_modules EQUAL 0)
   set(module_entries "  { NULL, NULL, 0 },\n")
 endif()
@@ -147,11 +164,15 @@ ${module_entries}};
 static const isere_app_route_t __routes[] = {
 ${route_entries}};
 
+static const isere_app_module_t __prelude_parts[] = {
+${part_entries}};
+
 const isere_app_t isere_app = {
   __modules, ${num_modules},
   __routes, ${num_routes},
   __config, ${config_bytes_LEN},
   __prelude, ${prelude_bytes_LEN},
+  __prelude_parts, ${part_index},
 };
 ")
 # only touch the output when it changes, so unrelated edits don't rebuild it

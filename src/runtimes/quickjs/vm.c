@@ -37,6 +37,8 @@ static uint8_t *__prelude_bc = NULL;
 static size_t __prelude_bc_len = 0;
 static uint8_t **__module_bc = NULL;
 static size_t *__module_bc_len = NULL;
+static uint8_t **__part_bc = NULL;
+static size_t *__part_bc_len = NULL;
 
 // ------------------------------------------------------------------ memory
 
@@ -270,6 +272,45 @@ static JSValue __n_btoa(JSContext *ctx, JSValueConst this_val, int argc, JSValue
   return __n_base64(ctx, this_val, argc, argv, 0);
 }
 
+// compiles a prelude part (src/prelude/<name>.js) and returns its factory function
+static JSValue __n_part(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+  size_t len = 0;
+  const char *name = JS_ToCStringLen(ctx, &len, argv[0]);
+  if (name == NULL) {
+    return JS_EXCEPTION;
+  }
+  const isere_app_module_t *part = isere_js_prelude_part(name, len);
+  JS_FreeCString(ctx, name);
+  if (part == NULL) {
+    return JS_ThrowReferenceError(ctx, "no such prelude part");
+  }
+  size_t index = (size_t)(part - isere_app.prelude_parts);
+
+  JSValue fn;
+  if (__bytecode && __part_bc[index] != NULL) {
+    fn = JS_ReadObject(ctx, __part_bc[index], __part_bc_len[index], JS_READ_OBJ_BYTECODE);
+  } else {
+    fn = JS_Eval(ctx, part->source, part->source_len, part->name, JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
+    if (__bytecode && !JS_IsException(fn)) {
+      size_t bc_len = 0;
+      uint8_t *bc = JS_WriteObject(ctx, &bc_len, fn, JS_WRITE_OBJ_BYTECODE);
+      if (bc != NULL) {
+        __part_bc[index] = isere_malloc(bc_len);
+        if (__part_bc[index] != NULL) {
+          memcpy(__part_bc[index], bc, bc_len);
+          __part_bc_len[index] = bc_len;
+        }
+        js_free(ctx, bc);
+      }
+    }
+  }
+  if (JS_IsException(fn)) {
+    return fn;
+  }
+  return JS_EvalFunction(ctx, fn);
+}
+
 static JSValue __n_respond(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
   uint32_t id = 0;
@@ -481,6 +522,7 @@ static const JSCFunctionListEntry __natives[] = {
   JS_CFUNC_DEF("utf8Encode", 1, __n_utf8_encode),
   JS_CFUNC_DEF("utf8Decode", 1, __n_utf8_decode),
   JS_CFUNC_DEF("atob", 1, __n_atob),
+  JS_CFUNC_DEF("part", 1, __n_part),
   JS_CFUNC_DEF("btoa", 1, __n_btoa),
   JS_CFUNC_DEF("respond", 4, __n_respond),
   JS_CFUNC_DEF("verify", 6, __n_verify),
@@ -587,7 +629,9 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
     if (__bytecode) {
       __module_bc = isere_calloc(isere_app.num_modules + 1, sizeof(uint8_t *));
       __module_bc_len = isere_calloc(isere_app.num_modules + 1, sizeof(size_t));
-      if (__module_bc == NULL || __module_bc_len == NULL) {
+      __part_bc = isere_calloc(isere_app.num_prelude_parts + 1, sizeof(uint8_t *));
+      __part_bc_len = isere_calloc(isere_app.num_prelude_parts + 1, sizeof(size_t));
+      if (__module_bc == NULL || __module_bc_len == NULL || __part_bc == NULL || __part_bc_len == NULL) {
         __bytecode = 0;
       }
     }
@@ -639,6 +683,7 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
   const char *overrides = isere_js_config_overrides(&overrides_len);
   JS_SetPropertyStr(ctx, natives, "config", JS_NewStringLen(ctx, config, config_len));
   JS_SetPropertyStr(ctx, natives, "overrides", overrides != NULL ? JS_NewStringLen(ctx, overrides, overrides_len) : JS_UNDEFINED);
+  JS_SetPropertyStr(ctx, natives, "lazy", JS_NewBool(ctx, isere_js_lazy()));
   JS_SetPropertyStr(ctx, global, "__isere", natives);
 
   int ok = __eval_prelude(vm) == 0;

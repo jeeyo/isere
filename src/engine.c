@@ -41,6 +41,23 @@ static struct {
 static void __finalize(js_request_t *st);
 static int __after_run(js_vm_t *vm);
 
+int isere_js_lazy(void)
+{
+  const char *v = getenv("ISERE_JS_LAZY");
+  return v == NULL || v[0] != '0';
+}
+
+const isere_app_module_t *isere_js_prelude_part(const char *name, size_t len)
+{
+  for (uint32_t i = 0; i < isere_app.num_prelude_parts; i++) {
+    const isere_app_module_t *p = &isere_app.prelude_parts[i];
+    if (strncmp(p->name, name, len) == 0 && p->name[len] == '\0') {
+      return p;
+    }
+  }
+  return NULL;
+}
+
 const char *isere_js_config(size_t *len)
 {
   *len = isere_app.config_len;

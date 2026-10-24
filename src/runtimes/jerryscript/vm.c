@@ -331,6 +331,29 @@ NATIVE(__n_btoa)
   return __base64(args, argc, 0);
 }
 
+// compiles a prelude part (src/prelude/<name>.js) and returns its factory function
+NATIVE(__n_part)
+{
+  size_t len = 0;
+  char *name = __cstring(__arg(args, argc, 0), &len);
+  const isere_app_module_t *part = name != NULL ? isere_js_prelude_part(name, len) : NULL;
+  isere_free(name);
+  if (part == NULL) {
+    return jerry_throw_sz(JERRY_ERROR_REFERENCE, "no such prelude part");
+  }
+  jerry_parse_options_t opts;
+  opts.options = JERRY_PARSE_HAS_SOURCE_NAME;
+  opts.source_name = jerry_string_sz(part->name);
+  jerry_value_t script = jerry_parse((const jerry_char_t *)part->source, part->source_len, &opts);
+  jerry_value_free(opts.source_name);
+  if (jerry_value_is_exception(script)) {
+    return script;
+  }
+  jerry_value_t fn = jerry_run(script);
+  jerry_value_free(script);
+  return fn;
+}
+
 NATIVE(__n_respond)
 {
   isere_request_t *req = isere_js_find_request(__arg_u32(args, argc, 0));
@@ -725,6 +748,7 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
   __set_native(natives, "utf8Encode", __n_utf8_encode);
   __set_native(natives, "utf8Decode", __n_utf8_decode);
   __set_native(natives, "atob", __n_atob);
+  __set_native(natives, "part", __n_part);
   __set_native(natives, "btoa", __n_btoa);
   __set_native(natives, "respond", __n_respond);
   __set_native(natives, "verify", __n_verify);
@@ -742,6 +766,9 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
   jerry_value_free(v);
   v = overrides != NULL ? __string(overrides, overrides_len) : jerry_undefined();
   jerry_value_free(jerry_object_set_sz(natives, "overrides", v));
+  jerry_value_free(v);
+  v = jerry_boolean(isere_js_lazy());
+  jerry_value_free(jerry_object_set_sz(natives, "lazy", v));
   jerry_value_free(v);
   jerry_value_free(jerry_object_set_sz(global, "__isere", natives));
   jerry_value_free(natives);

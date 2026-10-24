@@ -8,6 +8,7 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
+#include "app.h"
 #include "request.h"
 #include "metrics.h"
 #include "loop.h"
@@ -93,6 +94,11 @@ isere_request_t *isere_js_find_request(uint32_t id);
 
 // polled by the bindings' interrupt handlers: stop the running script
 int isere_js_should_interrupt(void);
+
+// whether the prelude's parts are compiled on first use (ISERE_JS_LAZY, default on)
+int isere_js_lazy(void);
+// a prelude part by name, or NULL
+const isere_app_module_t *isere_js_prelude_part(const char *name, size_t len);
 
 // the app's config (JSON) and the overrides from ISERE_CONFIG (JSON or empty)
 const char *isere_js_config(size_t *len);

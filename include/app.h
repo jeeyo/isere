@@ -41,6 +41,8 @@ typedef struct {
   uint32_t config_len;
   const char *prelude;      // src/prelude.js, shared by both engines
   uint32_t prelude_len;
+  const isere_app_module_t *prelude_parts;  // src/prelude/*.js, compiled on first use
+  uint32_t num_prelude_parts;
 } isere_app_t;
 
 extern const isere_app_t isere_app;

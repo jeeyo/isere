@@ -91,6 +91,12 @@
   };
   g.TextDecoder = TextDecoder;
 
+  function DOMException(message, name) {
+    var e = new Error(message);
+    e.name = name || 'Error';
+    return e;
+  }
+
   // binary strings <-> base64, in C: a JS loop over every character is slow on both engines
   g.atob = function (s) {
     try { return native.atob(String(s)); } catch (e) { throw DOMException('invalid base64', 'InvalidCharacterError'); }
@@ -221,171 +227,36 @@
   Request.prototype.arrayBuffer = BodyMixin.arrayBuffer;
   g.Request = Request;
 
-  // -------------------------------------------------------------------- URL
+  // --------------------------------------------------- lazily loaded parts
 
-  function decode(s) {
-    try { return decodeURIComponent(s.replace(/\+/g, ' ')); } catch (e) { return s; }
-  }
+  // URL, fetch and crypto are compiled the first time a handler touches them
+  // (src/prelude/*.js), so requests that don't use them don't pay to parse them.
+  // ISERE_JS_LAZY=0 loads them all up front.
+  var shared = { toBytes: toBytes, DOMException: DOMException };
 
-  function URLSearchParams(init) {
-    this._pairs = [];
-    var s = init === undefined || init === null ? '' : String(init);
-    if (s[0] === '?') s = s.slice(1);
-    var parts = s ? s.split('&') : [];
-    for (var i = 0; i < parts.length; i++) {
-      if (!parts[i]) continue;
-      var eq = parts[i].indexOf('=');
-      this._pairs.push(eq < 0 ? [decode(parts[i]), ''] : [decode(parts[i].slice(0, eq)), decode(parts[i].slice(eq + 1))]);
+  function lazy(part, names) {
+    var loaded = null;
+    function load() {
+      if (loaded === null) loaded = native.part(part)(g, native, shared);
+      return loaded;
     }
-  }
-  URLSearchParams.prototype.get = function (name) {
-    for (var i = 0; i < this._pairs.length; i++) if (this._pairs[i][0] === name) return this._pairs[i][1];
-    return null;
-  };
-  URLSearchParams.prototype.getAll = function (name) {
-    var out = [];
-    for (var i = 0; i < this._pairs.length; i++) if (this._pairs[i][0] === name) out.push(this._pairs[i][1]);
-    return out;
-  };
-  URLSearchParams.prototype.has = function (name) { return this.get(name) !== null; };
-  URLSearchParams.prototype.toString = function () {
-    return this._pairs.map(function (p) { return encodeURIComponent(p[0]) + '=' + encodeURIComponent(p[1]); }).join('&');
-  };
-  g.URLSearchParams = URLSearchParams;
-
-  function URL(url, base) {
-    url = String(url);
-    var m = /^([a-zA-Z][a-zA-Z0-9+.-]*:)\/\/([^/?#]*)([^?#]*)(\?[^#]*)?(#.*)?$/.exec(url);
-    if (!m && base !== undefined) {
-      var b = new URL(base);
-      if (url[0] === '/') return new URL(b.origin + url);
-      return new URL(b.origin + b.pathname.replace(/[^/]*$/, '') + url);
-    }
-    if (!m) throw new TypeError('Invalid URL: ' + url);
-    this.protocol = m[1].toLowerCase();
-    this.host = m[2];
-    var colon = m[2].lastIndexOf(':');
-    this.hostname = colon >= 0 ? m[2].slice(0, colon) : m[2];
-    this.port = colon >= 0 ? m[2].slice(colon + 1) : '';
-    this.pathname = m[3] || '/';
-    this.search = m[4] && m[4] !== '?' ? m[4] : '';
-    this.hash = m[5] || '';
-    this.origin = this.protocol + '//' + this.host;
-    this.href = this.origin + this.pathname + this.search + this.hash;
-    this.searchParams = new URLSearchParams(this.search);
-  }
-  URL.prototype.toString = function () { return this.href; };
-  g.URL = URL;
-
-  // ------------------------------------------------------------------ fetch
-
-  g.fetch = function (input, init) {
-    return new Promise(function (resolve, reject) {
-      var req = new Request(input, init);
-      var flat = [];
-      req.headers.forEach(function (v, k) { flat.push(k, v); });
-      var body = req._body;
-      if (body !== null && body !== undefined && typeof body !== 'string') body = toBytes(body);
-      native.fetch(req.method, req.url, flat, body === null ? undefined : body,
-        function (err, status, headers, data) {
-          if (err) {
-            reject(new TypeError('fetch failed: ' + err));
-            return;
-          }
-          var h = new Headers();
-          for (var i = 0; i + 1 < headers.length; i += 2) h.append(headers[i], headers[i + 1]);
-          resolve(new Response(data, { status: status, headers: h }));
-        });
+    names.forEach(function (name) {
+      var define = function (v) {
+        Object.defineProperty(g, name, { value: v, writable: true, configurable: true, enumerable: false });
+      };
+      Object.defineProperty(g, name, {
+        configurable: true,
+        enumerable: false,
+        get: function () { var v = load()[name]; define(v); return v; },
+        set: define,
+      });
+      if (!native.lazy) define(load()[name]);
     });
-  };
-
-  // ----------------------------------------------------------------- crypto
-
-  function DOMException(message, name) {
-    var e = new Error(message);
-    e.name = name || 'Error';
-    return e;
   }
 
-  var keyData = new WeakMap();
-
-  function CryptoKey() { throw new TypeError('Illegal constructor'); }
-  g.CryptoKey = CryptoKey;
-
-  function makeKey(algorithm, extractable, usages, data) {
-    var key = Object.create(CryptoKey.prototype);
-    key.type = 'public';
-    key.algorithm = algorithm;
-    key.extractable = !!extractable;
-    key.usages = usages || [];
-    keyData.set(key, data);
-    return key;
-  }
-
-  function hashName(hash) {
-    var name = String(typeof hash === 'object' && hash !== null ? hash.name : hash).toUpperCase();
-    if (name !== 'SHA-256' && name !== 'SHA-384' && name !== 'SHA-512') {
-      throw DOMException('unsupported hash ' + name, 'NotSupportedError');
-    }
-    return name;
-  }
-
-  function algorithmName(algorithm) {
-    return String(typeof algorithm === 'string' ? algorithm : algorithm.name).toUpperCase();
-  }
-
-  var subtle = {
-    importKey: function (format, jwk, algorithm, extractable, usages) {
-      return new Promise(function (resolve) {
-        if (format !== 'jwk') throw DOMException('only jwk keys are supported', 'NotSupportedError');
-        var name = algorithmName(algorithm);
-        if (name === 'RSASSA-PKCS1-V1_5') {
-          if (jwk.kty !== 'RSA' || typeof jwk.n !== 'string' || typeof jwk.e !== 'string') {
-            throw DOMException('not an RSA public key', 'DataError');
-          }
-          resolve(makeKey({ name: 'RSASSA-PKCS1-v1_5', hash: { name: hashName(algorithm.hash) } },
-            extractable, usages, { kind: 'RSA', a: jwk.n, b: jwk.e }));
-        } else if (name === 'ECDSA') {
-          if (algorithm.namedCurve !== 'P-256' || jwk.kty !== 'EC' || jwk.crv !== 'P-256' ||
-              typeof jwk.x !== 'string' || typeof jwk.y !== 'string') {
-            throw DOMException('not a P-256 public key', 'DataError');
-          }
-          resolve(makeKey({ name: 'ECDSA', namedCurve: 'P-256' }, extractable, usages,
-            { kind: 'EC', a: jwk.x, b: jwk.y }));
-        } else {
-          throw DOMException('unsupported algorithm ' + name, 'NotSupportedError');
-        }
-      });
-    },
-
-    verify: function (algorithm, key, signature, data) {
-      return new Promise(function (resolve) {
-        var k = keyData.get(key);
-        if (!k) throw new TypeError('not a CryptoKey');
-        var name = algorithmName(algorithm);
-        var hash;
-        if (name === 'RSASSA-PKCS1-V1_5' && k.kind === 'RSA') hash = key.algorithm.hash.name;
-        else if (name === 'ECDSA' && k.kind === 'EC') hash = hashName(algorithm.hash);
-        else throw DOMException('key does not match ' + name, 'InvalidAccessError');
-        resolve(native.verify(k.kind, hash, k.a, k.b, toBytes(signature), toBytes(data)));
-      });
-    },
-
-    digest: function (algorithm, data) {
-      return new Promise(function (resolve) {
-        var bytes = native.digest(hashName(algorithm), toBytes(data));
-        resolve(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-      });
-    },
-  };
-
-  g.crypto = {
-    subtle: subtle,
-    getRandomValues: function (array) {
-      native.randomFill(toBytes(array));
-      return array;
-    },
-  };
+  lazy('url', ['URL', 'URLSearchParams']);
+  lazy('fetch', ['fetch']);
+  lazy('crypto', ['crypto', 'CryptoKey']);
 
   // ------------------------------------------------- calibration (criterion 6)
 
