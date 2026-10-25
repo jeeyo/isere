@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>isère: JWTs on a microcontroller</title>
-<meta name="description" content="The story of isère, a small serverless runtime for the Raspberry Pi Pico 2: what it does, how it got fast, what surprised us, and what's next.">
+<title>isère: serverless on microcontrollers</title>
+<meta name="description" content="isère is a platform for running serverless functions on microcontrollers. Its story: what it does, how it got fast, what surprised us, and what's next.">
 <style>
   :root {
     color-scheme: light;
@@ -105,25 +105,40 @@
 <main>
 
 <div class="kicker">isère</div>
-<h1>A JWT verifier on a microcontroller</h1>
-<p class="lede">isère runs JavaScript HTTP endpoints on a Raspberry Pi Pico 2. This is the story of making it do real work, fast, and of knowing exactly what each request costs.</p>
+<h1>Serverless functions on a microcontroller</h1>
+<p class="lede">isère is a platform for running serverless functions on microcontrollers, such as the Raspberry Pi Pico 2. You write a function in JavaScript; isère routes requests to it, runs it, keeps it from hurting its neighbours, and tells you what every call cost. This is the story of making it do real work, fast.</p>
 
 <div class="tiles">
-  <div class="tile"><div class="num">12.3M</div><div class="lbl">requests in a 10-minute run, with zero errors and no heap growth</div></div>
-  <div class="tile"><div class="num">98k req/s</div><div class="lbl">for the smallest JS endpoint, QuickJS, 4 connections</div></div>
-  <div class="tile"><div class="num">122 µs</div><div class="lbl">of CPU to verify an RS256 JWT against a cached JWKS</div></div>
+  <div class="tile"><div class="num">98k req/s</div><div class="lbl">for the smallest function, QuickJS, 4 connections</div></div>
+  <div class="tile"><div class="num">12.3M</div><div class="lbl">function calls in a 10-minute run, with zero errors and no heap growth</div></div>
+  <div class="tile"><div class="num">122 µs</div><div class="lbl">of CPU per call for the JWT-verifier use case</div></div>
 </div>
 
 <p class="note">Every number on this page comes from the Linux build of isère (FreeRTOS's POSIX port, in Docker on an Apple-silicon Mac), not from the Pico 2 itself. The same code, tests and benchmark script run on the board; its numbers will be published when the hardware loop has run. The raw figures are in <a href="https://github.com/jeeyo/isere/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
 
-<h2>Why a microcontroller</h2>
-<p>The claim is simple: a $5 microcontroller can host a small service that people would actually deploy. Not "blink an LED over HTTP", but something with crypto, caching, an outbound network call and a budget. The service we picked is one every API gateway does:</p>
+<h2>What isère is</h2>
+<p>Serverless platforms let you deploy a function and forget about servers. isère brings that model to a microcontroller: a board on your desk, or a $5 chip in a device, serving functions over HTTP.</p>
+<ul>
+  <li><strong>A function is a JavaScript module</strong> in the Cloudflare Workers style, so the same code runs on isère, on Workers, or in Node. QuickJS and JerryScript both run it.</li>
+  <li><strong>Many functions per board</strong>, each routed by method and path. Static files are served without touching JavaScript at all.</li>
+  <li><strong>Functions don't hurt each other.</strong> One that throws, hangs, loops forever, recurses without end or runs the engine out of memory fails that one call with a 5xx.</li>
+  <li><strong>The platform APIs functions expect</strong>: <code>Request</code>, <code>Response</code>, <code>Headers</code>, <code>URL</code>, <code>fetch</code> over HTTP and HTTPS, <code>crypto.subtle</code>, timers, and configuration through <code>env</code>.</li>
+  <li><strong>Every call is measured</strong>: wall time, CPU time, bytes allocated, peak heap and the heap it left behind, in a <code>Server-Timing</code> header and at <code>/__metrics</code>.</li>
+</ul>
+<pre><code>// a function: a module in app/, routed in app/routes.json
+export default {
+  async fetch(request, env) {
+    return new Response('hello from isère\n')
+  },
+}</code></pre>
+
+<h2>A first real use case: verifying JWTs</h2>
+<p>A platform claim needs a real workload behind it. Not "blink an LED over HTTP", but a function people would actually deploy, with crypto, caching, an outbound network call and a budget. The first one we picked is something every API gateway does:</p>
 <ul>
   <li><code>GET /verify</code> reads <code>Authorization: Bearer &lt;jwt&gt;</code>, finds the key by <code>kid</code> in a JWKS cached in memory, verifies the RS256 or ES256 signature, and answers 200 with the claims or 401.</li>
   <li><code>GET /.well-known/jwks.json</code> publishes the board's own keys. The verifier can fetch its JWKS from the board it runs on, which makes a self-contained benchmark fixture.</li>
-  <li><code>GET /__metrics</code> reports what every request cost: wall time, CPU time, bytes allocated, peak heap, the heap it left behind.</li>
 </ul>
-<p>Endpoints are JavaScript modules in the Cloudflare Workers style, so the same handler runs on isère, on Workers, or in Node:</p>
+<p>The whole verifier is an ordinary isère function. Its JWKS cache is a module-level variable, which works because isère keeps each function's module alive between calls:</p>
 <pre><code>// app/verify.js, shortened
 import { JwksCache, verify } from './jwt.js'
 
@@ -139,9 +154,9 @@ export default {
 }</code></pre>
 
 <h2>Where it started</h2>
-<p>isère already ran JavaScript on the Pico 2 before this work began, and it was honest about being a prototype. Its request path looked like this:</p>
+<p>isère already ran JavaScript functions on the Pico 2 before this work began, and it was honest about being a prototype. Its request path looked like this:</p>
 <ul>
-  <li><strong>One handler, evaluated from source on every request</strong>, in a brand-new engine runtime per connection. There was no routing and no state between requests, so a JWKS cache was impossible.</li>
+  <li><strong>One function per board, evaluated from source on every request</strong>, in a brand-new engine runtime per connection. There was no routing and no state between calls, so a function couldn't even keep a cache.</li>
   <li><strong>Fixed-size fields.</strong> Header values were truncated at 63 characters (a real JWT is several hundred), and about 10 KB was reserved per connection whatever the request.</li>
   <li><strong>Every request copied three times</strong>, in 64-byte reads, with <code>strdup</code> on the way out. A response body containing a NUL byte leaked adjacent heap memory to the client.</li>
   <li><strong>JS timers ran on FreeRTOS's timer task</strong>, a second thread touching the same engine as the HTTP task.</li>
@@ -153,8 +168,8 @@ export default {
 <h2>What changed, and why</h2>
 
 <h3>Warm engines: the single biggest win</h3>
-<p>Each endpoint's module is now evaluated once, at boot, and every request is a fresh function call into it. A request on QuickJS costs about 10 µs of engine work instead of building a runtime, a context, the polyfills and the module from scratch.</p>
-<div class="opinion"><p>A runtime per request is the wrong default for a server. It looks like isolation, but the isolation that matters is that one endpoint can't hurt another, and you get that from deadlines, interrupts and per-request cleanup, not from rebuilding the world. A busy loop, an endless <code>await</code>, unbounded recursion or an engine out of memory now fails that one request with a 5xx; the next request doesn't notice. The old mode is still there behind <code>ISERE_JS_MODE=cold</code>, because a test that creates and frees an engine on every request is the best way to prove cleanup is correct.</p></div>
+<p>Each function's module is now evaluated once, at boot, and every request is a fresh function call into it. A request on QuickJS costs about 10 µs of engine work instead of building a runtime, a context, the polyfills and the module from scratch.</p>
+<div class="opinion"><p>A runtime per request is the wrong default for a server. It looks like isolation, but the isolation that matters is that one function can't hurt another, and you get that from deadlines, interrupts and per-request cleanup, not from rebuilding the world. A busy loop, an endless <code>await</code>, unbounded recursion or an engine out of memory now fails that one request with a 5xx; the next request doesn't notice. The old mode is still there behind <code>ISERE_JS_MODE=cold</code>, because a test that creates and frees an engine on every request is the best way to prove cleanup is correct.</p></div>
 
 <h3>One event loop, one task</h3>
 <p>Everything isère does runs on one FreeRTOS task, around one <code>poll()</code>: sockets, HTTP, JS timers, <code>fetch</code>, both engines. FreeRTOS is reduced to what it's good at: scheduling isère next to the USB and network stacks on the board. Nothing needs a lock, and the timer race disappeared with the timer task's role.</p>
@@ -188,14 +203,14 @@ export default {
 </figure>
 
 <figure>
-  <div class="chart-title">Throughput of the smallest endpoint, by connections</div>
+  <div class="chart-title">Throughput of the smallest function, by connections</div>
   <div class="legend" id="legend-rps"></div>
   <div class="chart" id="chart-rps"></div>
   <figcaption>Requests per second for <code>GET /</code> over keep-alive connections, measured at the client.</figcaption>
   <details><summary>Show the numbers</summary><div class="scroll" id="table-rps"></div></details>
 </figure>
 
-<div class="opinion"><p>QuickJS wins every JavaScript scenario, about twice as fast as JerryScript on both the trivial endpoint and on JWT verification. That's a reversal: before the warm engines, JerryScript was twelve times faster, because QuickJS paid for a whole runtime on every request and JerryScript's was cheaper to build. Compare engines on their steady state, not on how fast they can be thrown away.</p></div>
+<div class="opinion"><p>QuickJS wins every JavaScript scenario, about twice as fast as JerryScript on both the trivial function and on JWT verification. That's a reversal: before the warm engines, JerryScript was twelve times faster, because QuickJS paid for a whole runtime on every request and JerryScript's was cheaper to build. Compare engines on their steady state, not on how fast they can be thrown away.</p></div>
 
 <figure>
   <div class="chart-title">Where a request's engine time goes</div>
@@ -236,6 +251,7 @@ export default {
 <ul>
   <li><strong>The board.</strong> Run the same suite and benchmark on a Pico 2 through the hardware loop, and size its stacks and heap from what <code>/__metrics</code> reports.</li>
   <li><strong>The outside world.</strong> Route the board's traffic through the USB host, for HTTPS JWKS and OpenTelemetry, and give it wall-clock time, so JWT expiry means something there.</li>
+  <li><strong>More use cases.</strong> JWT verification is the first workload, not the last; each new one should bring its own tests and benchmark scenario.</li>
   <li><strong>The platform question.</strong> A Zephyr/Rust build exists as a spike. It will face the same tests and benchmark before anyone chooses a stack, and whichever wins has to own its event loop and HTTP parsing.</li>
 </ul>
 
