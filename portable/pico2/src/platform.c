@@ -27,6 +27,12 @@ void platform_init() {
   gpio_put(25, 1);
 }
 
+void platform_exit(int code)
+{
+  // firmware doesn't exit; the httpd task just ends
+  (void)code;
+}
+
 uint64_t platform_now_us(void)
 {
   return time_us_64();

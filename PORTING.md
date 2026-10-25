@@ -58,6 +58,7 @@ Every isère module runs on **one task**, the httpd task, around one event loop.
 | Function | Contract |
 |---|---|
 | `platform_init()` | Board setup before anything else, such as clocks, UART and LEDs. |
+| `platform_exit(code)` | Ends the program after a clean shutdown (Linux: `exit`). Firmware that never exits returns, and the httpd task deletes itself. |
 | `platform_now_us()`, `platform_now_ns()` | A monotonic clock. Timers, deadlines and latency metrics use it. |
 | `platform_time_ms()` | Wall-clock time since the Unix epoch. JWT expiry checks depend on it. |
 | `platform_task_cpu_ns()` | CPU time of the calling task, if the platform has it. By default, per-request CPU time uses `platform_now_ns()`: a stretch of request work never blocks, so the time it holds the task is its CPU time. On Linux, `ISERE_CPU_CLOCK=thread` switches to this function. |
@@ -99,7 +100,7 @@ Sockets are non-blocking. A call that would block returns `ISERE_TCP_AGAIN`, and
 ### What isère needs from the kernel
 
 Very little.
-- **Tasks:** the httpd task, created with `xTaskCreate`. It waits for the network with `vTaskDelay` and deletes itself at shutdown with `vTaskDelete` and `vTaskEndScheduler`.
+- **Tasks:** the httpd task, created with `xTaskCreate`. It waits for the network with `vTaskDelay`. At shutdown it frees everything, then calls `platform_exit()`; it doesn't unwind the scheduler, because `vTaskEndScheduler` in the POSIX port can hang under valgrind on x86-64.
 - **A mutex** in the logger.
 - **The heap**, if `platform_malloc` uses `pvPortMalloc`.
 

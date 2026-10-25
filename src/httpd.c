@@ -968,9 +968,8 @@ exit:
   isere_free(__s.route_methods);
   isere_free(__s.route_paths);
 
-  // main() turns this into the exit code
   httpd->should_exit = failed ? 3 : 2;
-  vTaskEndScheduler();
+  platform_exit(failed ? 1 : 0);
   vTaskDelete(NULL);
 }
 

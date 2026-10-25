@@ -90,7 +90,7 @@ int main(void)
   sigaction(SIGTERM, &sa, NULL);
 #endif /* __linux__ */
 
-  // returns once the httpd task has shut down and ended the scheduler
+  // doesn't return on Linux: the httpd task exits the process when it has shut down
   vTaskStartScheduler();
 
   isere_logger_deinit(&logger);

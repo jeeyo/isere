@@ -73,7 +73,8 @@ async function run(requests, mode) {
     await request(server.url, p, { timeoutMs: 30_000, ...opts });
   }
   const result = await server.stop();
-  assert.ok(!result.hung, 'server did not shut down on SIGINT under valgrind');
+  const tail = (text) => text.split('\n').slice(-15).join('\n');
+  assert.ok(!result.hung, `server did not shut down on SIGINT under valgrind\n--- stderr ---\n${tail(result.stderr)}\n--- valgrind ---\n${tail(readFileSync(logFile, 'utf8'))}`);
   assert.equal(result.code, 0, `exit code ${result.code}\n${result.stderr.slice(-2000)}`);
 
   const report = readFileSync(logFile, 'utf8');

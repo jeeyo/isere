@@ -1,6 +1,8 @@
 #include "platform.h"
 
+#include <signal.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -21,6 +23,19 @@ static uint64_t __clock_ns(clockid_t id)
   struct timespec ts;
   clock_gettime(id, &ts);
   return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+}
+
+void platform_exit(int code)
+{
+  // Exits straight from the task instead of unwinding the FreeRTOS POSIX port
+  // (vTaskEndScheduler), which cancels and joins the port's task threads and can
+  // hang under valgrind on x86-64. The tick signal is blocked so no context
+  // switch interrupts the exit.
+  sigset_t all;
+  sigfillset(&all);
+  pthread_sigmask(SIG_BLOCK, &all, NULL);
+  fflush(NULL);
+  exit(code);
 }
 
 uint64_t platform_now_us(void)

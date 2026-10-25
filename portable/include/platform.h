@@ -6,6 +6,10 @@
 
 void platform_init();
 
+// Ends the program once isère has shut down and freed what it allocated (Linux);
+// returns on platforms that never exit (the board)
+void platform_exit(int code);
+
 // monotonic wall clock, microseconds / nanoseconds since an arbitrary point
 uint64_t platform_now_us(void);
 uint64_t platform_now_ns(void);
