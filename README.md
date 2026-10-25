@@ -2,151 +2,58 @@
 
 ![workflow](https://github.com/jeeyo/isere/actions/workflows/ci.yml/badge.svg)
 
-A serverless platform aimed to be running on Microcontrollers, powered by FreeRTOS, LwIP, and QuickJS
+isère is a small serverless runtime for microcontrollers. You write HTTP endpoints in JavaScript, in the Cloudflare Workers style, and isère serves them from a Raspberry Pi Pico 2, on FreeRTOS, with QuickJS or JerryScript.
 
-### Current progress
+The aim is to show that a microcontroller can host a small, real-world service: verifying JWTs against a cached JWKS, publishing its own keys, and reporting live CPU and memory figures for every request. It is a personal project, not a general-purpose platform.
 
-- [x] FreeRTOS as Kernel
-- [x] JavaScript runtime
-  - [x] QuickJS
-  - [x] JerryScript
-- [ ] Python runtime (?)
-  - [ ] MicroPython
-- [x] HTTP server
-  - [x] Event Loop (no Keep-Alive support)
-    - [x] Socket
-    - [x] JavaScript Runtime
-  - [ ] Static Files (?)
-- [ ] Unit tests
-  - [ ] loader
-  - [ ] js
-  - [ ] httpd
-  - [ ] http handler
-  - [ ] logger
-- [x] Unit tests on CI
-- [ ] File System
-- [ ] Configuration File
-- [ ] Watchdog timer
-- [ ] Integration tests
-- [ ] Integration tests on CI
-- [ ] [Cloudflare Workers API](https://developers.cloudflare.com/workers/runtime-apis/) (on QuickJS)
-  - [ ] crypto
-  - [ ] fetch
-  - [x] process (env)
-  - [x] console (log, warn, error)
-  - [x] setTimeout / clearTimeout (FreeRTOS Timer)
-  - [ ] performance (?)
-  - [ ] ~~WebAssembly~~
-- [ ] OpenTelemetry
-  - [x] Metrics
-    - [x] Sum (Counter)
-      - [x] Cumulative
-      - [ ] ~~Delta~~ (see [Prometheus and OpenMetrics Compatibility](https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#sums))
-    - [x] Gauge
-  - [ ] ~~Logs~~
-  - [ ] Trace
-- [ ] LogStash
-  - [ ] unbuffered printf()
-  - [ ] NDJSON logs
-  - [ ] Serial-to-LogStash integration
-- [ ] Memory Leak Check
-- [ ] Valgrind
-- [ ] Project Template
-- [ ] Low-power mode
-- [x] Benchmark
-- [ ] Doxygen
-- [ ] Port
-  - [x] Raspberry Pi Pico 2 (RP2350)
-  - [ ] ESP32 Ethernet Kit (ESP32-WROVER-E) [Pull Request #28](https://github.com/jeeyo/isere/pull/28)
-- [ ] Monitoring
-  - [ ] CPU Usage ([vTaskGetRunTimeStats](https://www.freertos.org/rtos-run-time-stats.html))
-  - [ ] Memory Usage ([vPortGetHeapStats](https://www.freertos.org/a00111.html))
-
-### Limitations
-
-- No Keep-Alive support
-- JavaScript handler function needs to be stored sequentially and addressible in a memory
-- Pico 2 may act as DHCP Server, but it doesn't have any routing information, making it unable to connect to external OpenTelemetry Collector
-
-### Porting
-
-See [PORTING.md](PORTING.md)
-
-### Building and Running
-
-Prerequisites:
-- cmake
-- make
-- gcc
-- cpputest
-- xxd
-- [protoc](https://grpc.io/docs/protoc-installation/)
-- python3
-  - [protobuf package](https://pypi.org/project/protobuf/)
-  - [grpcio-tools package](https://pypi.org/project/grpcio-tools/)
-
-### Install dependencies
-
-#### macOS
-
-```zsh
-brew install gcc cmake make libtool protobuf
+```js
+// an endpoint: a module in app/, routed from app/routes.json
+export default {
+  async fetch(request, env) {
+    return new Response('hello from isère\n')
+  },
+}
 ```
 
-If you want to build unit tests, you also need to install CppUTest
+## Current progress
 
-```zsh
-brew install cpputest
-export CPPUTEST_HOME=/opt/homebrew/Cellar/cpputest/4.0/
-```
+Everything below works on the Linux build and is checked by CI (`tools/linux.sh`, both engines). None of it has been confirmed on the Pico 2 yet.
 
-#### Debian / Ubuntu
+- [x] FreeRTOS kernel, with ports for Linux and the Raspberry Pi Pico 2 (RP2350)
+- [x] QuickJS (quickjs-ng) and JerryScript, both kept and tested
+- [x] Several endpoints, routed by method and path, in warm engines
+- [x] Endpoints isolated from each other: errors, timeouts, runaway loops and engine out-of-memory fail one request
+- [x] HTTP/1.1 parsed in place, with keep-alive, pipelining and chunked bodies; fuzzed
+- [x] Workers-style API: `Request`, `Response`, `Headers`, `URL`, `fetch` over HTTP and HTTPS, `crypto.subtle`, timers
+- [x] JWT verification (RS256, ES256) against a cached JWKS, and the board's own `/.well-known/jwks.json`
+- [x] Per-request metrics in `Server-Timing`, at `/__metrics` and as NDJSON, calibrated to within 10%
+- [x] Black-box test suite, valgrind leak checks, fuzzer and benchmark, run in CI
+- [x] Benchmarks of both engines on Linux: [BENCHMARK.md](BENCHMARK.md)
 
-```bash
-sudo apt-get install -y build-essential make cmake xxd protobuf-compiler
-```
+## Roadmap
 
-For installing CppUTest, please follow [Using CppUTest with MakefileWorker.mk and gcc](https://cpputest.github.io/) section on CppUTest website.
+- [ ] Run the hardware loop (`tools/hil.sh`) on a Pico 2 and confirm everything above there
+- [ ] Size the Pico 2's stacks and heap from measurements, starting with QuickJS on the 24 KB httpd stack
+- [ ] Route the Pico 2 to the outside world through the USB host, for HTTPS JWKS and OpenTelemetry export
+- [ ] Wall-clock time on the board (SNTP), so JWT expiry can be checked there
+- [ ] Benchmarks on the Pico 2, published next to the Linux ones
+- [ ] Compare FreeRTOS/C with a Zephyr/Rust build on the same tests and benchmark, and choose one
+- [ ] More boards: ESP32 Ethernet Kit ([#28](https://github.com/jeeyo/isere/pull/28))
 
-### Building
+The detailed plan and the definition of done are in [GOAL.md](GOAL.md).
 
-```sh
-git clone https://github.com/jeeyo/isere.git
-git submodule update --init --recursive
+## More
 
-mkdir build
-cd build
-cmake -DTARGET_PLATFORM=linux -DDEBUG=on .. # see Build configurations for more options
-make -j
-```
+- [The isère story](https://jeeyo.github.io/isere/): how it got here, the numbers, and opinions (source in [`docs/`](docs/))
+- [tools/README.md](tools/README.md): building, running, the test suite and the validation loops
+- [BENCHMARK.md](BENCHMARK.md): benchmark results
+- [PORTING.md](PORTING.md): porting isère to a new platform, including the FreeRTOS configuration
 
-#### Build configurations
-
-|Name|Description|Supported values|Default value|
-|-|-|-|-|
-|TARGET_PLATFORM|Target platform to build isère executable for|linux, pico2|linux|
-|DEBUG|Whether to build isère executable with debug symbol|off, on|off|
-|JS_RUNTIME|JavaScript runtime to execute handler function|quickjs, jerryscript|quickjs|
-|WITH_OTEL|Whether to send metrics to OpenTelemetry Collector|off, on|on|
-|OTEL_HOST|OpenTelemetry Collector OLTP/HTTP Host||"127.0.0.1"|
-|OTEL_PORT|OpenTelemetry Collector OLTP/HTTP Port||4318|
-
-### Running
-
-```sh
-./isere
-```
-
-A web server will start on port 8080 with the function defined in [js/handler.js](js/handler.js)
-
-### Benchmark
-
-See [BENCHMARK.md](BENCHMARK.md)
-
-### Acknowledgment
+## Acknowledgment
 
 Special thanks to
 
-- [maxnet](https://github.com/maxnet/pico-webserver/) for tinyusb RNDIS to LwIP glue for Raspberry Pi Pico
+- [maxnet](https://github.com/maxnet/pico-webserver/) for the TinyUSB RNDIS to lwIP glue for the Raspberry Pi Pico
 - [libuv](https://github.com/libuv/libuv) for [src/internals/uv_poll.c](src/internals/uv_poll.c)
+- [picohttpparser](https://github.com/h2o/picohttpparser), whose stateless design the HTTP parser follows
 - [librdkafka](https://github.com/confluentinc/librdkafka) for OpenTelemetry nanopb encoding

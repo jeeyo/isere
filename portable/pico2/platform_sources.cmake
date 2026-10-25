@@ -12,5 +12,6 @@ list(APPEND SOURCES
   portable/${TARGET_PLATFORM}/src/usb_descriptor.c
   ${FREERTOS_DIR}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure/port.c
   ${FREERTOS_DIR}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure/portasm.c
+  ${FREERTOS_DIR}/portable/MemMang/heap_3.c
   ${TINYUSB_LIBNETWORKING_SOURCES}
 )

@@ -17,8 +17,6 @@ static uint8_t initialized = 0;
 
 static TaskHandle_t __tusb_task_handle;
 
-static uint32_t __num_of_tcp_conns = 0;
-
 static void __isere_tusb_task(void *param);
 
 int isere_tcp_init(isere_tcp_t *tcp)
@@ -38,6 +36,10 @@ int isere_tcp_deinit(isere_tcp_t *tcp)
 int isere_tcp_socket_new()
 {
   int fd = lwip_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  if (fd >= 0 && isere_tcp_socket_set_nonblock(fd) < 0) {
+    lwip_close(fd);
+    return -1;
+  }
   return fd;
 }
 
@@ -55,10 +57,19 @@ int isere_tcp_socket_set_nonblock(int fd)
   return 0;
 }
 
+int isere_tcp_socket_last_error(int fd)
+{
+  int myerrno = 0;
+  socklen_t size = sizeof(myerrno);
+  if (lwip_getsockopt(fd, SOL_SOCKET, SO_ERROR, &myerrno, &size) != 0) {
+    return errno;
+  }
+  return myerrno;
+}
+
 void isere_tcp_close(int fd)
 {
-  close(fd);
-  __num_of_tcp_conns--;
+  lwip_close(fd);
 }
 
 int isere_tcp_connect(int fd, const char *ipaddr, uint16_t port)
@@ -73,7 +84,7 @@ int isere_tcp_connect(int fd, const char *ipaddr, uint16_t port)
   int err = lwip_connect(fd, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
   if (err != 0) {
     if (errno == EAGAIN || errno == EINPROGRESS) {
-      return -2;
+      return ISERE_TCP_AGAIN;
     }
 
     return -1;
@@ -104,17 +115,21 @@ int isere_tcp_listen(int fd, uint16_t port)
 }
 
 
-int isere_tcp_accept(int fd, char *ip_addr)
+int isere_tcp_accept(int fd, char *ip_addr, uint16_t *port)
 {
   struct sockaddr_in source_addr;
   socklen_t addr_len = sizeof(source_addr);
 
   int newfd = lwip_accept(fd, (struct sockaddr *)&source_addr, &addr_len);
-  if (newfd < 0 && errno != EINTR) {
+  if (newfd < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+      return ISERE_TCP_AGAIN;
+    }
     return -1;
   }
 
-  if (newfd < 0) {
+  if (isere_tcp_socket_set_nonblock(newfd) < 0) {
+    lwip_close(newfd);
     return -1;
   }
 
@@ -123,7 +138,8 @@ int isere_tcp_accept(int fd, char *ip_addr)
   lwip_setsockopt(newfd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
 
   // copy ip address string
-  strncpy(ip_addr, inet_ntoa(((struct sockaddr_in *)&source_addr)->sin_addr), INET_ADDRSTRLEN);
+  inet_ntoa_r(source_addr.sin_addr, ip_addr, INET_ADDRSTRLEN);
+  *port = lwip_ntohs(source_addr.sin_port);
 
   return newfd;
 }
@@ -132,8 +148,8 @@ ssize_t isere_tcp_recv(int fd, char *buf, size_t len)
 {
   int recvd = lwip_recv(fd, buf, len, 0);
   if (recvd < 0) {
-    if (errno == EINTR) {
-      return -2;
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+      return ISERE_TCP_AGAIN;
     }
 
     return -1;
@@ -144,7 +160,30 @@ ssize_t isere_tcp_recv(int fd, char *buf, size_t len)
 
 ssize_t isere_tcp_write(int fd, const char *buf, size_t len)
 {
-  return lwip_write(fd, buf, len);
+  ssize_t sent = lwip_write(fd, buf, len);
+  if (sent < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
+    return ISERE_TCP_AGAIN;
+  }
+  return sent;
+}
+
+int isere_tcp_local_port(int fd)
+{
+  struct sockaddr_in addr;
+  socklen_t len = sizeof(addr);
+  if (lwip_getsockname(fd, (struct sockaddr *)&addr, &len) != 0) {
+    return -1;
+  }
+  return lwip_ntohs(addr.sin_port);
+}
+
+int isere_tcp_resolve(const char *host, char *ip_addr, size_t ip_addr_len)
+{
+  struct hostent *he = lwip_gethostbyname(host);
+  if (he == NULL || he->h_addrtype != AF_INET) {
+    return -1;
+  }
+  return inet_ntoa_r(*(struct in_addr *)he->h_addr_list[0], ip_addr, (int)ip_addr_len) != NULL ? 0 : -1;
 }
 
 int isere_tcp_poll(struct pollfd *fds, unsigned int nfds, int timeout)

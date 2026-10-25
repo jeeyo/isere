@@ -1,0 +1,1 @@
+/* native_sim: networking comes from the host through offloaded sockets (see native_sim.conf) */

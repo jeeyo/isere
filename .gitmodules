@@ -3,17 +3,10 @@
 	url = https://github.com/raspberrypi/FreeRTOS-Kernel.git
 [submodule "3rdparty/quickjs"]
 	path = 3rdparty/quickjs
-	url = https://github.com/jeeyo/quickjs.git
+	url = https://github.com/quickjs-ng/quickjs.git
 [submodule "3rdparty/lwip"]
 	path = 3rdparty/lwip
 	url = https://github.com/lwip-tcpip/lwip.git
-[submodule "3rdparty/llhttp"]
-	path = 3rdparty/llhttp
-	url = https://github.com/nodejs/llhttp.git
-	ignore = dirty
-[submodule "3rdparty/libyuarel"]
-	path = 3rdparty/libyuarel
-	url = https://github.com/jacketizer/libyuarel.git
 [submodule "3rdparty/pico-sdk"]
 	path = 3rdparty/pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git
@@ -26,3 +19,10 @@
 [submodule "3rdparty/opentelemetry-proto"]
 	path = 3rdparty/opentelemetry-proto
 	url = https://github.com/open-telemetry/opentelemetry-proto.git
+[submodule "3rdparty/mbedtls"]
+	path = 3rdparty/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
+	branch = mbedtls-3.6
+[submodule "spikes/zephyr-rust/c_libs/quickjs"]
+	path = spikes/zephyr-rust/c_libs/quickjs
+	url = https://github.com/bellard/quickjs.git

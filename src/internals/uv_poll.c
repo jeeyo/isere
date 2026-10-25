@@ -27,13 +27,15 @@
  * events to pass as the first argument to poll().
  */
 
+#include <assert.h>
+#include <limits.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <errno.h>
 
 #include "tcp.h"
 
-#include "FreeRTOS.h"
-#include "pvPortRealloc.h"
+#include "mem.h"
 
 /* Allocate or dynamically resize our poll fds array.  */
 static void uv__pollfds_maybe_resize(uv_loop_t* loop) {
@@ -45,7 +47,7 @@ static void uv__pollfds_maybe_resize(uv_loop_t* loop) {
     return;
 
   n = loop->poll_fds_size ? loop->poll_fds_size * 2 : 64;
-  p = pvPortRealloc(loop->poll_fds, n * sizeof(*loop->poll_fds));
+  p = isere_realloc(loop->poll_fds, n * sizeof(*loop->poll_fds));
   if (p == NULL)
     abort();
 
@@ -152,7 +154,7 @@ static void maybe_resize(uv_loop_t* loop, unsigned int len) {
   }
 
   nwatchers = next_power_of_two(len + 2) - 2;
-  watchers = pvPortRealloc(loop->watchers,
+  watchers = isere_realloc(loop->watchers,
                           (nwatchers + 2) * sizeof(loop->watchers[0]));
 
   if (watchers == NULL)
@@ -221,10 +223,6 @@ void uv__io_poll(uv_loop_t* loop, int timeout)
   struct pollfd* pe;
   int fd;
 
-  if (loop->nfds == 0) {
-    assert(uv__queue_empty(&loop->watcher_queue));
-    return;
-  }
 
   /* Take queued watchers and add their fds to our poll fds array.  */
   while (!uv__queue_empty(&loop->watcher_queue)) {
@@ -284,6 +282,11 @@ void uv__io_poll(uv_loop_t* loop, int timeout)
   }
 
   loop->poll_fds_iterating = 0;
+
+  /* Purge invalidated fds from our poll fds array: a connection closed during
+   * the iteration above only marked its slot, and without this the array (and
+   * every poll() call) grows with each connection ever closed. */
+  uv__pollfds_del(loop, -1);
 }
 
 int uv__platform_loop_init(uv_loop_t* loop) {
@@ -295,8 +298,14 @@ int uv__platform_loop_init(uv_loop_t* loop) {
 }
 
 void uv__platform_loop_delete(uv_loop_t* loop) {
-  vPortFree(loop->poll_fds);
+  isere_free(loop->poll_fds);
   loop->poll_fds = NULL;
+}
+
+void uv__platform_loop_free_watchers(uv_loop_t* loop) {
+  isere_free(loop->watchers);
+  loop->watchers = NULL;
+  loop->nwatchers = 0;
 }
 
 /* Remove the given fd from our poll fds array because no one

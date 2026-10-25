@@ -1,0 +1,5 @@
+GET http://h:80/p?q HTTP/1.0
+A: b
+
+GET / HTTP/1.1
+

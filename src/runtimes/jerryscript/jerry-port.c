@@ -1,7 +1,5 @@
 #include "isere.h"
-
-#include "runtime.h"
-#include "polyfills.h"
+#include "platform.h"
 
 #include "jerryscript-port.h"
 
@@ -9,13 +7,9 @@
 #include "task.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-
-void jerry_port_fatal(jerry_fatal_code_t code)
-{
-  exit((int) code);
-}
 
 int32_t jerry_port_local_tza(double unix_ms)
 {
@@ -27,7 +21,8 @@ int32_t jerry_port_local_tza(double unix_ms)
 
 double jerry_port_current_time(void)
 {
-  return (double) 0;
+  // Date.now(): JWT expiry checks depend on it
+  return (double)platform_time_ms();
 }
 
 void jerry_port_sleep(uint32_t sleep_time)
@@ -54,7 +49,7 @@ jerry_size_t jerry_port_path_base(const jerry_char_t *path_p)
 
 void jerry_port_path_free(jerry_char_t *path_p)
 {
-  vPortFree(path_p);
+  free(path_p);
 }
 
 jerry_char_t *jerry_port_source_read(const char *file_name_p, /**< file name */
@@ -65,7 +60,7 @@ jerry_char_t *jerry_port_source_read(const char *file_name_p, /**< file name */
 
 void jerry_port_source_free(uint8_t *buffer_p) /**< buffer to free */
 {
-  vPortFree(buffer_p);
+  free(buffer_p);
 }
 
 void jerry_port_print_byte (jerry_char_t byte) /**< the character to print */

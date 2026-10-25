@@ -65,6 +65,7 @@ struct uv_loop_s {
 
 int uv__platform_loop_init(uv_loop_t* loop);
 void uv__platform_loop_delete(uv_loop_t* loop);
+void uv__platform_loop_free_watchers(uv_loop_t* loop);
 void uv__platform_invalidate_fd(uv_loop_t* loop, int fd);
 
 void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events);
