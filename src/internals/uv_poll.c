@@ -282,6 +282,11 @@ void uv__io_poll(uv_loop_t* loop, int timeout)
   }
 
   loop->poll_fds_iterating = 0;
+
+  /* Purge invalidated fds from our poll fds array: a connection closed during
+   * the iteration above only marked its slot, and without this the array (and
+   * every poll() call) grows with each connection ever closed. */
+  uv__pollfds_del(loop, -1);
 }
 
 int uv__platform_loop_init(uv_loop_t* loop) {

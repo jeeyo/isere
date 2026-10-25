@@ -80,11 +80,23 @@ describe('endurance', { skip: isRemote && 'takes too long on a board' }, () => {
     }
   });
 
-  it('serves 5000 more with a connection per request', async () => {
-    for (let i = 0; i < 5000; i += 4) {
-      const res = await Promise.all(Array.from({ length: 4 }, () => request(server.url, '/', { timeoutMs: 3000 })));
-      for (const r of res) assert.equal(r.status, 200);
+  it('serves 5000 more with a connection per request, at a steady cost and heap', async () => {
+    const heap = async () => JSON.parse((await request(server.url, '/__metrics?gc=1')).body).device.heap_in_use;
+    // a closed connection used to leave a dead slot in the poll set, so the set,
+    // the heap and the cost of every poll() grew with each connection
+    const before = await heap();
+    const rounds = [];
+    for (let round = 0; round < 5; round++) {
+      const start = process.hrtime.bigint();
+      for (let i = 0; i < 1000; i += 4) {
+        const res = await Promise.all(Array.from({ length: 4 }, () => request(server.url, '/', { timeoutMs: 3000 })));
+        for (const r of res) assert.equal(r.status, 200);
+      }
+      rounds.push(Number(process.hrtime.bigint() - start) / 1e6);
     }
+    const perConnection = ((await heap()) - before) / 5000;
+    assert.ok(perConnection < 1, `heap grew ${perConnection.toFixed(2)} bytes per connection`);
+    assert.ok(rounds[4] < rounds[0] * 1.5, `connections got slower: ${rounds.map((r) => r.toFixed(0)).join(', ')} ms per 1000`);
     const m = await metrics(server.url);
     assert.equal(m.js.restarts, 0);
   });
