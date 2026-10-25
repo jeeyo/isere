@@ -44,6 +44,7 @@ The detailed plan and the definition of done are in [GOAL.md](GOAL.md).
 
 ## More
 
+- [The isère story](https://jeeyo.github.io/isere/): how it got here, the numbers, and opinions (source in [`docs/`](docs/))
 - [tools/README.md](tools/README.md): building, running, the test suite and the validation loops
 - [BENCHMARK.md](BENCHMARK.md): benchmark results
 - [PORTING.md](PORTING.md): porting isère to a new platform, including the FreeRTOS configuration

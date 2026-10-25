@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>isère: JWTs on a microcontroller</title>
+<meta name="description" content="The story of isère, a small serverless runtime for the Raspberry Pi Pico 2: what it does, how it got fast, what surprised us, and what's next.">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #fcfcfb;
+    --surface: #f3f2ef;
+    --border: #e2e0da;
+    --text: #0b0b0b;
+    --text-2: #52514e;
+    --text-3: #7a7873;
+    --accent: #2a78d6;
+    --code-bg: #efeeea;
+    --grid: #e6e4de;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #141413;
+      --surface: #1a1a19;
+      --border: #2e2d2a;
+      --text: #f0efec;
+      --text-2: #c3c2b7;
+      --text-3: #918f86;
+      --accent: #5598e7;
+      --code-bg: #24231f;
+      --grid: #2c2b28;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #141413; --surface: #1a1a19; --border: #2e2d2a; --text: #f0efec; --text-2: #c3c2b7;
+    --text-3: #918f86; --accent: #5598e7; --code-bg: #24231f; --grid: #2c2b28;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 56px 16px 96px; }
+  h1 { font-size: 2.5rem; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 16px; }
+  h2 { font-size: 1.5rem; letter-spacing: -0.01em; margin: 64px 0 12px; }
+  h3 { font-size: 1.1rem; margin: 32px 0 8px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); }
+  code { font: 0.88em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  .lede { font-size: 1.2rem; color: var(--text-2); margin-bottom: 32px; }
+  .kicker { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+  .note { border-left: 3px solid var(--border); padding: 4px 0 4px 16px; color: var(--text-2); font-size: 0.95rem; }
+  .opinion { border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; margin: 24px 0; }
+  .opinion p:last-child { margin-bottom: 0; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 32px 0; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .tile .num { font-size: 2rem; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile .lbl { color: var(--text-2); font-size: 0.9rem; margin-top: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; margin: 8px 0 16px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-2); font-weight: 600; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scroll { overflow-x: auto; }
+  figure { margin: 24px 0 32px; }
+  figcaption { color: var(--text-2); font-size: 0.9rem; margin-top: 8px; }
+  .chart-title { font-weight: 600; margin-bottom: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--text-2); margin: 6px 0 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .chart svg { display: block; max-width: 100%; height: auto; overflow: visible; }
+  .chart text { fill: var(--text-2); font-size: 12px; font-family: inherit; }
+  .chart .val { fill: var(--text); font-variant-numeric: tabular-nums; }
+  .chart .grid { stroke: var(--grid); stroke-width: 1; }
+  .chart .hit { fill: transparent; cursor: default; }
+  .chart .mark { transition: opacity 120ms; }
+  .chart.hovering .mark { opacity: 0.45; }
+  .chart.hovering .mark.on { opacity: 1; }
+  details { margin-top: 8px; font-size: 0.9rem; }
+  summary { color: var(--accent); cursor: pointer; }
+  #tip {
+    position: fixed; pointer-events: none; z-index: 10; opacity: 0;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; font-size: 0.85rem; line-height: 1.4;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.12); transition: opacity 80ms; max-width: 260px;
+  }
+  #tip b { font-variant-numeric: tabular-nums; }
+  footer { margin-top: 80px; color: var(--text-3); font-size: 0.9rem; border-top: 1px solid var(--border); padding-top: 24px; }
+  @media (max-width: 520px) {
+    h1 { font-size: 2rem; }
+    body { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<div class="kicker">isère</div>
+<h1>A JWT verifier on a microcontroller</h1>
+<p class="lede">isère runs JavaScript HTTP endpoints on a Raspberry Pi Pico 2. This is the story of making it do real work, fast, and of knowing exactly what each request costs.</p>
+
+<div class="tiles">
+  <div class="tile"><div class="num">12.3M</div><div class="lbl">requests in a 10-minute run, with zero errors and no heap growth</div></div>
+  <div class="tile"><div class="num">98k req/s</div><div class="lbl">for the smallest JS endpoint, QuickJS, 4 connections</div></div>
+  <div class="tile"><div class="num">122 µs</div><div class="lbl">of CPU to verify an RS256 JWT against a cached JWKS</div></div>
+</div>
+
+<p class="note">Every number on this page comes from the Linux build of isère (FreeRTOS's POSIX port, in Docker on an Apple-silicon Mac), not from the Pico 2 itself. The same code, tests and benchmark script run on the board; its numbers will be published when the hardware loop has run. The raw figures are in <a href="https://github.com/jeeyo/isere/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
+
+<h2>Why a microcontroller</h2>
+<p>The claim is simple: a $5 microcontroller can host a small service that people would actually deploy. Not "blink an LED over HTTP", but something with crypto, caching, an outbound network call and a budget. The service we picked is one every API gateway does:</p>
+<ul>
+  <li><code>GET /verify</code> reads <code>Authorization: Bearer &lt;jwt&gt;</code>, finds the key by <code>kid</code> in a JWKS cached in memory, verifies the RS256 or ES256 signature, and answers 200 with the claims or 401.</li>
+  <li><code>GET /.well-known/jwks.json</code> publishes the board's own keys. The verifier can fetch its JWKS from the board it runs on, which makes a self-contained benchmark fixture.</li>
+  <li><code>GET /__metrics</code> reports what every request cost: wall time, CPU time, bytes allocated, peak heap, the heap it left behind.</li>
+</ul>
+<p>Endpoints are JavaScript modules in the Cloudflare Workers style, so the same handler runs on isère, on Workers, or in Node:</p>
+<pre><code>// app/verify.js, shortened
+import { JwksCache, verify } from './jwt.js'
+
+let cache = null   // lives as long as the engine: one JWKS fetch per TTL
+
+export default {
+  async fetch(request, env) {
+    if (cache === null) cache = new JwksCache({ url: env.jwks_url, ttlMs: env.jwks_ttl_ms })
+    const m = /^Bearer (\S+)$/.exec(request.headers.get('authorization') || '')
+    if (!m) return Response.json({ error: 'missing bearer token' }, { status: 401 })
+    return Response.json({ claims: await verify(m[1], cache) })
+  },
+}</code></pre>
+
+<h2>Where it started</h2>
+<p>isère already ran JavaScript on the Pico 2 before this work began, and it was honest about being a prototype. Its request path looked like this:</p>
+<ul>
+  <li><strong>One handler, evaluated from source on every request</strong>, in a brand-new engine runtime per connection. There was no routing and no state between requests, so a JWKS cache was impossible.</li>
+  <li><strong>Fixed-size fields.</strong> Header values were truncated at 63 characters (a real JWT is several hundred), and about 10 KB was reserved per connection whatever the request.</li>
+  <li><strong>Every request copied three times</strong>, in 64-byte reads, with <code>strdup</code> on the way out. A response body containing a NUL byte leaked adjacent heap memory to the client.</li>
+  <li><strong>JS timers ran on FreeRTOS's timer task</strong>, a second thread touching the same engine as the HTTP task.</li>
+  <li><strong>No outbound HTTP, no TLS, no crypto</strong>: <code>fetch</code> was a stub.</li>
+  <li><strong>JerryScript hung</strong> after about 29,000 requests under <code>wrk</code>, and QuickJS leaked on cleanup.</li>
+</ul>
+<p>Measured then, on different hardware and with <code>wrk</code>'s connection-per-request load, QuickJS served about 300 requests per second and JerryScript about 3,700. On the Pico 2, 12 and 41.</p>
+
+<h2>What changed, and why</h2>
+
+<h3>Warm engines: the single biggest win</h3>
+<p>Each endpoint's module is now evaluated once, at boot, and every request is a fresh function call into it. A request on QuickJS costs about 10 µs of engine work instead of building a runtime, a context, the polyfills and the module from scratch.</p>
+<div class="opinion"><p>A runtime per request is the wrong default for a server. It looks like isolation, but the isolation that matters is that one endpoint can't hurt another, and you get that from deadlines, interrupts and per-request cleanup, not from rebuilding the world. A busy loop, an endless <code>await</code>, unbounded recursion or an engine out of memory now fails that one request with a 5xx; the next request doesn't notice. The old mode is still there behind <code>ISERE_JS_MODE=cold</code>, because a test that creates and frees an engine on every request is the best way to prove cleanup is correct.</p></div>
+
+<h3>One event loop, one task</h3>
+<p>Everything isère does runs on one FreeRTOS task, around one <code>poll()</code>: sockets, HTTP, JS timers, <code>fetch</code>, both engines. FreeRTOS is reduced to what it's good at: scheduling isère next to the USB and network stacks on the board. Nothing needs a lock, and the timer race disappeared with the timer task's role.</p>
+
+<h3>Parse in place</h3>
+<p>The HTTP parser follows <a href="https://github.com/h2o/picohttpparser">picohttpparser</a>: every <code>recv</code> re-parses the head from the start of the connection's own buffer and records each field as an offset and a length into it. Nothing is copied until the request crosses into the JS engine, once, with length-aware calls. There are no per-field limits, only a budget for the head and one for the body.</p>
+<div class="opinion"><p>Offsets, not pointers, is the whole trick: the buffer can grow by <code>realloc</code> between reads and every field stays valid. And strict beats lenient: obsolete line folding, control characters, duplicate <code>Content-Length</code>, or <code>Content-Length</code> with <code>Transfer-Encoding</code> all get a 400, because every one of them is a request-smuggling vector in some proxy. The parser runs under libFuzzer and AddressSanitizer in CI.</p></div>
+
+<h3>One API, both engines</h3>
+<p>isère keeps both QuickJS and JerryScript. Instead of writing every API twice, one JavaScript prelude builds <code>Request</code>, <code>Response</code>, <code>Headers</code>, <code>URL</code>, <code>fetch</code>, <code>crypto.subtle</code> and timers for both; each engine binding only supplies a dozen natives. <code>fetch</code> speaks HTTP and HTTPS over the same event loop through mbedTLS, and can even call the server it runs on, with reserved connection slots so a full pool can't deadlock it.</p>
+
+<h3>Measure, then believe</h3>
+<p>Every response carries a <code>Server-Timing</code> header with what that request cost. The CPU time counts only the stretches where the request's own code ran, not the time it spent waiting on the network or a timer. Calibration endpoints with known costs keep the numbers honest:</p>
+<div class="scroll"><table>
+  <tr><th>Calibration endpoint</th><th>Expected</th><th>Reported (both engines)</th></tr>
+  <tr><td><code>/__calibrate/cpu</code></td><td>5 ms of CPU</td><td>within ±10%</td></tr>
+  <tr><td><code>/__calibrate/alloc</code></td><td>32 KB allocated and freed</td><td>within ±10%</td></tr>
+  <tr><td><code>/__calibrate/sleep</code></td><td>100 ms of wall time, no CPU</td><td>within ±10%, CPU near zero</td></tr>
+</table></div>
+<div class="opinion"><p>A metric you haven't calibrated is a guess with decimals. The calibration tests caught our own first mistake: JerryScript's large buffers were allocated outside its heap, so it reported 24 bytes for a 32 KB allocation.</p></div>
+
+<h2>The numbers</h2>
+<p>Each engine ran for ten minutes: four scenarios at 1, 2 and 4 keep-alive connections (4 is the Pico 2's connection limit), 50 seconds each, with a fresh server per cell. Not one request failed, and after garbage collection no cell kept a byte per request.</p>
+
+<figure>
+  <div class="chart-title">CPU time per request, by scenario</div>
+  <div class="legend" id="legend-cpu"></div>
+  <div class="chart" id="chart-cpu"></div>
+  <figcaption>Microseconds of CPU per request at 4 connections, from each response's <code>Server-Timing</code>. A cache miss fetches the JWKS from the same server over loopback before verifying.</figcaption>
+  <details><summary>Show the numbers</summary><div class="scroll" id="table-cpu"></div></details>
+</figure>
+
+<figure>
+  <div class="chart-title">Throughput of the smallest endpoint, by connections</div>
+  <div class="legend" id="legend-rps"></div>
+  <div class="chart" id="chart-rps"></div>
+  <figcaption>Requests per second for <code>GET /</code> over keep-alive connections, measured at the client.</figcaption>
+  <details><summary>Show the numbers</summary><div class="scroll" id="table-rps"></div></details>
+</figure>
+
+<div class="opinion"><p>QuickJS wins every JavaScript scenario, about twice as fast as JerryScript on both the trivial endpoint and on JWT verification. That's a reversal: before the warm engines, JerryScript was twelve times faster, because QuickJS paid for a whole runtime on every request and JerryScript's was cheaper to build. Compare engines on their steady state, not on how fast they can be thrown away.</p></div>
+
+<figure>
+  <div class="chart-title">Where a request's engine time goes</div>
+  <div class="legend" id="legend-phases"></div>
+  <div class="chart" id="chart-phases"></div>
+  <figcaption>Microseconds per request by phase, measured inside isère. Cold engines build everything per request; warm engines pay those phases once at boot.</figcaption>
+  <details><summary>Show the numbers</summary><div class="scroll" id="table-phases"></div></details>
+</figure>
+<p>On a cold request, parsing the prelude dominates. Two fixes help when you must run cold: compiling only the parts of the prelude a handler touches (URL, fetch and crypto load lazily) cuts it by about 35–40%, and loading QuickJS bytecode instead of source nearly removes it. A warm engine removes it entirely.</p>
+
+<h2>Things that surprised us</h2>
+<p>Most of the speed didn't come from clever code. It came from finding costs nobody had looked at.</p>
+<div class="scroll"><table>
+  <tr><th>What we found</th><th>What it cost</th></tr>
+  <tr><td>FreeRTOS's <code>heap_3</code> wraps every <code>malloc</code> in a critical section; in the POSIX port that's two signal-mask syscalls per allocation.</td><td>Half of QuickJS's throughput. Calling <code>malloc</code> directly took <code>GET /</code> from 82k to 127k req/s, and JWT verification from 3.7k to 8.0k.</td></tr>
+  <tr><td>A closed connection left a dead slot in the poll set; libuv purges them, our copy of its code had lost the line.</td><td>Every connection ever served made <code>poll()</code> a little slower and the heap 13 bytes bigger. Fixed, connection-per-request throughput went from 9.3k to 26–28k req/s.</td></tr>
+  <tr><td>mbedTLS and JerryScript were compiled without optimisation, because nothing set a build type.</td><td>RSA verification several times slower than it should be.</td></tr>
+  <tr><td><code>atob()</code> in JavaScript, with an <code>indexOf</code> per character.</td><td>Most of a JWT verification. In C, it cut verification from 246 to 151 µs on QuickJS and from 717 to 294 µs on JerryScript.</td></tr>
+  <tr><td>Reading the per-thread CPU clock is a system call on Linux.</td><td>8% of throughput for metrics alone. A stretch of request work never blocks, so the monotonic clock measures the same thing for 20 ns; calibration still holds.</td></tr>
+  <tr><td>FreeRTOS defaults to 16-bit ticks.</td><td>Nothing yet: the tick counter would wrap every 65 seconds at 1 kHz. Found while documenting every setting.</td></tr>
+  <tr><td>Running out of heap is fatal to JerryScript: it calls <code>exit()</code>.</td><td>A handler that allocated too much took the server down. Now the fatal handler jumps back to the binding, which throws the engine instance away and starts a fresh one; the request gets a 500.</td></tr>
+  <tr><td>JerryScript measures stack use from where the engine was created, not where it is called from.</td><td>Callbacks from shallower frames looked like stack overflows. A small helper now moves the base on every entry.</td></tr>
+</table></div>
+
+<h2>QuickJS or JerryScript?</h2>
+<p>Both, for now, and the reasons pull in different directions.</p>
+<div class="scroll"><table>
+  <tr><th></th><th>QuickJS (quickjs-ng)</th><th>JerryScript</th></tr>
+  <tr><td>Throughput</td><td>about twice JerryScript's</td><td></td></tr>
+  <tr><td>Language</td><td>modern; parses everything we wrote</td><td>a few gaps, e.g. <code>export async function</code></td></tr>
+  <tr><td>Memory</td><td>grows on the shared heap, bounded by the budget</td><td>one fixed arena: predictable, and its exhaustion is contained</td></tr>
+  <tr><td>Stack at boot (64-bit)</td><td>21 KB</td><td>6 KB</td></tr>
+  <tr><td>Stack verifying a JWT over HTTPS</td><td>36 KB</td><td>10 KB</td></tr>
+</table></div>
+<div class="opinion"><p>On Linux, QuickJS is the obvious choice. On the board, the deciding number may be the stack, not the speed: the Pico 2 gives the HTTP task 24 KB, and QuickJS uses 21 KB just to boot on a 64-bit host. If that holds on the 32-bit board, JerryScript's fixed arena and small stack are worth more there than a factor of two in throughput. The hardware loop will settle it.</p></div>
+
+<h2>What's next</h2>
+<ul>
+  <li><strong>The board.</strong> Run the same suite and benchmark on a Pico 2 through the hardware loop, and size its stacks and heap from what <code>/__metrics</code> reports.</li>
+  <li><strong>The outside world.</strong> Route the board's traffic through the USB host, for HTTPS JWKS and OpenTelemetry, and give it wall-clock time, so JWT expiry means something there.</li>
+  <li><strong>The platform question.</strong> A Zephyr/Rust build exists as a spike. It will face the same tests and benchmark before anyone chooses a stack, and whichever wins has to own its event loop and HTTP parsing.</li>
+</ul>
+
+<footer>
+  <p>isère is a personal project by <a href="https://github.com/jeeyo">jeeyo</a>. Source, tests and tools: <a href="https://github.com/jeeyo/isere">github.com/jeeyo/isere</a>. See also <a href="https://github.com/jeeyo/isere/blob/main/README.md">README</a>, <a href="https://github.com/jeeyo/isere/blob/main/BENCHMARK.md">BENCHMARK</a> and <a href="https://github.com/jeeyo/isere/blob/main/PORTING.md">PORTING</a>.</p>
+  <p>Numbers from commit <code>281f738</code>, Linux build.</p>
+</footer>
+
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+(() => {
+  const ENGINES = [
+    { key: 'q', name: 'QuickJS', color: 'var(--s1)' },
+    { key: 'j', name: 'JerryScript', color: 'var(--s2)' },
+  ];
+  const PHASES = [
+    { key: 'runtime', name: 'runtime', color: 'var(--s1)' },
+    { key: 'context', name: 'context', color: 'var(--s2)' },
+    { key: 'polyfills', name: 'polyfills', color: 'var(--s3)' },
+    { key: 'module', name: 'module', color: 'var(--s4)' },
+    { key: 'call', name: 'call', color: 'var(--s5)' },
+    { key: 'teardown', name: 'teardown', color: 'var(--s6)' },
+  ];
+  const cpu = [
+    { label: 'GET /', q: 4.7, j: 15.3 },
+    { label: 'mix', q: 25.6, j: 59.3 },
+    { label: 'JWKS cache hit', q: 121.9, j: 278.0 },
+    { label: 'JWKS cache miss', q: 158.8, j: 911.3 },
+  ];
+  const rps = [
+    { label: '1 connection', q: 16301, j: 14423 },
+    { label: '2 connections', q: 38282, j: 28334 },
+    { label: '4 connections', q: 97886, j: 49291 },
+  ];
+  const phases = [
+    { label: 'QuickJS, cold', p: [8, 44, 551, 37, 8, 35] },
+    { label: 'QuickJS, cold, lazy prelude', p: [7, 42, 357, 35, 8, 29] },
+    { label: 'QuickJS, cold, bytecode', p: [6, 39, 48, 30, 6, 27] },
+    { label: 'QuickJS, warm', p: [0, 0, 0, 0, 10, 0] },
+    { label: 'JerryScript, cold', p: [2, 0, 707, 30, 16, 42] },
+    { label: 'JerryScript, cold, lazy prelude', p: [2, 0, 425, 24, 14, 28] },
+    { label: 'JerryScript, warm', p: [0, 0, 0, 0, 21, 0] },
+  ];
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const tip = document.getElementById('tip');
+  const fmt = (v, unit) => (v >= 1000 ? Math.round(v).toLocaleString('en-US') : (v % 1 ? v.toFixed(1) : String(v))) + (unit ? ' ' + unit : '');
+
+  function el(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  function legend(id, items) {
+    document.getElementById(id).innerHTML = items.map((s) => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('');
+  }
+
+  function showTip(evt, html) {
+    tip.innerHTML = html;
+    tip.style.opacity = 1;
+    const pad = 14;
+    let x = evt.clientX + pad, y = evt.clientY + pad;
+    const r = tip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth - 8) x = evt.clientX - r.width - pad;
+    if (y + r.height > window.innerHeight - 8) y = evt.clientY - r.height - pad;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+
+  function hideTip(root) {
+    tip.style.opacity = 0;
+    root.classList.remove('hovering');
+    root.querySelectorAll('.mark.on').forEach((m) => m.classList.remove('on'));
+  }
+
+  function hover(root, marks, html) {
+    return {
+      enter(evt) { root.classList.add('hovering'); marks.forEach((m) => m.classList.add('on')); showTip(evt, html); },
+      move(evt) { showTip(evt, html); },
+      leave() { hideTip(root); },
+    };
+  }
+
+  function bind(target, h) {
+    target.addEventListener('mouseenter', h.enter);
+    target.addEventListener('mousemove', h.move);
+    target.addEventListener('mouseleave', h.leave);
+  }
+
+  // rounded data end, square at the baseline
+  function barPath(x, y, w, h, r) {
+    r = Math.min(r, w, h / 2);
+    if (w <= 0) return '';
+    return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`;
+  }
+
+  // Charts are drawn at the container's own width, so text stays 12px on a phone;
+  // below 560px the row labels move above their bars.
+  function layout(root, labelW) {
+    const W = Math.max(280, Math.min(760, root.clientWidth || 720));
+    const narrow = W < 560;
+    return { W, narrow, labelW: narrow ? 0 : labelW, labelH: narrow ? 18 : 0 };
+  }
+
+  function axis(svg, L, max, plotW, H, ticks, tickFmt) {
+    for (const t of ticks) {
+      const x = L.labelW + (t / max) * plotW;
+      el('line', { x1: x, x2: x, y1: 0, y2: H - 20, class: 'grid' }, svg);
+      const tx = el('text', { x, y: H - 4, 'text-anchor': t === 0 && L.narrow ? 'start' : 'middle' }, svg);
+      tx.textContent = tickFmt(t);
+    }
+  }
+
+  function rowLabel(svg, L, text, y, h) {
+    const t = L.narrow
+      ? el('text', { x: 0, y: y - 6 }, svg)
+      : el('text', { x: L.labelW - 10, y: y + h / 2 + 4, 'text-anchor': 'end' }, svg);
+    t.textContent = text;
+  }
+
+  function groupedBars(id, rows, unit, opts) {
+    const root = document.getElementById(id);
+    root.innerHTML = '';
+    const L = layout(root, opts.labelW || 130);
+    const W = L.W, valueW = 76, barH = 14, gap = 2, groupGap = 20;
+    const plotW = W - L.labelW - valueW;
+    const max = Math.max(...rows.flatMap((r) => ENGINES.map((e) => r[e.key])));
+    const groupH = ENGINES.length * barH + (ENGINES.length - 1) * gap;
+    const stride = L.labelH + groupH + groupGap;
+    const H = rows.length * stride - groupGap + 24;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': opts.aria });
+    axis(svg, L, max, plotW, H, L.narrow ? opts.ticks.filter((_, i) => i % 2 === 0) : opts.ticks, opts.tickFmt);
+    rows.forEach((row, gi) => {
+      const gy = gi * stride + L.labelH;
+      rowLabel(svg, L, row.label, gy, groupH);
+      ENGINES.forEach((eng, i) => {
+        const y = gy + i * (barH + gap);
+        const w = Math.max(2, (row[eng.key] / max) * plotW);
+        const mark = el('path', { d: barPath(L.labelW, y, w, barH, 4), fill: eng.color, class: 'mark' }, svg);
+        const v = el('text', { x: L.labelW + w + 6, y: y + barH - 3, class: 'val' }, svg);
+        v.textContent = fmt(row[eng.key], unit);
+        const hit = el('rect', { x: 0, y: y - 1, width: W, height: barH + 2, class: 'hit' }, svg);
+        bind(hit, hover(root, [mark], `${row.label}<br>${eng.name}: <b>${fmt(row[eng.key], unit)}</b>`));
+      });
+    });
+    root.appendChild(svg);
+  }
+
+  function stackedBars(id, rows, unit) {
+    const root = document.getElementById(id);
+    root.innerHTML = '';
+    const L = layout(root, 210);
+    const W = L.W, valueW = 70, barH = 18, rowGap = 12;
+    const plotW = W - L.labelW - valueW;
+    const totals = rows.map((r) => r.p.reduce((a, b) => a + b, 0));
+    const max = Math.max(...totals);
+    const stride = L.labelH + barH + rowGap;
+    const H = rows.length * stride - rowGap + 24;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': 'Per-request engine time by phase for each engine and mode' });
+    axis(svg, L, max, plotW, H, L.narrow ? [0, 400, 800] : [0, 200, 400, 600, 800], (t) => t + ' µs');
+    rows.forEach((row, ri) => {
+      const y = ri * stride + L.labelH;
+      rowLabel(svg, L, row.label, y, barH);
+      let x = L.labelW;
+      row.p.forEach((v, pi) => {
+        if (!v) return;
+        const w = (v / max) * plotW;
+        // 2px surface gap between touching segments
+        const seg = el('rect', { x, y, width: Math.max(1, w - 2), height: barH, fill: PHASES[pi].color, rx: 2, class: 'mark' }, svg);
+        const hit = el('rect', { x, y: y - 2, width: Math.max(4, w), height: barH + 4, class: 'hit' }, svg);
+        bind(hit, hover(root, [seg], `${row.label}<br>${PHASES[pi].name}: <b>${fmt(v, unit)}</b><br>total: ${fmt(totals[ri], unit)}`));
+        x += w;
+      });
+      const v = el('text', { x: x + 6, y: y + barH - 5, class: 'val' }, svg);
+      v.textContent = fmt(totals[ri], unit);
+    });
+    root.appendChild(svg);
+  }
+
+  function table(id, head, rows) {
+    const h = '<tr>' + head.map((c, i) => `<th${i ? ' class="n"' : ''}>${c}</th>`).join('') + '</tr>';
+    const b = rows.map((r) => '<tr>' + r.map((c, i) => `<td${i ? ' class="n"' : ''}>${c}</td>`).join('') + '</tr>').join('');
+    document.getElementById(id).innerHTML = `<table>${h}${b}</table>`;
+  }
+
+  function draw() {
+    groupedBars('chart-cpu', cpu, 'µs', { aria: 'CPU time per request by scenario for QuickJS and JerryScript', ticks: [0, 250, 500, 750], tickFmt: (t) => t + ' µs' });
+    groupedBars('chart-rps', rps, '', { labelW: 110, aria: 'Requests per second for GET / at 1, 2 and 4 connections', ticks: [0, 25000, 50000, 75000], tickFmt: (t) => (t / 1000) + 'k' });
+    stackedBars('chart-phases', phases, 'µs');
+  }
+
+  legend('legend-cpu', ENGINES);
+  legend('legend-rps', ENGINES);
+  legend('legend-phases', PHASES);
+  table('table-cpu', ['Scenario (4 connections)', 'QuickJS', 'JerryScript'], cpu.map((r) => [r.label, fmt(r.q, 'µs'), fmt(r.j, 'µs')]));
+  table('table-rps', ['GET / , keep-alive', 'QuickJS req/s', 'JerryScript req/s'], rps.map((r) => [r.label, fmt(r.q), fmt(r.j)]));
+  table('table-phases', ['Engine and mode', ...PHASES.map((p) => p.name), 'total'], phases.map((r) => [r.label, ...r.p, r.p.reduce((a, b) => a + b, 0)]));
+  draw();
+  let lastW = 0;
+  window.addEventListener('resize', () => {
+    const w = document.getElementById('chart-cpu').clientWidth;
+    if (w !== lastW) { lastW = w; draw(); }
+  });
+})();
+</script>
+</body>
+</html>
