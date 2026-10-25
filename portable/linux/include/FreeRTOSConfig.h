@@ -4,7 +4,7 @@
 /* FreeRTOS configuration for isère's Linux build (the FreeRTOS POSIX port).
  *
  * Only what isère needs, and only where it differs from FreeRTOS's defaults
- * (include/FreeRTOS.h). docs/FREERTOS_CONFIG.md classifies every setting as
+ * (include/FreeRTOS.h). PORTING.md (FreeRTOS configuration) classifies every setting as
  * essential or effective, says what breaks without it, and gives the
  * measurements behind the tunable ones.
  *
@@ -51,11 +51,11 @@
 /* kernel misuse fails loudly in every build */
 #define configASSERT( x )                       assert( x )
 
-/* --- effective: tunable, measured in docs/FREERTOS_CONFIG.md --- */
+/* --- effective: tunable, measured in PORTING.md (FreeRTOS configuration) --- */
 
 /* The tick is a SIGALRM that interrupts the httpd task, also while it waits in
- * poll(). 1000 Hz is what vTaskDelay() granularity needs at startup; it costs
- * no measurable throughput and about 1% of a core when idle. */
+ * poll(). JS timers wait in poll(), not on ticks, so here the tick only costs
+ * idle CPU: 1.5% of a core at 100 Hz against 4.1% at 1000 Hz, same throughput. */
 #ifndef configTICK_RATE_HZ
 #define configTICK_RATE_HZ                      ( 100 )
 #endif

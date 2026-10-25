@@ -4,7 +4,7 @@
 /* FreeRTOS configuration for isère on the Raspberry Pi Pico 2 (RP2350, both
  * Cortex-M33 cores, FreeRTOS SMP, the RP2350_ARM_NTZ port).
  *
- * docs/FREERTOS_CONFIG.md classifies every setting as essential or effective,
+ * PORTING.md (FreeRTOS configuration) classifies every setting as essential or effective,
  * says what breaks without it, and explains how this file differs from the
  * Linux one. Settings at FreeRTOS's defaults are left out.
  *

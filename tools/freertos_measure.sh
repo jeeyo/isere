@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Measures the FreeRTOS settings docs/FREERTOS_CONFIG.md classifies as effective,
+# Measures the FreeRTOS settings PORTING.md (FreeRTOS configuration) classifies as effective,
 # on the Linux build: each variant is built, then measured for idle CPU (10 s with
 # no traffic), wrk throughput and p99 at 4 connections, and the time a request
 # takes when it has to wait for a 1 ms timer.

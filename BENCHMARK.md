@@ -1,20 +1,19 @@
 # Benchmark
 
-All figures below are from commit `281f738` on the Linux build, both engines, measured with [`tools/bench.mjs`](tools/bench.mjs) and [`tools/startup.mjs`](tools/startup.mjs) (criteria 7, 8 and 10). Pico 2 figures will come from the same script through `tools/hil.sh` and aren't measured yet.
+Linux build, commit `281f738`, both JS engines. Pico 2 figures will be added from the same scripts through `tools/hil.sh`.
 
-## Setup
+- **Host:** Apple-silicon Mac, Docker (colima, 6 vCPUs, 8 GB), Ubuntu 24.04 aarch64 (`tools/linux.Dockerfile`).
+- **Server:** `RelWithDebInfo`, warm engines, defaults (16 MB heap budget, 12 connections, 100 Hz tick), `ISERE_NDJSON=0`.
+- **Client:** [`tools/bench.mjs`](tools/bench.mjs) in the same container, one request in flight per connection, a fresh server per cell.
+- **Duration:** 12 cells of 50 s per engine (about 10 minutes), then the metrics-overhead check.
 
-- **Host:** Apple-silicon Mac, Docker (colima VM, 6 vCPUs, 8 GB) with Ubuntu 24.04 aarch64 (`tools/linux.Dockerfile`). Four unrelated, mostly idle service containers ran in the same VM.
-- **Build:** `RelWithDebInfo`, warm engines (the default), `ISERE_NDJSON=0`, everything else at its defaults: 16 MB heap budget, 12-connection pool, 100 Hz FreeRTOS tick.
-- **Client:** `tools/bench.mjs` in the same container. Every connection is keep-alive with one request in flight. Latency is measured at the client; CPU, allocation, peak and net heap come from each response's `Server-Timing` header; the heap change after GC and the lowest free heap come from `/__metrics?gc=1` before and after each cell.
-- **Runs:** each engine ran 12 cells of 50 s (four scenarios at 1, 2 and 4 connections, 4 being the Pico 2's connection limit), about 10 minutes per engine, then the metrics-overhead check. Each cell starts a fresh server.
-
-| scenario | what each request does |
+| Scenario | Each request |
 |---|---|
 | hello | `GET /`: the smallest JS handler |
-| jwks-hit | `GET /verify` with an RS256 token; the JWKS is in the cache |
-| jwks-miss | the same with `jwks_ttl_ms: 0`, so every verification fetches the JWKS from this same server over loopback first |
-| mix | in turn: `/`, `/verify`, the static `/.well-known/jwks.json`, `/__version`, a 404 |
+| jwks-hit | `GET /verify` with an RS256 token, JWKS cached |
+| jwks-miss | the same with `jwks_ttl_ms: 0`: the JWKS is fetched from this server over loopback first |
+| mix | in turn: `/`, `/verify`, `/.well-known/jwks.json` (static), `/__version`, a 404 |
+| builtin | `GET /__version`: no JS |
 
 ## Reliability
 
@@ -23,11 +22,9 @@ All figures below are from commit `281f738` on the Linux build, both engines, me
 | requests over the 10-minute run | 12,336,255 | 7,063,209 |
 | errors (wrong status, dropped connection, socket error) | 0 | 0 |
 | crashes or engine restarts | 0 | 0 |
-| heap change per request after GC, worst cell | -0.018 B | 0.000 B |
+| worst heap change per request after GC | -0.018 B | 0.000 B |
 
-valgrind on both engines, warm and cold, shows no invalid accesses and no growth in lost or retained memory between a 20- and a 120-request run (`tests/e2e/leak.test.mjs`).
-
-## Results (keep-alive)
+## Keep-alive
 
 ### quickjs
 
@@ -93,9 +90,7 @@ Metrics cost: 48898 req/s with, 48524 req/s without (-0.8%).
 | hello | 2 | 16522 | 0.116 ms | 0.173 ms | 17.0 µs | 1302 B | 543 KB | 280.0 B | 0.000 B | 15809 KB | 0 |
 | hello | 4 | 31211 | 0.119 ms | 0.246 ms | 15.0 µs | 1302 B | 546 KB | 280.0 B | 0.000 B | 15809 KB | 0 |
 
-Before commit `281f738`, closed connections left dead slots in the poll set, so `builtin` at 4 connections managed 9.3k req/s and got slower with every connection served. It now runs at 26-28k req/s, on par with a bare Node.js server measured the same way.
-
-## Startup (criterion 10)
+## Startup
 
 | engine | variant | boot to first request (inside / client) | boot phases µs (runtime, context, polyfills, module) | per-request phases µs (runtime, context, polyfills, module, call, teardown) | p50 latency |
 |---|---|---|---|---|---:|
@@ -108,22 +103,34 @@ Before commit `281f738`, closed connections left dead slots in the poll set, so 
 | jerryscript | cold, eager polyfills | 4.68 ms / 6.2 ms | 0 / 0 / 0 / 0 | 2 / 0 / 707 / 30 / 16 / 42 | 915 µs |
 | jerryscript | cold | 4.90 ms / 6.0 ms | 0 / 0 / 0 / 0 | 2 / 0 / 425 / 24 / 14 / 28 | 593 µs |
 
-- **Boot to first request** is measured from `main()` (inside) and from spawning the process (client). It includes compiling the prelude and every module in the app, test endpoints included.
-- **Warm** engines pay the runtime, context, polyfill and module phases once at boot; a request costs only the call.
-- **Cold** engines pay them on every request. Parsing the prelude dominates; lazy prelude parts cut it by about 35-40%, and QuickJS bytecode almost removes it.
 
-## Reading the numbers
+## How to read the tables
 
-- **QuickJS is faster than JerryScript** on every scenario now: twice the throughput on `/` (98k against 49k req/s at 4 connections) and on JWT verification (7.6k against 3.5k). Before the rewrite it was the other way round (300 against 3,720 req/s under `wrk`), because QuickJS built a whole runtime for each request.
-- **A JWKS cache miss** costs one loopback fetch plus a fresh key import. On QuickJS that is 158 µs against 122 µs for a hit; on JerryScript 900 µs against 270 µs, mostly in parsing the JWKS JSON and importing the key in JavaScript.
-- **QuickJS's `net/req` from Server-Timing is 4.3 KB on `/`**, while the heap change after GC is zero. The request's objects are garbage at the moment the header is written and are freed by the next collection. JerryScript's arena behaves similarly, at a smaller scale.
-- **JerryScript's allocation figures** count its arena's growth during the request plus ArrayBuffer storage, which goes through isère's allocator; allocations freed within the same stretch are invisible (see `GOAL.md`, per-request CPU accounting).
-- **Throughput at 1 connection is bound by the round trip**, not the server: at 4 connections the same server serves several times more.
-- **Metrics cost** less than 5% of throughput (3.4% on QuickJS, within noise on JerryScript), measured as `/` at 4 connections with `ISERE_METRICS=1` and `=0`, alternated twice.
+| Column | Source |
+|---|---|
+| req/s, p50, p99 | the client, end to end |
+| CPU/req, alloc/req, peak heap, net/req | each response's `Server-Timing` header, averaged (peak: highest) |
+| heap Δ/req after GC | `/__metrics?gc=1` before and after the cell, divided by its requests: memory the server keeps |
+| min free heap | `/__metrics`: the lowest free heap of the 16 MB budget during the cell |
+
+- **net/req** is taken when the response is written, so it includes garbage the next collection frees; **heap Δ/req after GC** is what stays.
+- JerryScript's alloc and net figures are its arena's growth during the request plus ArrayBuffer storage; allocations freed within one stretch of work don't show.
+- At 1 connection, throughput is bound by the client's round trip more than by the server.
+- **Startup:** boot is measured from `main()` (inside) and from spawning the process (client), and includes compiling every module in the app. Warm engines pay the runtime, context, polyfill and module phases once at boot; cold engines pay them on every request.
+- **Metrics cost** is `/` at 4 connections with `ISERE_METRICS=1` and `=0`, alternated twice.
+
+To reproduce:
+
+```sh
+docker run --rm -v "$PWD":/app -w /app isere-linux node tools/bench.mjs \
+  --build quickjs=build-linux-quickjs --build jerryscript=build-linux-jerryscript
+docker run --rm -v "$PWD":/app -w /app isere-linux node tools/startup.mjs \
+  --build quickjs=build-linux-quickjs --build jerryscript=build-linux-jerryscript
+```
 
 ## Before the rewrite
 
-These are the figures this file held before the request path was rebuilt. They were measured with `wrk -t12 -c400` and a connection per request, on different hardware (WSL2 on an i5-9400F), so they only show the order of magnitude.
+Measured before the request path was rebuilt, with `wrk -t12 -c400` and a connection per request, on WSL2 on an Intel i5-9400F. Different hardware and method, so only the order of magnitude compares.
 
 Tested with WSL2 on Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz with 16GB RAM
 

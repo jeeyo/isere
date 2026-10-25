@@ -17,6 +17,35 @@ Both write `hil-results/<build-id>/`, containing:
 
 The exit codes are 0 for passed, 1 for failed tests, and 2 for a build, flash or boot failure.
 
+## Building and running the Linux build
+
+```sh
+git submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls
+cmake -B build -DJS_RUNTIME=quickjs      # or jerryscript
+cmake --build build -j
+./build/isere                             # http://127.0.0.1:8080
+```
+
+| CMake option | Values | Default |
+|---|---|---|
+| `TARGET_PLATFORM` | `linux`, `pico2` | `linux` |
+| `JS_RUNTIME` | `quickjs`, `jerryscript` | `quickjs` |
+| `ISERE_APP_DIRS` | app directories to embed (`;`-separated) | `app` |
+| `CMAKE_BUILD_TYPE` | | `RelWithDebInfo` |
+
+| Environment (Linux) | Meaning |
+|---|---|
+| `ISERE_CONFIG` | JSON merged over the app's `config` (passed to handlers as `env`), e.g. `{"jwks_url":"https://…"}` |
+| `ISERE_JS_MODE` | `warm` (default) or `cold` |
+| `ISERE_JS_BYTECODE=1` | QuickJS: compile once and load instances from bytecode |
+| `ISERE_JS_LAZY=0` | load all of the prelude up front |
+| `ISERE_HANDLER_TIMEOUT_MS` | handler deadline (default 5000) |
+| `ISERE_HEAD_BUDGET`, `ISERE_BODY_BUDGET` | per-connection budgets (default 8 KB and 16 KB) |
+| `ISERE_MAX_CONNECTIONS` | connection pool (default 12; the Pico 2 has 4) |
+| `ISERE_HEAP_SIZE` | heap budget (default 16 MB) |
+| `ISERE_CA_FILE` | CA bundle for HTTPS `fetch` |
+| `ISERE_METRICS=0`, `ISERE_NDJSON=0`, `ISERE_CPU_CLOCK=thread` | metrics switches |
+
 ## The test suite
 
 | File | Covers |
@@ -68,7 +97,7 @@ docker run --rm -v "$PWD":/app -w /app isere-linux tools/linux.sh
 | [`bench.mjs`](bench.mjs) | The benchmark (criterion 7): each engine at 1, 2 and 4 connections over hello, JWKS cache hit, cache miss and a mix, plus what metrics cost. It writes `BENCHMARK.md` tables. |
 | [`startup.mjs`](startup.mjs) | Boot time and per-request phase timings for each engine and mode (criterion 10). |
 | [`fuzz.sh`](fuzz.sh) | libFuzzer with ASan/UBSan on the HTTP parser. |
-| [`freertos_measure.sh`](freertos_measure.sh) | The FreeRTOS tick and preemption measurements in `docs/FREERTOS_CONFIG.md`. |
+| [`freertos_measure.sh`](freertos_measure.sh) | The FreeRTOS tick and preemption measurements in `PORTING.md (FreeRTOS configuration)`. |
 
 ## `tools/hil.sh`
 

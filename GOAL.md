@@ -98,7 +98,7 @@ All criteria are checked for both JS engines: QuickJS (quickjs-ng) and JerryScri
    - The tests cover the JS handler, the built-in endpoints and the 404 path.
 
 9. **FreeRTOS configuration is understood and documented**
-   - Every setting in `portable/*/include/FreeRTOSConfig.h` is listed in `docs/FREERTOS_CONFIG.md`.
+   - Every setting in `portable/*/include/FreeRTOSConfig.h` is listed in PORTING.md.
    - Each setting is classified as one of:
      - **essential**: isère does not build or work correctly without this value. For example, `configUSE_MUTEXES` is needed by the logger. The doc says what breaks without it.
      - **effective**: a tunable value that measurably changes performance or memory, such as tick rate, task stack sizes, timer queue length or priorities. The doc records the chosen value and the measurement behind it (Linux and Pico 2 numbers from the validation loops).
@@ -264,7 +264,7 @@ Status (Linux): M2–M6 are done and green on the Linux loop for both engines (1
 - [ ] **M3 Correct core**
   - Replace the HTTP request path with in-place parsing, and add the fuzzer. This structurally removes the header truncation and the per-field limits. Applying the same length-aware rule to the response path, instead of `strdup`, removes the NUL-body leak.
   - Fix the handler timeout and the busy-wait loop, plus the JerryScript hang under `wrk`.
-  - Write `docs/FREERTOS_CONFIG.md` (criterion 9), using the loops to measure the settings classified as effective.
+  - Write the FreeRTOS configuration section of PORTING.md (criterion 9), using the loops to measure the settings classified as effective.
   - Each fix starts with a failing test, and every fix is validated on Linux first and then on the Pico 2.
 - [ ] **M4 Multi-endpoint**
   - Add the router, warm runtime, per-endpoint isolation and timeouts, and serve `/.well-known/jwks.json`.
