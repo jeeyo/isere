@@ -246,7 +246,7 @@ This runs on the developer's Mac. A Raspberry Pi Debug Probe is attached to the 
 
 ## Milestones
 
-Status (Linux): M2–M6 are done and green on the Linux loop for both engines (122 tests including valgrind, fuzzing, wrk). Pico 2 confirmation is still open for every milestone. M7: the Zephyr/Rust spike is vendored in `spikes/zephyr-rust/` and builds for `native_sim`; its JS path aborts in `JS_FreeRuntime` on the first request, and its full evaluation, `docs/PLATFORM_DECISION.md` and the 10-minute `BENCHMARK.md` runs are not written yet.
+Status (Linux): M2–M6 are done and green on the Linux loop for both engines (123 tests including valgrind, fuzzing, wrk), and `BENCHMARK.md` holds the 10-minute Linux runs at commit `281f738`: 12.3M (QuickJS) and 7.1M (JerryScript) requests with zero errors and no heap growth. Pico 2 confirmation is still open for every milestone. M7 is set aside: the Zephyr/Rust spike is vendored in `spikes/zephyr-rust/` and builds for `native_sim`, but its JS path aborts in `JS_FreeRuntime` on the first request, and `docs/PLATFORM_DECISION.md` is not written.
 
 - [ ] **M1 Baseline**
   - [x] Move to quickjs-ng (the port adaptation follows #33's approach) and build it for the Pico 2.
