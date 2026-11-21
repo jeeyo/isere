@@ -1,6 +1,6 @@
 # Goal
 
-**Prove that a Raspberry Pi Pico 2 running isère can host a small, real-world multi-endpoint service — JWT verification against a cached JWKS, plus our own well-known JWKS endpoint — reliably, with live per-request CPU and memory metrics and published benchmarks.**
+**Prove that a microcontroller running isère can host a small, real-world multi-endpoint service — JWT verification against a cached JWKS, plus our own well-known JWKS endpoint — reliably, with live per-request CPU and memory metrics and published benchmarks. The first board is an NXP FRDM-K64F; a Raspberry Pi Pico 2 follows.**
 
 isère is a personal project. Its purpose is to show that a microcontroller can satisfy real small use cases, not to be a general-purpose platform. Everything below serves that demonstration.
 
@@ -10,9 +10,18 @@ isère is a personal project. Its purpose is to show that a microcontroller can 
 - **QuickJS cleanup comes first.** No new feature work starts until it is fixed (M2).
 - **Both JS engines stay.** QuickJS and JerryScript are both kept, built and tested. Fixes are required for both, including the QuickJS cleanup and startup work (criterion 10) and the JerryScript hang under load.
 
+## Reference boards
+
+| Order | Board | MCU | Memory | Network | Debug and flashing |
+|---|---|---|---|---|---|
+| 1 (now) | NXP FRDM-K64F | Kinetis MK64FN1M0, Cortex-M4F, 120 MHz | 256 KB SRAM (64 KB SRAM_L + 192 KB SRAM_U), 1 MB flash | on-board 10/100 Ethernet (ENET + KSZ8081 PHY) | on-board OpenSDA (CMSIS-DAP/DAPLink): SWD and a UART virtual COM port over one USB cable |
+| 2 (later) | Raspberry Pi Pico 2 (non-W) | RP2350, two Cortex-M33, 150 MHz | 520 KB SRAM, 4 MB flash | USB networking: CDC-ECM on macOS, RNDIS on Windows | Raspberry Pi Debug Probe: SWD and UART |
+
+The FRDM-K64F goes first because its Ethernet puts it on the LAN directly: no USB networking glue, no host routing for outbound HTTPS, and a real PHY to benchmark through. Its 256 KB of SRAM, half the Pico 2's, also makes it the harder memory budget, so what fits there fits on the Pico 2.
+
 ## Reference service
 
-One Pico 2 (non-W, networked over USB: CDC-ECM on macOS, RNDIS on Windows) serves at least these endpoints:
+Each board serves at least these endpoints:
 
 | Endpoint | Behaviour |
 |---|---|
@@ -23,11 +32,11 @@ One Pico 2 (non-W, networked over USB: CDC-ECM on macOS, RNDIS on Windows) serve
 The verifier's JWKS URL is configurable and must work against both:
 
 - **our own endpoint** on the same board (plain HTTP, loopback). This is the repeatable benchmark fixture.
-- **an external well-known JWKS over HTTPS**, reached through the USB host. This is the real-world demo.
+- **an external well-known JWKS over HTTPS**: through the LAN on the FRDM-K64F, through the USB host on the Pico 2. This is the real-world demo.
 
 ## Definition of done
 
-All criteria are checked for both JS engines: QuickJS (quickjs-ng) and JerryScript. Each one passes on the Linux build first (`tools/linux.sh`) and is then confirmed on a real Pico 2 (`tools/hil.sh`).
+All criteria are checked for both JS engines: QuickJS (quickjs-ng) and JerryScript. Each one passes on the Linux build first (`tools/linux.sh`) and is then confirmed on real hardware with `tools/hil.sh`: first on the FRDM-K64F, later on the Pico 2. If an engine cannot fit a board's memory, that is a result to measure and record, not a reason to drop the engine.
 
 1. **Multiple endpoints**
    - Endpoints are defined independently and routed by method and path inside isère. There is no single catch-all handler.
@@ -53,7 +62,7 @@ All criteria are checked for both JS engines: QuickJS (quickjs-ng) and JerryScri
    - From the receive buffer to the JS engine, the request is copied exactly once, into the engine's own strings, using length-aware calls. Nothing in the request path uses `strlen`, `strcpy`, `strncpy` or `strdup`.
    - Two requests arriving in one TCP segment are parsed one after another from the same buffer.
    - Ambiguous framing is rejected with `400`: both `Content-Length` and `Transfer-Encoding`, or duplicate `Content-Length` headers.
-   - The parser is fuzzed with AddressSanitizer in CI on the Linux build. The same C code runs on the Pico 2.
+   - The parser is fuzzed with AddressSanitizer in CI on the Linux build. The same C code runs on the boards.
    - The memory each connection uses is measured. It is proportional to the actual request, not to a worst-case layout.
 
 4. **The board can verify tokens using its own endpoint**
@@ -101,9 +110,9 @@ All criteria are checked for both JS engines: QuickJS (quickjs-ng) and JerryScri
    - Every setting in `portable/*/include/FreeRTOSConfig.h` is listed in PORTING.md.
    - Each setting is classified as one of:
      - **essential**: isère does not build or work correctly without this value. For example, `configUSE_MUTEXES` is needed by the logger. The doc says what breaks without it.
-     - **effective**: a tunable value that measurably changes performance or memory, such as tick rate, task stack sizes, timer queue length or priorities. The doc records the chosen value and the measurement behind it (Linux and Pico 2 numbers from the validation loops).
+     - **effective**: a tunable value that measurably changes performance or memory, such as tick rate, task stack sizes, timer queue length or priorities. The doc records the chosen value and the measurement behind it (Linux and board numbers from the validation loops).
      - **default**: should stay at FreeRTOS's default. The setting is removed from the file, or kept only with a comment saying why.
-   - Differences between the Linux and Pico 2 configs are explained, not accidental.
+   - Differences between the Linux and each board's config are explained, not accidental.
 
 10. **QuickJS cleanup is fixed and its startup cost is understood**
     - **Cleanup is fixed.** Creating and freeing a QuickJS runtime and context:
@@ -111,7 +120,7 @@ All criteria are checked for both JS engines: QuickJS (quickjs-ng) and JerryScri
       - leaves no objects behind
       - passes the valgrind growth checks, including requests that leave timers or promises pending
       - Each cause of a leftover object has its own test.
-    - **Startup time is measured inside isère**, with timestamps around each phase, on Linux and on the Pico 2, for both engines:
+    - **Startup time is measured inside isère**, with timestamps around each phase, on Linux and on each board, for both engines:
       - process or firmware boot to first request served
       - per request: runtime creation, context creation, polyfill setup, handler module evaluation, the handler call, and teardown
     - **Today's numbers (Linux, before any fixes):**
@@ -206,12 +215,18 @@ These are directions, not decisions.
   - Count allocations per request through the engine's allocator hooks.
   - JerryScript may need its own hook, and its per-request memory figures may stay approximate at first.
 - **Memory budget**
-  - The RP2350 has 520 KB of SRAM, and a TLS handshake needs roughly 40–60 KB next to the engine and N endpoints.
-  - The "lowest free heap so far" metric is the evidence for whether this fits.
+  - The FRDM-K64F has 256 KB of SRAM in two banks (64 KB SRAM_L, 192 KB SRAM_U); the RP2350 has 520 KB. A TLS handshake needs roughly 40–60 KB next to the engine and N endpoints.
+  - On the K64F that leaves little room: JerryScript's fixed arena is the likely first engine there, and QuickJS has to show it fits (on Linux it uses 21 KB of stack just to boot).
+  - The "lowest free heap so far" and `httpd_stack_used` metrics are the evidence for whether it fits.
+- **FRDM-K64F port** (`portable/frdm-k64f/`)
+  - NXP's MCUXpresso SDK for the board, clocks and ENET driver; FreeRTOS's `ARM_CM4F` port (already in `3rdparty/FreeRTOS`); lwIP over ENET, as on the Pico 2.
+  - mbedTLS entropy from the K64F's RNGA (`MBEDTLS_ENTROPY_HARDWARE_ALT`); the mmCAU can later accelerate SHA-256.
+  - CPU time from the Cortex-M4 DWT cycle counter, as on the RP2350.
+  - DHCP from the LAN by default, with a static address as a fallback; the board prints its address on the UART.
 
 ## Validation loops
 
-Both loops run the same black-box test suite: `tests/e2e/*.test.mjs`, written with Node's built-in `node:test` runner and needing no dependencies. Work on the Linux build until it's green, then confirm on hardware.
+Both loops run the same black-box test suite: `tests/e2e/*.test.mjs`, written with Node's built-in `node:test` runner and needing no dependencies. Work on the Linux build until it's green, then confirm on hardware: the FRDM-K64F first, the Pico 2 later.
 
 ### Linux first: `tools/linux.sh`
 
@@ -226,16 +241,32 @@ Both loops run the same black-box test suite: `tests/e2e/*.test.mjs`, written wi
 
 One iteration takes about a minute, most of it spent in valgrind.
 
-### Then hardware: `tools/hil.sh`
+### Then hardware: `tools/hil.sh --board <board>`
 
-This runs on the developer's Mac. A Raspberry Pi Debug Probe is attached to the Pico 2 over SWD and UART, and the Pico 2 is attached to the Mac over USB for networking. Setup is in `tools/README.md`.
+This runs on the developer's Mac. One script drives both boards; `--board` selects the flashing, serial and network steps. Setup for each board is in `tools/README.md`.
+
+#### First: FRDM-K64F (`--board frdm-k64f`, the default)
+
+The board's OpenSDA USB port is connected to the Mac, which gives SWD flashing and the UART in one cable. Its Ethernet port is connected to the LAN, or to the Mac through a USB-Ethernet adapter.
 
 1. **Build** the firmware, stamping it with a unique build ID (git hash, a dirty flag and a timestamp).
-2. **Flash** it over SWD with `openocd … program isere.elf verify reset`. This needs no BOOTSEL button and no drive copy, and it works even if the previous build crashed.
-3. **Capture** the board's UART output through the probe from the moment it boots.
-4. **Wait** for the board's network interface, identified by MAC `02:02:84:6a:96:00` because interface names vary, to get an IPv4 address from the board's DHCP server.
+2. **Flash** it over SWD through OpenSDA's CMSIS-DAP interface with `pyocd flash -t k64f isere.elf` (or OpenOCD). This needs no drag-and-drop onto the DAPLink drive, and it works even if the previous build crashed.
+3. **Capture** the board's UART output through OpenSDA's virtual COM port from the moment it boots.
+4. **Wait** for the board's IPv4 address, which it prints on the UART once DHCP (or its static fallback) completes.
 5. **Wait until the board is ready**: `GET /__version` must return the build ID from step 1. This proves the board isn't running stale firmware.
 6. **Run** the same test suite against the board (`ISERE_URL`). The valgrind tests skip themselves on hardware.
+7. **Benchmark** the board with `tools/bench.mjs --url`, then check it still answers.
+
+#### Later: Pico 2 (`--board pico2`)
+
+A Raspberry Pi Debug Probe is attached to the Pico 2 over SWD and UART, and the Pico 2 is attached to the Mac over USB for networking. The loop is the one `tools/hil.sh` runs today:
+
+1. **Build** the firmware with a unique build ID.
+2. **Flash** it over SWD with `openocd … program isere.elf verify reset`. This needs no BOOTSEL button and no drive copy.
+3. **Capture** the board's UART output through the probe from the moment it boots.
+4. **Wait** for the board's network interface, identified by MAC `02:02:84:6a:96:00` because interface names vary, to get an IPv4 address from the board's DHCP server.
+5. **Wait until the board is ready**: `GET /__version` must return the build ID from step 1.
+6. **Run** the same test suite against the board.
 7. **Benchmark** the board, then check it still answers.
 
 ### Both loops
@@ -246,7 +277,7 @@ This runs on the developer's Mac. A Raspberry Pi Debug Probe is attached to the 
 
 ## Milestones
 
-Status (Linux): M2–M6 are done and green on the Linux loop for both engines (123 tests including valgrind, fuzzing, wrk), and `BENCHMARK.md` holds the 10-minute Linux runs at commit `281f738`: 12.3M (QuickJS) and 7.1M (JerryScript) requests with zero errors and no heap growth. Pico 2 confirmation is still open for every milestone. M7 is set aside: the Zephyr/Rust spike is vendored in `spikes/zephyr-rust/` and builds for `native_sim`, but its JS path aborts in `JS_FreeRuntime` on the first request, and `docs/PLATFORM_DECISION.md` is not written.
+Status (Linux): M2–M6 are done and green on the Linux loop for both engines (123 tests including valgrind, fuzzing, wrk), and `BENCHMARK.md` holds the 10-minute Linux runs at commit `281f738`: 12.3M (QuickJS) and 7.1M (JerryScript) requests with zero errors and no heap growth. Hardware confirmation is still open for every milestone: the FRDM-K64F port and loop come next (M1), then the Pico 2. M7 is set aside: the Zephyr/Rust spike is vendored in `spikes/zephyr-rust/` and builds for `native_sim`, but its JS path aborts in `JS_FreeRuntime` on the first request, and `docs/PLATFORM_DECISION.md` is not written.
 
 - [ ] **M1 Baseline**
   - [x] Move to quickjs-ng (the port adaptation follows #33's approach) and build it for the Pico 2.
@@ -255,25 +286,28 @@ Status (Linux): M2–M6 are done and green on the Linux loop for both engines (1
   - [x] Stop freeing the connection inside the llhttp callback. This fixes the crash on two requests sent together, and valgrind now reports 0 memory errors.
   - [x] Write the remaining risky-handler cases on this branch in `node:test`, using #33's findings as a reference. Some need test-specific handlers, such as throwing, NUL bodies and timers.
   - [x] Run `tools/linux.sh` in CI, replacing the dead `unittests` step.
-  - [ ] Run the hardware loop for the first time on real hardware.
-  - [ ] Record today's Pico 2 numbers through the loop.
+  - [ ] Port isère to the FRDM-K64F (`portable/frdm-k64f/`): MCUXpresso SDK, FreeRTOS `ARM_CM4F`, lwIP over ENET, OpenSDA UART, RNGA entropy, DWT cycle counter.
+  - [ ] Add `--board frdm-k64f` to `tools/hil.sh` (pyOCD flashing, OpenSDA serial, address from the UART) and make it the default.
+  - [ ] Run the hardware loop for the first time on the FRDM-K64F.
+  - [ ] Record the FRDM-K64F's numbers through the loop: tests, benchmark, startup, lowest free heap and stack high-water mark, for each engine that fits.
+  - [ ] Later: run the Pico 2 loop (`--board pico2`) and record its numbers the same way.
 - [ ] **M2 QuickJS cleanup and startup first**
-  - Add per-phase startup timing (criterion 10), and record the QuickJS and JerryScript baselines on Linux and the Pico 2.
+  - Add per-phase startup timing (criterion 10), and record the QuickJS and JerryScript baselines on Linux and on each board.
   - Fix the QuickJS runtime and context cleanup. Each leftover-object cause gets a failing test first, and both loops must be green afterwards.
   - Reduce QuickJS's startup cost: warm runtime, precompiled bytecode, lazy polyfills. Measure each change.
 - [ ] **M3 Correct core**
   - Replace the HTTP request path with in-place parsing, and add the fuzzer. This structurally removes the header truncation and the per-field limits. Applying the same length-aware rule to the response path, instead of `strdup`, removes the NUL-body leak.
   - Fix the handler timeout and the busy-wait loop, plus the JerryScript hang under `wrk`.
   - Write the FreeRTOS configuration section of PORTING.md (criterion 9), using the loops to measure the settings classified as effective.
-  - Each fix starts with a failing test, and every fix is validated on Linux first and then on the Pico 2.
+  - Each fix starts with a failing test, and every fix is validated on Linux first and then on the boards (FRDM-K64F, then Pico 2).
 - [ ] **M4 Multi-endpoint**
   - Add the router, warm runtime, per-endpoint isolation and timeouts, and serve `/.well-known/jwks.json`.
 - [ ] **M5 Metrics**
   - Add per-request CPU and heap accounting, `Server-Timing`, `/__metrics`, serial NDJSON, and the calibration endpoints.
 - [ ] **M6 Outbound + crypto**
-  - Add `fetch` over HTTP then HTTPS, mbedTLS `crypto.subtle.verify`, host routing for the Pico 2, and the JWKS cache.
+  - Add `fetch` over HTTP then HTTPS, mbedTLS `crypto.subtle.verify`, and the JWKS cache. The FRDM-K64F reaches external hosts through its Ethernet; the Pico 2 later needs host routing over USB.
 - [ ] **M7 Zephyr/Rust spike** (time-boxed)
   - Build an equivalent with its own event loop and HTTP parser.
   - Run the same tests and benchmarks.
 - [ ] **M8 Decide and publish**
-  - Choose the stack and publish the final `BENCHMARK.md` with results on Pico 2.
+  - Choose the stack and publish the final `BENCHMARK.md` with results on the FRDM-K64F, and on the Pico 2 once its loop has run.

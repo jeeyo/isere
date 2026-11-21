@@ -2,7 +2,7 @@
 
 ![workflow](https://github.com/jeeyo/isere/actions/workflows/ci.yml/badge.svg)
 
-isère is a small serverless runtime for microcontrollers. You write HTTP endpoints in JavaScript, in the Cloudflare Workers style, and isère serves them from a Raspberry Pi Pico 2, on FreeRTOS, with QuickJS or JerryScript.
+isère is a small serverless runtime for microcontrollers. You write HTTP endpoints in JavaScript, in the Cloudflare Workers style, and isère serves them from a microcontroller board (first an NXP FRDM-K64F, then a Raspberry Pi Pico 2), on FreeRTOS, with QuickJS or JerryScript.
 
 The aim is to show that a microcontroller can host a small, real-world service: verifying JWTs against a cached JWKS, publishing its own keys, and reporting live CPU and memory figures for every request. It is a personal project, not a general-purpose platform.
 
@@ -17,7 +17,7 @@ export default {
 
 ## Current progress
 
-Everything below works on the Linux build and is checked by CI (`tools/linux.sh`, both engines). None of it has been confirmed on the Pico 2 yet.
+Everything below works on the Linux build and is checked by CI (`tools/linux.sh`, both engines). None of it has been confirmed on hardware yet.
 
 - [x] FreeRTOS kernel, with ports for Linux and the Raspberry Pi Pico 2 (RP2350)
 - [x] QuickJS (quickjs-ng) and JerryScript, both kept and tested
@@ -32,11 +32,13 @@ Everything below works on the Linux build and is checked by CI (`tools/linux.sh`
 
 ## Roadmap
 
-- [ ] Run the hardware loop (`tools/hil.sh`) on a Pico 2 and confirm everything above there
-- [ ] Size the Pico 2's stacks and heap from measurements, starting with QuickJS on the 24 KB httpd stack
-- [ ] Route the Pico 2 to the outside world through the USB host, for HTTPS JWKS and OpenTelemetry export
+- [ ] Port isère to the NXP FRDM-K64F (Cortex-M4F, 256 KB SRAM, on-board Ethernet): MCUXpresso SDK, FreeRTOS `ARM_CM4F`, lwIP over ENET
+- [ ] Add the FRDM-K64F to the hardware loop (`tools/hil.sh --board frdm-k64f`: pyOCD over OpenSDA) and confirm everything above there
+- [ ] Size the FRDM-K64F's stacks and heap from measurements, and find out whether QuickJS fits next to TLS in 256 KB
+- [ ] HTTPS JWKS and OpenTelemetry export from the FRDM-K64F, straight over its Ethernet
 - [ ] Wall-clock time on the board (SNTP), so JWT expiry can be checked there
-- [ ] Benchmarks on the Pico 2, published next to the Linux ones
+- [ ] Benchmarks on the FRDM-K64F, published next to the Linux ones
+- [ ] Later, the Raspberry Pi Pico 2: run its existing loop (`tools/hil.sh --board pico2`), route it to the outside world through the USB host, and publish its numbers
 - [ ] Compare FreeRTOS/C with a Zephyr/Rust build on the same tests and benchmark, and choose one
 - [ ] More boards: ESP32 Ethernet Kit ([#28](https://github.com/jeeyo/isere/pull/28))
 

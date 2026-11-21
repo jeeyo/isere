@@ -106,7 +106,7 @@
 
 <div class="kicker">isère</div>
 <h1>Serverless functions on a microcontroller</h1>
-<p class="lede">isère is a platform for running serverless functions on microcontrollers, such as the Raspberry Pi Pico 2. You write a function in JavaScript; isère routes requests to it, runs it, keeps it from hurting its neighbours, and tells you what every call cost. This is the story of making it do real work, fast.</p>
+<p class="lede">isère is a platform for running serverless functions on microcontrollers, starting with an NXP FRDM-K64F and then a Raspberry Pi Pico 2. You write a function in JavaScript; isère routes requests to it, runs it, keeps it from hurting its neighbours, and tells you what every call cost. This is the story of making it do real work, fast.</p>
 
 <div class="tiles">
   <div class="tile"><div class="num">98k req/s</div><div class="lbl">for the smallest function, QuickJS, 4 connections</div></div>
@@ -114,7 +114,7 @@
   <div class="tile"><div class="num">122 µs</div><div class="lbl">of CPU per call for the JWT-verifier use case</div></div>
 </div>
 
-<p class="note">Every number on this page comes from the Linux build of isère (FreeRTOS's POSIX port, in Docker on an Apple-silicon Mac), not from the Pico 2 itself. The same code, tests and benchmark script run on the board; its numbers will be published when the hardware loop has run. The raw figures are in <a href="https://github.com/jeeyo/isere/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
+<p class="note">Every number on this page comes from the Linux build of isère (FreeRTOS's POSIX port, in Docker on an Apple-silicon Mac), not from a board. The same code, tests and benchmark script will run on the FRDM-K64F first and the Pico 2 later; their numbers will be published when the hardware loop has run on each. The raw figures are in <a href="https://github.com/jeeyo/isere/blob/main/BENCHMARK.md">BENCHMARK.md</a>.</p>
 
 <h2>What isère is</h2>
 <p>Serverless platforms let you deploy a function and forget about servers. isère brings that model to a microcontroller: a board on your desk, or a $5 chip in a device, serving functions over HTTP.</p>
@@ -245,12 +245,13 @@ export default {
   <tr><td>Stack at boot (64-bit)</td><td>21 KB</td><td>6 KB</td></tr>
   <tr><td>Stack verifying a JWT over HTTPS</td><td>36 KB</td><td>10 KB</td></tr>
 </table></div>
-<div class="opinion"><p>On Linux, QuickJS is the obvious choice. On the board, the deciding number may be the stack, not the speed: the Pico 2 gives the HTTP task 24 KB, and QuickJS uses 21 KB just to boot on a 64-bit host. If that holds on the 32-bit board, JerryScript's fixed arena and small stack are worth more there than a factor of two in throughput. The hardware loop will settle it.</p></div>
+<div class="opinion"><p>On Linux, QuickJS is the obvious choice. On a board, the deciding number may be memory, not speed: QuickJS uses 21 KB of stack just to boot on a 64-bit host, and the FRDM-K64F, the first board, has 256 KB of SRAM in all to share between the engine, TLS and the network stack. If that holds on a 32-bit board, JerryScript's fixed arena and small stack are worth more there than a factor of two in throughput. The hardware loop will settle it.</p></div>
 
 <h2>What's next</h2>
 <ul>
-  <li><strong>The board.</strong> Run the same suite and benchmark on a Pico 2 through the hardware loop, and size its stacks and heap from what <code>/__metrics</code> reports.</li>
-  <li><strong>The outside world.</strong> Route the board's traffic through the USB host, for HTTPS JWKS and OpenTelemetry, and give it wall-clock time, so JWT expiry means something there.</li>
+  <li><strong>The first board.</strong> Port isère to an NXP FRDM-K64F, whose on-board Ethernet puts it on the LAN with no USB glue, run the same suite and benchmark on it through the hardware loop, and size its stacks and heap from what <code>/__metrics</code> reports. With 256 KB of SRAM, it is the tighter budget: what fits there fits elsewhere.</li>
+  <li><strong>The outside world.</strong> HTTPS JWKS and OpenTelemetry straight over the K64F's Ethernet, and wall-clock time, so JWT expiry means something there.</li>
+  <li><strong>The Pico 2, later.</strong> Its port and hardware loop already exist; it needs its traffic routed through the USB host, and its own numbers.</li>
   <li><strong>More use cases.</strong> JWT verification is the first workload, not the last; each new one should bring its own tests and benchmark scenario.</li>
   <li><strong>The platform question.</strong> A Zephyr/Rust build exists as a spike. It will face the same tests and benchmark before anyone chooses a stack, and whichever wins has to own its event loop and HTTP parsing.</li>
 </ul>

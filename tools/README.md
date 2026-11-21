@@ -5,7 +5,7 @@ Two scripts run the same black-box test suite, `tests/e2e/*.test.mjs`. It's writ
 | Script | Target | Use it |
 |---|---|---|
 | `tools/linux.sh` | Linux build on this machine | first, on every change: about three minutes per iteration, including fuzzing and valgrind |
-| `tools/hil.sh` | Raspberry Pi Pico 2 through a Debug Probe | once the Linux loop is green |
+| `tools/hil.sh` | a real board: Raspberry Pi Pico 2 through a Debug Probe today; NXP FRDM-K64F through OpenSDA planned first ([GOAL.md](../GOAL.md)) | once the Linux loop is green |
 
 Both write `hil-results/<build-id>/`, containing:
 - `summary.json`: each step's outcome and timing
@@ -101,7 +101,9 @@ docker run --rm -v "$PWD":/app -w /app isere-linux tools/linux.sh
 
 ## `tools/hil.sh`
 
-One iteration:
+Today this drives the Raspberry Pi Pico 2. The NXP FRDM-K64F comes first in the plan ([GOAL.md](../GOAL.md)): it will become `--board frdm-k64f`, flashing with `pyocd flash -t k64f` and reading the UART through OpenSDA's virtual COM port in one USB cable, and the Pico 2 steps below will move behind `--board pico2`.
+
+One iteration on the Pico 2:
 1. builds the firmware with a unique build ID
 2. flashes it over SWD with a Raspberry Pi Debug Probe (no BOOTSEL button, works even if the previous build crashed)
 3. records the board's UART output through the probe
