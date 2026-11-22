@@ -37,6 +37,8 @@ The first numbers from real hardware. JerryScript only: QuickJS needs more than 
 
 **20-minute soak** (mix at 2 connections, `/__metrics` sampled every 30 s): 48 req/s, p50 7.2 ms, 0 errors and 0 engine restarts. Free heap held at 99,868 bytes from the second minute to the last, and its lowest mark (91,603) never moved; JerryScript's heap stayed between 25.8 and 32.5 KB, a GC sawtooth. The board's own per-route latency stayed at p50 3.3 ms for `/` and 90.1 ms for `/verify` throughout.
 
+**Repeatability:** a second run of the whole matrix on the same firmware matched the first: CPU per request within 0.3% in every cell, p50 within 0.5 ms, the lowest free heap identical, 0 errors again. The p99 at four connections repeated almost exactly (jwks-hit 547 → 550 ms, mix 278 → 279 ms), so it is a fixed queueing pattern of the saturated board, not jitter. The only cells that moved were hello's p99 at one and two connections (39.7 → 13.4 ms, 23.3 → 13.5 ms), with unchanged p50 and CPU: tail noise from the Wi-Fi client.
+
 **How to read it:** the board is CPU-bound. A JS hello costs 3 ms of CPU and an RS256 verification 90 ms, so throughput stops growing once the CPU is busy (about 330 hellos or 11 verifications a second) and more connections only queue. CPU per request is the same at every concurrency level. Latency at one connection is the CPU time plus the network: `/__version`, which runs no JS, answers in 4.4 ms on keep-alive, about one Wi-Fi round trip.
 
 **Before the UART fix**, every request also waited for its NDJSON line to be written to the 115200-baud UART, about 11 ms per line with polled writes: hello at one connection measured 46 req/s and p50 21 ms. The UART is now drained by its interrupt from a 4 KB queue (`portable/frdm-k64f/src/board.c`).
