@@ -165,9 +165,15 @@ static int __out_reserve(httpd_conn_t *conn, size_t extra)
   if (conn->out_len + extra <= conn->out_cap) {
     return 0;
   }
+  size_t need = conn->out_len + extra;
   size_t cap = conn->out_cap ? conn->out_cap : 256;
-  while (cap < conn->out_len + extra) {
+  while (cap < need) {
     cap *= 2;
+  }
+  // a large body is sized once and exactly: doubling a 12 KB body to 16 KB wastes 4 KB,
+  // which on a small heap is the difference between answering and not
+  if (cap - need > 1024) {
+    cap = (need + 255) & ~(size_t)255;
   }
   char *out = isere_realloc(conn->out, cap);
   if (out == NULL) {
@@ -307,6 +313,20 @@ char *isere_response_body(isere_request_t *req, size_t body_len)
   __out_append_literal(conn, keep_alive ? "Connection: keep-alive\r\n\r\n" : "Connection: close\r\n\r\n");
 
   if (__out_reserve(conn, body_len + 1) < 0) {
+    // nothing has been sent yet: answer 503 rather than headers promising a body that
+    // isn't there (the head so far always fits, so this does too)
+    static const char busy[] = "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n"
+      "Connection: close\r\nRetry-After: 1\r\n\r\n";
+    conn->out_len = 0;
+    conn->out_sent = 0;
+    conn->body_len = 0;
+    if (__out_reserve(conn, sizeof(busy) - 1) == 0) {
+      memcpy(conn->out, busy, sizeof(busy) - 1);
+      conn->out_len = sizeof(busy) - 1;
+    }
+    conn->close_after = 1;
+    req->status = 503;
+    req->responded = 1;
     return NULL;
   }
   char *body = conn->out + conn->out_len;
@@ -332,11 +352,7 @@ void isere_response_finish(isere_request_t *req, const char *body, size_t body_l
 {
   char *p = isere_response_body(req, body_len);
   if (p == NULL) {
-    if (!req->responded) {
-      // out of memory for the body: send what fits, the headers say how long it should be
-      isere_response_end(req);
-      ((httpd_conn_t *)req->conn)->close_after = 1;
-    }
+    // already answered, or out of memory for the body and answered 503 instead
     return;
   }
   if (body_len > 0) {
@@ -531,6 +547,8 @@ static void __handle(httpd_conn_t *conn)
 }
 
 // grows conn->buf to at least `want` bytes, up to `limit`
+// grows the receive buffer to at least `want`, at most `limit`: -1 when that would pass
+// the limit (the budget), -2 when there is no memory for it
 static int __grow(httpd_conn_t *conn, size_t want, size_t limit)
 {
   if (want <= conn->cap) {
@@ -542,13 +560,21 @@ static int __grow(httpd_conn_t *conn, size_t want, size_t limit)
   if (cap < want) {
     return -1;
   }
-  char *buf = isere_realloc(conn->buf, cap);
-  if (buf == NULL) {
-    return -1;
+  for (;;) {
+    char *buf = isere_realloc(conn->buf, cap);
+    if (buf != NULL) {
+      conn->buf = buf;
+      conn->cap = cap;
+      return 0;
+    }
+    // memory is tight or fragmented: take a smaller step, never less than was asked for
+    size_t step = (cap - conn->cap) / 2;
+    if (cap == want || step < 512) {
+      return -2;
+    }
+    cap = conn->cap + step;
+    if (cap < want) cap = want;
   }
-  conn->buf = buf;
-  conn->cap = cap;
-  return 0;
 }
 
 // 1: a complete request is ready, 0: waiting for bytes, -1: rejected
@@ -768,8 +794,10 @@ static void __on_readable(httpd_conn_t *conn)
   if (conn->len == conn->cap) {
     size_t limit = conn->head_len == 0 ? __s.head_budget
       : conn->head_len + __s.body_budget + __s.body_budget / 4 + 64;
-    if (__grow(conn, conn->cap + 1, limit) < 0) {
-      __reject(conn, conn->head_len == 0 ? 431 : 413);
+    int r = __grow(conn, conn->cap + 1, limit);
+    if (r < 0) {
+      // over budget is the client's doing; out of memory is ours
+      __reject(conn, r == -2 ? 503 : conn->head_len == 0 ? 431 : 413);
       return;
     }
   }

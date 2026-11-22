@@ -40,6 +40,9 @@ int isere_tcp_socket_new()
     lwip_close(fd);
     return -1;
   }
+  // requests and responses are written whole: Nagle would only hold them for an ACK
+  int yes = 1;
+  lwip_setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
   return fd;
 }
 
@@ -136,6 +139,11 @@ int isere_tcp_accept(int fd, char *ip_addr, uint16_t *port)
   // disable tcp keepalive
   int keep_alive = 0;
   lwip_setsockopt(newfd, SOL_SOCKET, SO_KEEPALIVE, &keep_alive, sizeof(int));
+
+  // a response is written whole; with Nagle it would wait for the client's delayed ACK
+  // of the previous one on a keep-alive connection
+  int nodelay = 1;
+  lwip_setsockopt(newfd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
 
   // copy ip address string
   inet_ntoa_r(source_addr.sin_addr, ip_addr, INET_ADDRSTRLEN);

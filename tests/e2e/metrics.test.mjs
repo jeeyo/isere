@@ -108,9 +108,17 @@ describe('metrics accuracy (calibration)', () => {
   after(async () => { await server.stop(); });
 
   it('reports a 5 ms busy loop as 5 ms of CPU, ±10%', async () => {
-    const s = await sample(server.url, '/__calibrate/cpu');
-    const cpu = s.cpuMs - base.cpuMs;
-    assert.ok(Math.abs(cpu - 5) <= 0.5, `cpu ${cpu.toFixed(3)} ms (raw ${s.cpuMs}, baseline ${base.cpuMs})`);
+    // pairs of no-op and busy-loop requests: a slow board's per-request JS cost drifts by
+    // milliseconds with the engine's heap and GC state (7.5-10 ms for a no-op on the
+    // FRDM-K64F), so the busy loop is measured against a baseline taken right beside it
+    const diffs = [];
+    for (let i = 0; i < CALIBRATION_RUNS; i++) {
+      const noop = serverTiming((await request(server.url, '/__calibrate/noop', { timeoutMs: 10000 })).headers['server-timing']);
+      const busy = serverTiming((await request(server.url, '/__calibrate/cpu', { timeoutMs: 10000 })).headers['server-timing']);
+      diffs.push(busy.cpuMs - noop.cpuMs);
+    }
+    const cpu = median(diffs);
+    assert.ok(Math.abs(cpu - 5) <= 0.5, `cpu ${cpu.toFixed(3)} ms (median of ${diffs.length} paired differences)`);
   });
 
   it('reports 32 KB allocated and freed as 32 KB allocated, ±10%, with no net change', async () => {
@@ -124,6 +132,10 @@ describe('metrics accuracy (calibration)', () => {
   it('reports a 100 ms sleep as 100 ms of wall time, ±10%, and almost no CPU', async () => {
     const s = await sample(server.url, '/__calibrate/sleep', 10);
     assert.ok(Math.abs(s.wallMs - 100) <= 10, `wall ${s.wallMs} ms`);
-    assert.ok(s.cpuMs - base.cpuMs < 0.5, `sleep cost ${s.cpuMs} ms of CPU (baseline ${base.cpuMs})`);
+    // the timer and promise around the sleep cost a little JS work: well under 0.5 ms on a
+    // fast host, about 0.9 ms against an 8.8 ms no-op baseline on a 120 MHz board. Sleeping
+    // itself must cost nothing; a busy-wait would cost the whole 100 ms.
+    const allowed = Math.max(0.5, base.cpuMs * 0.25);
+    assert.ok(s.cpuMs - base.cpuMs < allowed, `sleep cost ${s.cpuMs} ms of CPU (baseline ${base.cpuMs}, allowed ${allowed.toFixed(2)} more)`);
   });
 });

@@ -32,8 +32,11 @@ extern "C" {
 #include <stdint.h>
 #include <sys/types.h>
 
-#define UV_POLLIN     0x1
-#define UV_POLLOUT    0x4
+/* uv_poll.c hands these to poll() as they are, so they must be the socket layer's
+ * own values: POLLOUT is 0x4 on Linux but 0x2 in lwIP, where 0x4 is POLLERR */
+#include "tcp.h"
+#define UV_POLLIN     POLLIN
+#define UV_POLLOUT    POLLOUT
 
 typedef struct uv_loop_s uv_loop_t;
 typedef struct uv__io_s uv__io_t;

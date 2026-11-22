@@ -277,7 +277,7 @@ A Raspberry Pi Debug Probe is attached to the Pico 2 over SWD and UART, and the 
 
 ## Milestones
 
-Status (Linux): M2–M6 are done and green on the Linux loop for both engines (123 tests including valgrind, fuzzing, wrk), and `BENCHMARK.md` holds the 10-minute Linux runs at commit `281f738`: 12.3M (QuickJS) and 7.1M (JerryScript) requests with zero errors and no heap growth. Hardware confirmation is still open for every milestone: the FRDM-K64F port and loop come next (M1), then the Pico 2. M7 is set aside: the Zephyr/Rust spike is vendored in `spikes/zephyr-rust/` and builds for `native_sim`, but its JS path aborts in `JS_FreeRuntime` on the first request, and `docs/PLATFORM_DECISION.md` is not written.
+Status (Linux): M2–M6 are done and green on the Linux loop for both engines (123 tests including valgrind, fuzzing, wrk), and `BENCHMARK.md` holds the 10-minute Linux runs at commit `281f738`: 12.3M (QuickJS) and 7.1M (JerryScript) requests with zero errors and no heap growth. On hardware, the FRDM-K64F runs isère with JerryScript: all 80 runnable e2e tests pass on the board through `tools/hil.sh`, and `BENCHMARK.md` holds its benchmark matrix and a 20-minute soak with zero errors and flat memory. QuickJS does not fit the board's 256 KB, and the Pico 2 is still to come. M7 is set aside: the Zephyr/Rust spike is vendored in `spikes/zephyr-rust/` and builds for `native_sim`, but its JS path aborts in `JS_FreeRuntime` on the first request, and `docs/PLATFORM_DECISION.md` is not written.
 
 - [ ] **M1 Baseline**
   - [x] Move to quickjs-ng (the port adaptation follows #33's approach) and build it for the Pico 2.
@@ -286,10 +286,10 @@ Status (Linux): M2–M6 are done and green on the Linux loop for both engines (1
   - [x] Stop freeing the connection inside the llhttp callback. This fixes the crash on two requests sent together, and valgrind now reports 0 memory errors.
   - [x] Write the remaining risky-handler cases on this branch in `node:test`, using #33's findings as a reference. Some need test-specific handlers, such as throwing, NUL bodies and timers.
   - [x] Run `tools/linux.sh` in CI, replacing the dead `unittests` step.
-  - [ ] Port isère to the FRDM-K64F (`portable/frdm-k64f/`): MCUXpresso SDK, FreeRTOS `ARM_CM4F`, lwIP over ENET, OpenSDA UART, RNGA entropy, DWT cycle counter.
-  - [ ] Add `--board frdm-k64f` to `tools/hil.sh` (pyOCD flashing, OpenSDA serial, address from the UART) and make it the default.
-  - [ ] Run the hardware loop for the first time on the FRDM-K64F.
-  - [ ] Record the FRDM-K64F's numbers through the loop: tests, benchmark, startup, lowest free heap and stack high-water mark, for each engine that fits.
+  - [x] Port isère to the FRDM-K64F (`portable/frdm-k64f/`): MCUXpresso SDK drivers (vendored), FreeRTOS `ARM_CM4F`, lwIP 2.2 over ENET, OpenSDA UART, RNGA entropy, a PIT time base, SNTP.
+  - [x] Add `--board frdm-k64f` to `tools/hil.sh` (OpenOCD flashing through OpenSDA, serial on the same cable, address from the UART) and make it the default.
+  - [x] Run the hardware loop for the first time on the FRDM-K64F: 80 of 80 runnable tests pass with JerryScript.
+  - [x] Record the FRDM-K64F's numbers through the loop: tests, benchmark, a 20-minute soak, lowest free heap and stack high-water mark (`BENCHMARK.md`). JerryScript fits; QuickJS does not (it ran out of memory parsing the prelude in a 190 KB heap).
   - [ ] Later: run the Pico 2 loop (`--board pico2`) and record its numbers the same way.
 - [ ] **M2 QuickJS cleanup and startup first**
   - Add per-phase startup timing (criterion 10), and record the QuickJS and JerryScript baselines on Linux and on each board.

@@ -5,7 +5,7 @@ Two scripts run the same black-box test suite, `tests/e2e/*.test.mjs`. It's writ
 | Script | Target | Use it |
 |---|---|---|
 | `tools/linux.sh` | Linux build on this machine | first, on every change: about three minutes per iteration, including fuzzing and valgrind |
-| `tools/hil.sh` | a real board: Raspberry Pi Pico 2 through a Debug Probe today; NXP FRDM-K64F through OpenSDA planned first ([GOAL.md](../GOAL.md)) | once the Linux loop is green |
+| `tools/hil.sh` | a real board: the NXP FRDM-K64F through its OpenSDA port (default), or a Raspberry Pi Pico 2 through a Debug Probe (`--board pico2`) | once the Linux loop is green |
 
 Both write `hil-results/<build-id>/`, containing:
 - `summary.json`: each step's outcome and timing
@@ -101,9 +101,37 @@ docker run --rm -v "$PWD":/app -w /app isere-linux tools/linux.sh
 
 ## `tools/hil.sh`
 
-Today this drives the Raspberry Pi Pico 2. The NXP FRDM-K64F comes first in the plan ([GOAL.md](../GOAL.md)): it will become `--board frdm-k64f`, flashing with `pyocd flash -t k64f` and reading the UART through OpenSDA's virtual COM port in one USB cable, and the Pico 2 steps below will move behind `--board pico2`.
+`--board` selects the board: `frdm-k64f` (the default) or `pico2`.
 
-One iteration on the Pico 2:
+One iteration on the FRDM-K64F:
+1. builds the firmware with a unique build ID, the test routes and a 1 s handler deadline (`ISERE_BOARD_ENV`, matching what the Linux test servers get)
+2. halts the chip through the Kinetis MDM-AP and flashes it over SWD with OpenOCD (`target/kx.cfg`), through the board's OpenSDA CMSIS-DAP interface
+3. records the board's UART output through OpenSDA's virtual COM port, on the same USB cable
+4. reads the board's DHCP address from the `isere: ip A.B.C.D` line it prints (or takes `BOARD_HOST`)
+5. waits until `/__version` reports the build ID from step 1
+6. runs the test suite against the board
+7. benchmarks with `wrk`, then checks the board still answers
+
+The FRDM-K64F runs JerryScript: QuickJS needs more than its 256 KB of SRAM.
+
+### FRDM-K64F setup
+
+```
+Mac ──USB── FRDM-K64F "SDA" port (power, SWD, UART at 115200)
+LAN ──Ethernet── FRDM-K64F RJ45 (DHCP; the board also needs a route to an NTP server)
+```
+
+```zsh
+brew install cmake node wrk open-ocd
+```
+
+The ARM toolchain is found on `PATH`, in `ARM_TOOLCHAIN_PATH`, or unpacked from Arm's release into the repository's ignored `.toolchain/` folder. Submodules: `3rdparty/FreeRTOS`, `3rdparty/jerryscript`, `3rdparty/lwip` (2.2.1) and `3rdparty/mbedtls`. NXP's SDK files the port needs are vendored in `portable/frdm-k64f/sdk/`.
+
+On macOS, a serial port's settings reset when its last handle closes, so `hil.sh` configures the port and reads it on one handle. A board whose OpenSDA still runs the 2014 mbed interface firmware can drop off USB after a failed transfer; a replug brings it back, and DAPLink firmware avoids it.
+
+### Pico 2
+
+One iteration on the Pico 2 (`--board pico2`, QuickJS by default):
 1. builds the firmware with a unique build ID
 2. flashes it over SWD with a Raspberry Pi Debug Probe (no BOOTSEL button, works even if the previous build crashed)
 3. records the board's UART output through the probe
@@ -112,7 +140,7 @@ One iteration on the Pico 2:
 6. runs the test suite against the board
 7. benchmarks with `wrk` at 1, 2 and 4 connections, then checks the board still answers
 
-### Wiring
+### Pico 2 wiring
 
 ```
 Mac ──USB── Debug Probe ──"D" (SWD) cable── Pico 2 SWD header (SWCLK / GND / SWDIO)
@@ -122,7 +150,7 @@ Mac ──USB── Debug Probe ──"D" (SWD) cable── Pico 2 SWD header (S
 Mac ──USB── Pico 2 (power + CDC-ECM network, 192.168.7.1)
 ```
 
-### macOS setup
+### Pico 2 setup on macOS
 
 ```zsh
 brew install cmake node wrk
@@ -140,8 +168,9 @@ If more than one `/dev/cu.usbmodem*` device exists, set `HIL_SERIAL` to the prob
 ### Examples
 
 ```zsh
-tools/hil.sh                      # full iteration, QuickJS
-tools/hil.sh --runtime jerryscript
-tools/hil.sh --no-bench           # build, flash and tests only
-tools/hil.sh --skip-flash         # re-test the firmware already on the board
+tools/hil.sh                                  # FRDM-K64F, JerryScript, full iteration
+tools/hil.sh --no-bench                       # build, flash and tests only
+BOARD_HOST=10.0.0.46 tools/hil.sh --skip-flash  # re-test the firmware already on the board
+tools/hil.sh --board pico2                    # Pico 2, QuickJS
+tools/hil.sh --board pico2 --runtime jerryscript
 ```

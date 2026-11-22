@@ -51,6 +51,8 @@
 // the board has no /dev/urandom; entropy comes from mbedtls_hardware_poll()
 #define MBEDTLS_NO_PLATFORM_ENTROPY
 #define MBEDTLS_ENTROPY_HARDWARE_ALT
+// the AES tables live in flash instead of 8 KB of RAM
+#define MBEDTLS_AES_ROM_TABLES
 #endif
 
 // ciphers for TLS 1.2

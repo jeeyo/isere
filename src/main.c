@@ -18,7 +18,12 @@
 #include "platform.h"
 #include "tcp.h"
 
+// Everything the tasks keep a pointer to is static: on Cortex-M, vTaskStartScheduler()
+// resets the main stack pointer, and interrupts then reuse main()'s stack frame.
 static isere_httpd_t httpd;
+static isere_logger_t logger;
+static isere_rtc_t rtc;
+static isere_tcp_t tcp;
 
 #ifdef ISERE_WITH_OTEL
 static isere_otel_t *__otel = NULL;
@@ -44,21 +49,18 @@ int main(void)
   uint64_t boot_us = platform_now_us();
   isere_mem_init(platform_heap_size());
 
-  isere_logger_t logger;
   memset(&logger, 0, sizeof(isere_logger_t));
   if (isere_logger_init(&logger) < 0) {
     fprintf(stderr, "Unable to initialize logger module");
     return EXIT_FAILURE;
   }
 
-  isere_rtc_t rtc;
   memset(&rtc, 0, sizeof(isere_rtc_t));
   if (isere_rtc_init(&rtc) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize rtc module");
     return EXIT_FAILURE;
   }
 
-  isere_tcp_t tcp;
   memset(&tcp, 0, sizeof(isere_tcp_t));
   if (isere_tcp_init(&tcp) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize tcp module");
@@ -66,7 +68,7 @@ int main(void)
   }
 
 #ifdef ISERE_WITH_OTEL
-  isere_otel_t otel;
+  static isere_otel_t otel;
   memset(&otel, 0, sizeof(isere_otel_t));
   if (isere_otel_init(&otel, &logger, &rtc) < 0) {
     logger.error(ISERE_LOG_TAG, "Unable to initialize otel module");

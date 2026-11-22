@@ -1,6 +1,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+void vAssertCalled(const char *const pcFileName, unsigned long ulLine);
+
 void vApplicationMallocFailedHook(void)
 {
   /* vApplicationMallocFailedHook() will only be called if

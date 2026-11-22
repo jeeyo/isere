@@ -78,11 +78,22 @@ void jerry_port_fatal(jerry_fatal_code_t code)
 
 // ------------------------------------------------------------------ port
 
+size_t isere_jerry_context_size(void);
+
+// js_vm_new() allocates the context first: jerry_init() writes to whatever this returns
+static jerry_context_t *__next_context = NULL;
+
+static size_t __context_total(void)
+{
+  return isere_jerry_context_size() + JERRY_GLOBAL_HEAP_SIZE * 1024;
+}
+
 size_t jerry_port_context_alloc(size_t context_size)
 {
-  size_t total = context_size + JERRY_GLOBAL_HEAP_SIZE * 1024;
-  __current = isere_malloc(total);
-  return __current != NULL ? total : 0;
+  (void)context_size;
+  __current = __next_context;
+  __next_context = NULL;
+  return __current != NULL ? __context_total() : 0;
 }
 
 jerry_context_t *jerry_port_context_get(void)
@@ -722,19 +733,19 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
     return NULL;
   }
 
-  // jerry_init() allocates the context through jerry_port_context_alloc()
+  // jerry_init() takes the context through jerry_port_context_alloc()
   js_vm_t *outer = __current_vm;
   jerry_context_t *outer_context = __current;
-  __current = NULL;
-  jerry_init(JERRY_INIT_EMPTY);
-  vm->context = __current;
-  if (vm->context == NULL) {
+  __next_context = isere_malloc(__context_total());
+  if (__next_context == NULL) {
     isere_free(vm->modules);
     isere_free(vm->resident);
     isere_free(vm);
-    __current = outer_context;
     return NULL;
   }
+  __current = NULL;
+  jerry_init(JERRY_INIT_EMPTY);
+  vm->context = __current;
   vm->prev = outer;
   __current_vm = vm;
   isere_jerry_set_stack_base(STACK_HERE());

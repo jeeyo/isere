@@ -65,6 +65,8 @@ describe('engine cleanup in cold mode', { skip: isRemote && 'needs ISERE_JS_MODE
   it('a busy loop interrupted at the deadline', () => leavesNothing('/__test/busy-loop', { status: 504, times: 2 }));
   it('an endless await loop interrupted at the deadline', () => leavesNothing('/__test/await-loop', { status: 504, times: 2 }));
   it('a fetch still in flight at teardown', () => leavesNothing(`/__test/fetch-pending?url=${encodeURIComponent(slow.url)}`));
+  // fails before it connects, so its socket watcher was never started
+  it('a fetch to a host that does not resolve', () => leavesNothing('/__test/fetch?url=http%3A%2F%2Fno-such-host.invalid%2F', { status: 502 }));
   it('a finished fetch', () => leavesNothing(`/__test/fetch?url=${encodeURIComponent(server.url + '/.well-known/jwks.json')}`));
   it('crypto.subtle with imported keys', () => leavesNothing('/__test/crypto'));
   it('a full JWT verification with its JWKS fetch', async () => {

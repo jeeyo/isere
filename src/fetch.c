@@ -76,7 +76,9 @@ void isere_fetch_init(void)
 
 static void __free(fetch_t *f)
 {
-  uv__io_stop(isere_loop(), &f->w, UV_POLLIN | UV_POLLOUT);
+  if (f->w.fd >= 0) {
+    uv__io_stop(isere_loop(), &f->w, UV_POLLIN | UV_POLLOUT);
+  }
   if (f->fd >= 0) {
     uv__platform_invalidate_fd(isere_loop(), f->fd);
     isere_tcp_close(f->fd);
@@ -184,7 +186,9 @@ static void __finish(fetch_t *f, const char *error)
   // the callback may start or cancel fetches, so take this one off the list first
   uv__queue_remove(&f->node);
   uv__queue_init(&f->node);
-  uv__io_stop(isere_loop(), &f->w, UV_POLLIN | UV_POLLOUT);
+  if (f->w.fd >= 0) {
+    uv__io_stop(isere_loop(), &f->w, UV_POLLIN | UV_POLLOUT);
+  }
   isere_timer_stop(&f->timer);
 
   isere_engine_fetch_done(f->vm, f->request_id, f->fn, &result);
@@ -511,6 +515,10 @@ int isere_fetch_start(js_vm_t *vm, const isere_fetch_request_t *request, js_ref_
     return -1;
   }
   f->fd = -1;
+  // not watched until connect() is under way: a fetch can fail before that (an unknown
+  // host, a refused connect) and must then not touch the loop's watcher table
+  f->w.fd = -1;
+  uv__queue_init(&f->w.watcher_queue);
   f->vm = vm;
   f->fn = fn;
   isere_request_t *req = isere_js_current_request();

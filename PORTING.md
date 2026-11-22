@@ -2,12 +2,13 @@
 
 This guide is for contributors bringing isère to a new board or operating system.
 
-isère keeps everything platform-specific in one folder: `portable/<platform>/`. The rest is shared by every platform: the event loop, HTTP server, JS engines, `fetch`, crypto and metrics. Two ports exist and serve as worked examples:
+isère keeps everything platform-specific in one folder: `portable/<platform>/`. The rest is shared by every platform: the event loop, HTTP server, JS engines, `fetch`, crypto and metrics. Three ports exist and serve as worked examples:
 
 | Port | What it is |
 |---|---|
 | [`portable/linux/`](portable/linux/) | A Linux process, using the FreeRTOS POSIX port. Used for development, tests and CI. |
-| [`portable/pico2/`](portable/pico2/) | Raspberry Pi Pico 2 (RP2350), using FreeRTOS SMP and lwIP, networked over USB. |
+| [`portable/frdm-k64f/`](portable/frdm-k64f/) | NXP FRDM-K64F (Cortex-M4F, 256 KB SRAM), using FreeRTOS's `ARM_CM4F` port, lwIP 2.2 over the on-board Ethernet, and NXP's SDK drivers vendored in `sdk/`. Validated on hardware with `tools/hil.sh`. |
+| [`portable/pico2/`](portable/pico2/) | Raspberry Pi Pico 2 (RP2350), using FreeRTOS SMP and lwIP, networked over USB. Not yet run on hardware. |
 
 You build a port with `cmake -DTARGET_PLATFORM=<platform>`. The value is the folder's name.
 
@@ -35,14 +36,14 @@ portable/<platform>/
 |---|---|
 | `ISERE_JS_STACK_KB` | C stack a JS engine may use, counted from where each stretch of JS work starts. It must be well below the httpd task's stack (see [Stacks](#stacks)). Deep recursion beyond it raises a `RangeError` instead of overflowing. |
 | `JERRY_GLOBAL_HEAP_SIZE` | JerryScript's arena, in KB. Each engine instance gets one: one in warm mode, one per request in cold mode. |
-| `WITH_LWIP` | Builds isère's own lwIP copy. The Pico 2 uses pico-sdk's instead. |
+| `WITH_LWIP` | Builds isère's own lwIP copy (`3rdparty/lwip`, 2.2.1, whose `contrib/ports/freertos` provides `sys_arch`). The FRDM-K64F uses it; the Pico 2 uses pico-sdk's instead. |
 
 ### `isere_config.h`
 
-| Setting | Linux | Pico 2 | Meaning |
-|---|---:|---:|---|
-| `ISERE_TCP_MAX_CONNECTIONS` | 12 | 4 | Connections from clients. Two more are reserved for connections the server opens to itself (`fetch` to its own endpoints). |
-| `ISERE_HTTPD_TASK_STACK_SIZE` | `configMINIMAL_STACK_SIZE` | 6144 words | The task that runs everything isère does. |
+| Setting | Linux | FRDM-K64F | Pico 2 | Meaning |
+|---|---:|---:|---:|---|
+| `ISERE_TCP_MAX_CONNECTIONS` | 12 | 4 | 4 | Connections from clients. Two more are reserved for connections the server opens to itself (`fetch` to its own endpoints). |
+| `ISERE_HTTPD_TASK_STACK_SIZE` | `configMINIMAL_STACK_SIZE` | 5120 words | 6144 words | The task that runs everything isère does. |
 
 Further sizes have defaults in the headers and can be overridden here:
 - the per-connection head and body budgets: `ISERE_HTTPD_HEAD_BUDGET` and `ISERE_HTTPD_BODY_BUDGET` in `include/httpd.h`
@@ -87,6 +88,18 @@ Sockets are non-blocking. A call that would block returns `ISERE_TCP_AGAIN`, and
 - **logger**: `error`, `warning`, `info` and `debug` with a tag and a format. Serialise output if other tasks also print.
 - **rtc**: get and set the date and time.
 - **fs**: reserved for a configuration file and static files. Today the app is embedded at build time and nothing calls it.
+
+### Pitfalls the FRDM-K64F port found
+
+The first port to run on hardware found these. Each is now fixed in shared code or easy to get right in a new port:
+
+- **`main()`'s locals don't survive the scheduler.** On Cortex-M, `vTaskStartScheduler()` resets the main stack pointer and interrupts reuse `main()`'s frame. Anything a task keeps a pointer to must be static (`src/main.c` does this now).
+- **`poll()` flags differ between socket layers.** `POLLOUT` is `0x4` on Linux but `0x2` in lwIP, where `0x4` is `POLLERR`. isère's `UV_POLLIN`/`UV_POLLOUT` now come from the socket layer's own headers; a hard-coded value makes every wait for writability hang.
+- **`fetch` to `127.0.0.1` needs a loopback interface.** In lwIP that is `LWIP_HAVE_LOOPIF` and `LWIP_NETIF_LOOPBACK`; the reference verifier fetches its JWKS from `127.0.0.1`.
+- **newlib-nano's `printf` has no `%zu` or 64-bit integers**, which `/__metrics` uses. Link full newlib (drop `--specs=nano.specs`), and give every task that prints a few KB more stack for it.
+- **Size the heap for its largest block, not its total.** On a small heap, a 16 KB request buffer growing to 20 KB needs both at once. httpd now sizes buffers exactly and backs off when memory is fragmented, and answers 503 rather than a truncated 200 or a false 413 when it still can't.
+- **A board can't be given environment variables.** Settings the tests expect (such as the 1 s handler deadline in `tests/e2e/lib/target.mjs`) are compiled in with `ISERE_BOARD_ENV` and applied with `setenv()` at boot.
+- **Set the wall clock.** JWT expiry needs real time; the K64F port starts SNTP after DHCP and waits up to 10 s for it before serving.
 
 ### Randomness and TLS
 
@@ -176,5 +189,5 @@ node tools/bench.mjs --url http://<board-ip>:8080
 
 - Build with `-DISERE_APP_DIRS="<repo>/app;<repo>/tests/e2e/app"`, so the test endpoints are there.
 - Tests that need the Linux build skip themselves; these use environment variables, valgrind or the server's output.
-- [`tools/hil.sh`](tools/hil.sh) wraps build, flash, boot check, the suite and the benchmark for the Pico 2. Copy it for a new board.
+- [`tools/hil.sh`](tools/hil.sh) wraps build, flash, boot check, the suite and the benchmark for the FRDM-K64F and the Pico 2 (`--board`). Add a case to it for a new board.
 - After a run, `/__metrics` shows `device.heap_min_free` and `device.httpd_stack_used`. They are the evidence that the heap and stack sizes fit.

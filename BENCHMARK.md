@@ -1,6 +1,6 @@
 # Benchmark
 
-Linux build, commit `281f738`, both JS engines. Pico 2 figures will be added from the same scripts through `tools/hil.sh`.
+Linux build at commit `281f738` with both JS engines, and the NXP FRDM-K64F board with JerryScript (below). Pico 2 figures will be added from the same scripts through `tools/hil.sh --board pico2`.
 
 - **Host:** Apple-silicon Mac, Docker (colima, 6 vCPUs, 8 GB), Ubuntu 24.04 aarch64 (`tools/linux.Dockerfile`).
 - **Server:** `RelWithDebInfo`, warm engines, defaults (16 MB heap budget, 12 connections, 100 Hz tick), `ISERE_NDJSON=0`.
@@ -14,6 +14,32 @@ Linux build, commit `281f738`, both JS engines. Pico 2 figures will be added fro
 | jwks-miss | the same with `jwks_ttl_ms: 0`: the JWKS is fetched from this server over loopback first |
 | mix | in turn: `/`, `/verify`, `/.well-known/jwks.json` (static), `/__version`, a 404 |
 | builtin | `GET /__version`: no JS |
+
+## FRDM-K64F
+
+The first numbers from real hardware. JerryScript only: QuickJS needs more than the board's 256 KB of SRAM.
+
+- **Board:** NXP FRDM-K64F, Cortex-M4F at 120 MHz, FreeRTOS `ARM_CM4F`, lwIP 2.2.1 over the on-board 100 Mbit/s Ethernet, `RelWithDebInfo` with GCC 14.2.
+- **Memory:** 217 KB of heap (all of SRAM_L and the rest of SRAM_U), of which JerryScript's arena takes 96 KB; 4 connections; NDJSON per-request lines on the UART.
+- **Client:** [`tools/bench.mjs --url`](tools/bench.mjs) on the Mac, over Wi-Fi to the LAN (ping 3–5 ms), one request in flight per connection, 50 s per cell. The JWKS-miss cells need a run-time config change a board can't take.
+
+| scenario | conns | req/s | p50 | p99 | CPU/req | alloc/req | peak heap | heap Δ/req after GC | min free heap | errors |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| hello | 1 | 106 | 7.76 ms | 39.66 ms | 2.99 ms | 296 B | 105 KB | 0.000 B | 94 KB | 0 |
+| hello | 2 | 219 | 8.14 ms | 23.29 ms | 3.05 ms | 296 B | 106 KB | 0.000 B | 94 KB | 0 |
+| hello | 4 | 263 | 15.08 ms | 23.77 ms | 3.08 ms | 296 B | 109 KB | 0.000 B | 94 KB | 0 |
+| jwks-hit | 1 | 10 | 95.5 ms | 99.7 ms | 89.9 ms | 8087 B | 111 KB | 0.000 B | 94 KB | 0 |
+| jwks-hit | 2 | 11 | 181.7 ms | 204.4 ms | 90.1 ms | 8087 B | 113 KB | 0.000 B | 94 KB | 0 |
+| jwks-hit | 4 | 11 | 273.1 ms | 547.5 ms | 90.1 ms | 8087 B | 116 KB | 0.000 B | 92 KB | 0 |
+| mix | 1 | 42 | 6.18 ms | 98.3 ms | 18.5 ms | 1900 B | 111 KB | 0.000 B | 92 KB | 0 |
+| mix | 2 | 48 | 7.44 ms | 183.1 ms | 18.6 ms | 2047 B | 113 KB | 0.000 B | 92 KB | 0 |
+| mix | 4 | 51 | 93.0 ms | 278.1 ms | 18.6 ms | 2071 B | 118 KB | 0.013 B | 89 KB | 0 |
+
+**20-minute soak** (mix at 2 connections, `/__metrics` sampled every 30 s): 48 req/s, p50 7.2 ms, 0 errors and 0 engine restarts. Free heap held at 99,868 bytes from the second minute to the last, and its lowest mark (91,603) never moved; JerryScript's heap stayed between 25.8 and 32.5 KB, a GC sawtooth. The board's own per-route latency stayed at p50 3.3 ms for `/` and 90.1 ms for `/verify` throughout.
+
+**How to read it:** the board is CPU-bound. A JS hello costs 3 ms of CPU and an RS256 verification 90 ms, so throughput stops growing once the CPU is busy (about 330 hellos or 11 verifications a second) and more connections only queue. CPU per request is the same at every concurrency level. Latency at one connection is the CPU time plus the network: `/__version`, which runs no JS, answers in 4.4 ms on keep-alive, about one Wi-Fi round trip.
+
+**Before the UART fix**, every request also waited for its NDJSON line to be written to the 115200-baud UART, about 11 ms per line with polled writes: hello at one connection measured 46 req/s and p50 21 ms. The UART is now drained by its interrupt from a 4 KB queue (`portable/frdm-k64f/src/board.c`).
 
 ## Reliability
 

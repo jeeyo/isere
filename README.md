@@ -17,9 +17,9 @@ export default {
 
 ## Current progress
 
-Everything below works on the Linux build and is checked by CI (`tools/linux.sh`, both engines). None of it has been confirmed on hardware yet.
+Everything below works on the Linux build and is checked by CI (`tools/linux.sh`, both engines). On hardware, the NXP FRDM-K64F passes the same test suite with JerryScript (`tools/hil.sh`), and its benchmark numbers are in [BENCHMARK.md](BENCHMARK.md).
 
-- [x] FreeRTOS kernel, with ports for Linux and the Raspberry Pi Pico 2 (RP2350)
+- [x] FreeRTOS kernel, with ports for Linux, the NXP FRDM-K64F (Cortex-M4F) and the Raspberry Pi Pico 2 (RP2350)
 - [x] QuickJS (quickjs-ng) and JerryScript, both kept and tested
 - [x] Several endpoints, routed by method and path, in warm engines
 - [x] Endpoints isolated from each other: errors, timeouts, runaway loops and engine out-of-memory fail one request
@@ -32,12 +32,13 @@ Everything below works on the Linux build and is checked by CI (`tools/linux.sh`
 
 ## Roadmap
 
-- [ ] Port isère to the NXP FRDM-K64F (Cortex-M4F, 256 KB SRAM, on-board Ethernet): MCUXpresso SDK, FreeRTOS `ARM_CM4F`, lwIP over ENET
-- [ ] Add the FRDM-K64F to the hardware loop (`tools/hil.sh --board frdm-k64f`: pyOCD over OpenSDA) and confirm everything above there
-- [ ] Size the FRDM-K64F's stacks and heap from measurements, and find out whether QuickJS fits next to TLS in 256 KB
+- [x] Port isère to the NXP FRDM-K64F (Cortex-M4F, 256 KB SRAM, on-board Ethernet): FreeRTOS `ARM_CM4F`, lwIP over ENET, JerryScript
+- [x] Run the hardware loop on the FRDM-K64F (`tools/hil.sh`): the full test suite passes there
+- [x] Size the FRDM-K64F's stacks and heap from measurements (QuickJS does not fit its 256 KB)
+- [ ] Fit TLS next to the engine on the FRDM-K64F
 - [ ] HTTPS JWKS and OpenTelemetry export from the FRDM-K64F, straight over its Ethernet
-- [ ] Wall-clock time on the board (SNTP), so JWT expiry can be checked there
-- [ ] Benchmarks on the FRDM-K64F, published next to the Linux ones
+- [x] Wall-clock time on the board (SNTP), so JWT expiry can be checked there
+- [x] Benchmarks on the FRDM-K64F, published next to the Linux ones
 - [ ] Later, the Raspberry Pi Pico 2: run its existing loop (`tools/hil.sh --board pico2`), route it to the outside world through the USB host, and publish its numbers
 - [ ] Compare FreeRTOS/C with a Zephyr/Rust build on the same tests and benchmark, and choose one
 - [ ] More boards: ESP32 Ethernet Kit ([#28](https://github.com/jeeyo/isere/pull/28))

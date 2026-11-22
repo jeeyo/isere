@@ -3,7 +3,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { startServer } from './lib/target.mjs';
+import { startServer, metrics } from './lib/target.mjs';
 import { request, rawRequest } from './lib/http.mjs';
 
 describe('risky handlers', () => {
@@ -72,7 +72,14 @@ describe('risky handlers', () => {
     assert.equal(res.status, 500);
   });
 
-  it('a 64 KB body arrives intact', async () => {
+  it('a 64 KB body arrives intact', async (t) => {
+    // the handler's 64 KB string and isère's 64 KB send buffer can't both fit next to
+    // the engine on a board with under 256 KB of heap (the FRDM-K64F has 189 KB)
+    const { heap_size } = (await metrics(server.url)).device;
+    if (heap_size !== 0 && heap_size < 256 * 1024) {
+      t.skip(`a ${Math.round(heap_size / 1024)} KB heap can't hold a 64 KB response twice`);
+      return;
+    }
     const res = await request(server.url, '/__test/big-body');
     assert.equal(res.status, 200);
     assert.equal(res.raw.length, 64 * 1024);
