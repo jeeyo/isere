@@ -50,6 +50,54 @@ Further sizes have defaults in the headers and can be overridden here:
 - the largest `fetch` response: `ISERE_FETCH_MAX_RESPONSE` in `src/fetch.c`
 - the handler deadline: `ISERE_HANDLER_TIMEOUT_MS` in `src/engine.c`
 
+## Choosing a JavaScript engine
+
+isère runs the same app on either of two engines, chosen when the build is configured:
+
+```sh
+cmake -B build -DTARGET_PLATFORM=<platform> -DJS_RUNTIME=quickjs       # the default
+cmake -B build -DTARGET_PLATFORM=<platform> -DJS_RUNTIME=jerryscript
+```
+
+`JS_RUNTIME` is a top-level option (`CMakeLists.txt`), not something a port sets: one port can build either engine, and a build directory holds one. The scripts take it as `--runtime` (`tools/linux.sh`, `tools/hil.sh`). Both engines go through the same binding interface (`src/runtimes/<engine>/vm.c`), run the same prelude and pass the same test suite; CI builds and tests both on every push.
+
+Independently of the engine, `ISERE_JS_MODE` selects **warm** (the default: one engine instance for the whole process) or **cold** (a fresh instance per request). It is read with `getenv()` at start-up; on a board, compile it in with `ISERE_BOARD_ENV` (for example `-DISERE_BOARD_ENV="ISERE_JS_MODE=cold"`, see [Pitfalls](#pitfalls-the-frdm-k64f-port-found)). Cold mode needs room for an instance per request in flight, so on a small board it multiplies the memory below by the number of connections.
+
+### Which engine fits a board
+
+| | QuickJS (quickjs-ng) | JerryScript |
+|---|---|---|
+| Memory | Allocates from isère's heap as it goes, with no fixed ceiling. Peak heap for a hello at one connection on 64-bit Linux: 367 KB. | A fixed arena per instance (`JERRY_GLOBAL_HEAP_SIZE`), allocated once as **one contiguous block**, plus small allocations outside it. |
+| Speed (64-bit Linux, keep-alive, `BENCHMARK.md`) | 1.1× JerryScript's throughput for a hello at one connection, 2.0× at four; 1.75–2.2× for an RS256 verification. | Slower, but bounded: the arena caps what a handler can use. |
+| C stack (64-bit Linux, after boot) | 21.1 KB | 5.9 KB |
+| FRDM-K64F (256 KB SRAM, 217 KB heap) | Does not fit: ran out of memory parsing the prelude, before serving a request. | Fits with a 96 KB arena: all tests pass, about 85 KB of heap stays free. |
+
+Start a new board with **JerryScript** if it has under about 512 KB of RAM, and confirm QuickJS from measurements if you want its speed. Then size the engine:
+
+- **JerryScript's arena** must hold the prelude (about 20 KB) and every route's module (each stays resident in a warm instance), plus what one request needs at its peak: a 16 KB request body with its decoded text and an echoed JSON copy needed about 48 KB. On the FRDM-K64F, 48 KB ran out on many headers, 80 KB ran out once the test routes' modules were resident, and 96 KB passes. Read `js.heap_used` and the per-route `resident` figures at `/__metrics` after running the suite.
+- **Leave the rest for the C heap.** The arena competes with connection buffers, `/__metrics` and a TLS handshake (40–60 KB). On the FRDM-K64F, a 96 KB arena with nothing else trimmed left too little; it fit after measured trims elsewhere (smaller network buffers, an httpd stack sized from its high-water mark).
+- **The arena needs one contiguous block.** With `heap_5` over several RAM banks, it must fit in a single region: the K64F's 64 KB SRAM_L can never hold it.
+- **`ISERE_JS_STACK_KB`** is the engine's C stack budget for both engines (JerryScript's `JERRY_STACK_LIMIT` is set from it). On the FRDM-K64F, unbounded recursion stopped at a 16 KB budget peaked at 17.5 KB of httpd stack, and at 15.1 KB with a 14 KB budget; size the httpd task from `device.httpd_stack_used` after the recursion test.
+
+### What each engine needs from a port
+
+**QuickJS** assumes a POSIX host. On a newlib board (see `portable/frdm-k64f/platform_extras.cmake` and `portable/pico2/platform_extras.cmake`):
+- compile its sources with `EMSCRIPTEN` (no pthreads or C11 atomics, which newlib lacks; this also turns off computed-goto dispatch) and `_POSIX_MONOTONIC_CLOCK=200112L`, and force-include a small compat header (`include/quickjs_compat.h`) for the `PRId64`-style macros some toolchains hide;
+- provide `clock_gettime()`, which newlib declares only with `_POSIX_TIMERS`: the K64F port implements it on its PIT timer in `src/syscalls.c` and declares it in the compat header;
+- with GCC 14 on arm-none-eabi, add `-Wno-incompatible-pointer-types` for its sources: `int32_t` is `long` there, and quickjs-ng mixes `int *` and `int32_t *`, which GCC 14 makes an error;
+- link `libm`.
+
+**JerryScript** needs less:
+- `JERRY_GLOBAL_HEAP_SIZE` in `platform_features.cmake`, as a cache string in KB, for example `set(JERRY_GLOBAL_HEAP_SIZE "(96)" CACHE STRING "")`;
+- the port's include directories on the `jerry-core` target, if its headers need board definitions;
+- with CMake 4, `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` at configure time, because JerryScript's own `CMakeLists.txt` declares an older minimum (`tools/hil.sh` passes it).
+
+isère allocates JerryScript's context and arena itself before `jerry_init()` (`src/runtimes/jerryscript/vm.c`), so an arena that doesn't fit makes the engine fail to start with an error instead of crashing.
+
+### Checking the choice on hardware
+
+`/__version` reports the running engine (`"runtime"`) and mode (`"js_mode"`), and the boot log prints both: `[httpd] Listening on port 8080 (jerryscript, warm)`. An engine that can't start logs `unable to start the JS engine` and httpd does not listen. Then run the suite and the benchmark through `tools/hil.sh --runtime <engine>` and compare `heap_min_free`, `js.heap_used` and `httpd_stack_used` at `/__metrics` against the sizes above.
+
 ## Modules to implement
 
 Every isère module runs on **one task**, the httpd task, around one event loop. Your platform code never has to be reentrant with respect to isère, but it must never block for long: a blocking call stalls every connection.
