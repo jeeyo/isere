@@ -11,7 +11,7 @@ on:
 jobs:
   linux:
     # tools/linux.sh: build, fuzz the HTTP parser under ASan, the node:test suite
-    # (with valgrind), and wrk. The same loop runs locally and on the Pico 2.
+    # (with valgrind), and wrk. The same loop runs locally.
     name: Linux loop (${{ matrix.runtime }})
     runs-on: ubuntu-24.04
     strategy:
