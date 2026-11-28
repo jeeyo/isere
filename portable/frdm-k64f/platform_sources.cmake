@@ -1,7 +1,7 @@
-set(K64F_DIR ${ROOT}/portable/frdm-k64f)
+set(K64F_DIR ${ISERE_DIR}/portable/frdm-k64f)
 set(K64F_SDK ${K64F_DIR}/sdk)
 
-list(APPEND SOURCES
+list(APPEND ISERE_CORE_SOURCES
   ${K64F_DIR}/src/board.c
   ${K64F_DIR}/src/ethernetif.c
   ${K64F_DIR}/src/syscalls.c

@@ -5,9 +5,11 @@ set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
-# arm-none-eabi-gcc from ARM_TOOLCHAIN_PATH, the repository's ignored .toolchain/ folder, or PATH
+# arm-none-eabi-gcc from ARM_TOOLCHAIN_PATH, a .toolchain/ folder in the app or in isère, or PATH
 if(NOT ARM_TOOLCHAIN_PATH)
-  file(GLOB _local_toolchain "${CMAKE_CURRENT_LIST_DIR}/../../.toolchain/arm-gnu-toolchain-*/bin")
+  file(GLOB _local_toolchain
+    "${CMAKE_SOURCE_DIR}/.toolchain/arm-gnu-toolchain-*/bin"
+    "${CMAKE_CURRENT_LIST_DIR}/../../.toolchain/arm-gnu-toolchain-*/bin")
   if(_local_toolchain)
     list(GET _local_toolchain 0 ARM_TOOLCHAIN_PATH)
   endif()
@@ -28,8 +30,8 @@ set(CMAKE_EXE_LINKER_FLAGS_INIT "${K64F_CPU_FLAGS} --specs=nosys.specs -Wl,--gc-
 
 set(WITH_LWIP ON)
 
-if(WITH_OTEL)
-  set(WITH_OTEL OFF)
+if(ISERE_WITH_OTEL)
+  set(ISERE_WITH_OTEL OFF)
   message(WARNING "Target 'frdm-k64f' doesn't support OpenTelemetry yet -- disabled")
 endif()
 
@@ -46,3 +48,10 @@ set(ISERE_BOARD_ENV "" CACHE STRING "Environment variables set at boot")
 
 # C stack a JS engine may use on the httpd task (ISERE_HTTPD_TASK_STACK_SIZE: 20 KB)
 set(ISERE_JS_STACK_KB 14)
+
+# quickjs-ng assumes a POSIX host (the same settings as the Pico 2): EMSCRIPTEN turns off
+# its pthread and C11 atomics support, _POSIX_MONOTONIC_CLOCK makes newlib declare
+# CLOCK_MONOTONIC, and int32_t is long on arm-none-eabi, so its int/int32_t pointer mixes
+# are errors in GCC 14
+set(ISERE_QUICKJS_DEFINITIONS EMSCRIPTEN _POSIX_MONOTONIC_CLOCK=200112L)
+set(ISERE_QUICKJS_OPTIONS -include ${CMAKE_CURRENT_LIST_DIR}/include/quickjs_compat.h -Wno-incompatible-pointer-types)

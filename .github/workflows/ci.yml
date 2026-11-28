@@ -50,3 +50,78 @@ jobs:
         with:
           report_paths: 'hil-results/*/tests.xml'
           check_name: Tests (${{ matrix.runtime }})
+
+  hello-world:
+    # the app template (examples/hello-world, seed of jeeyo/isere-hello-world) built
+    # against this checkout through isere_import.cmake, then run and asked for its greeting
+    name: Template app (${{ matrix.runtime }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [quickjs, jerryscript]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the submodules the Linux build needs
+        run: git submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls
+
+      - name: The template's isere_import.cmake is the canonical one
+        run: cmp examples/hello-world/isere_import.cmake cmake/isere_import.cmake
+
+      - name: Build
+        run: |
+          cmake -S examples/hello-world -B build-hello -DISERE_PATH="$GITHUB_WORKSPACE" -DJS_RUNTIME=${{ matrix.runtime }}
+          cmake --build build-hello -j"$(nproc)"
+
+      - name: Run it and ask for the greeting
+        run: |
+          ./build-hello/hello_world > hello.log 2>&1 &
+          for i in $(seq 50); do curl -sf -o /dev/null http://127.0.0.1:8080/__version && break; sleep 0.2; done
+          body="$(curl -sf http://127.0.0.1:8080/)"
+          version="$(curl -sf http://127.0.0.1:8080/__version)"
+          kill %1
+          echo "GET / -> $body"; echo "GET /__version -> $version"
+          test "$body" = "hello from isère"
+          echo "$version" | grep -q '+isere\.'
+
+  firmware-build:
+    # the FRDM-K64F firmware, build only: isère's own app and the template, both engines
+    name: FRDM-K64F build (${{ matrix.project }}, ${{ matrix.runtime }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [isere, hello-world]
+        runtime: [quickjs, jerryscript]
+    env:
+      ARM_GCC: arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi
+      ARM_GCC_SHA256: 62a63b981fe391a9cbad7ef51b17e49aeaa3e7b0d029b36ca1e9c3b2a9b78823
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the submodules the board build needs
+        run: git submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls 3rdparty/lwip
+
+      - name: Install Arm GNU Toolchain 14.2.Rel1 (checksum-pinned)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gcc.tar.xz" \
+            "https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu/14.2.rel1/binrel/$ARM_GCC.tar.xz"
+          echo "$ARM_GCC_SHA256  $RUNNER_TEMP/gcc.tar.xz" | sha256sum -c -
+          tar -xf "$RUNNER_TEMP/gcc.tar.xz" -C "$RUNNER_TEMP"
+          echo "ARM_TOOLCHAIN_PATH=$RUNNER_TEMP/$ARM_GCC/bin" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          if [ "${{ matrix.project }}" = isere ]; then
+            cmake -S . -B build-fw -DTARGET_PLATFORM=frdm-k64f -DJS_RUNTIME=${{ matrix.runtime }} \
+              -DARM_TOOLCHAIN_PATH="$ARM_TOOLCHAIN_PATH"
+            name=isere
+          else
+            cmake -S examples/hello-world -B build-fw -DISERE_PATH="$GITHUB_WORKSPACE" -DISERE_BOARD=frdm-k64f \
+              -DJS_RUNTIME=${{ matrix.runtime }} -DARM_TOOLCHAIN_PATH="$ARM_TOOLCHAIN_PATH"
+            name=hello_world
+          fi
+          cmake --build build-fw -j"$(nproc)"
+          test -f "build-fw/$name.elf" && test -f "build-fw/$name.bin"
+          "$ARM_TOOLCHAIN_PATH/arm-none-eabi-size" "build-fw/$name.elf"

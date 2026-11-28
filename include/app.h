@@ -47,6 +47,10 @@ typedef struct {
 
 extern const isere_app_t isere_app;
 
+// the build this firmware was made from, served at /__version; each app generates it
+// (cmake/build_info.c.in), so it can differ between apps built from one isère core
+extern const char isere_build_id[];
+
 #ifdef __cplusplus
 }
 #endif

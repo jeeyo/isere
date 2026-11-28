@@ -16,9 +16,9 @@ You build a port with `cmake -DTARGET_PLATFORM=<platform>`. The value is the fol
 
 ```
 portable/<platform>/
-├── platform_features.cmake   options set before project(): toolchain, SDK, engine sizes
-├── platform_sources.cmake    platform sources added to the build (FreeRTOS port, heap, drivers)
-├── platform_extras.cmake     include paths, libraries and flags added after the target exists
+├── platform_features.cmake   before project(): toolchain, SDK, engine sizes and flags
+├── platform_sources.cmake    the board's sources, appended to isère's core (FreeRTOS port, heap, drivers)
+├── platform_extras.cmake     the board's flags and libraries on the core, and isere_platform_target()
 ├── include/
 │   ├── FreeRTOSConfig.h      the kernel configuration (see below)
 │   └── isere_config.h        isère's own sizes and limits
@@ -30,12 +30,27 @@ portable/<platform>/
     └── fs.c                  reserved; may be empty
 ```
 
+### How the build uses these files
+
+isère is built through its CMake API (`cmake/isere.cmake`), for its own firmware and for app projects alike (see [`examples/hello-world`](examples/hello-world)). The board files plug into it:
+
+1. **`platform_features.cmake`** is included by `cmake/isere_init.cmake` before the project's `project()`, at the top level. It chooses the toolchain and sets the variables below.
+2. **`isere_init()`**, after `project()`, builds isère's core once as the target `isere_core`. It includes **`platform_sources.cmake`**, which appends the board's sources to `ISERE_CORE_SOURCES`, then **`platform_extras.cmake`**, which adds the board's include directories, definitions and libraries to `isere_core` (PUBLIC, so they reach every app; INTERFACE for an INTERFACE core).
+3. **`isere_add_app(<target> APP_DIRS ...)`** creates each firmware image from `main.c`, the app's bundle and the core, then calls **`isere_platform_target(<target>)`** if `platform_extras.cmake` defines it: the place for per-image steps such as the linker script, map file, output suffix and image conversion (`portable/frdm-k64f/platform_extras.cmake` has an example).
+
+Rules for board files:
+- Refer to files through `ISERE_DIR` (isère's root) or `CMAKE_CURRENT_LIST_DIR`, never `CMAKE_SOURCE_DIR` or `CMAKE_CURRENT_SOURCE_DIR`: in an app project those are the app's directories. Inside `isere_platform_target()`, use `CMAKE_CURRENT_FUNCTION_LIST_DIR`.
+- isère's core is an **OBJECT** library, so link-time overrides reach the link: a startup file's vector table, strong interrupt handlers over weak defaults, `syscalls.c` over the C library's stubs. A board whose SDK resolves its libraries per executable (pico-sdk) sets `ISERE_CORE_KIND` to `INTERFACE`, and isère's sources then compile in each app instead.
+- isère creates these targets, so a board or app must not reuse the names: `isere_core`, `isere_quickjs`, `isere_jerry_internal`, `isere_mbedtls`, `jerry-core`, `jerry-ext`, `amalgam`, `lwipcore`, `lwipallapps`, `otelproto`.
+
 ### `platform_features.cmake`
 
 | Variable | Meaning |
 |---|---|
 | `ISERE_JS_STACK_KB` | C stack a JS engine may use, counted from where each stretch of JS work starts. It must be well below the httpd task's stack (see [Stacks](#stacks)). Deep recursion beyond it raises a `RangeError` instead of overflowing. |
 | `JERRY_GLOBAL_HEAP_SIZE` | JerryScript's arena, in KB. Each engine instance gets one: one in warm mode, one per request in cold mode. |
+| `ISERE_CORE_KIND` | `OBJECT` (default) or `INTERFACE`, see above. |
+| `ISERE_QUICKJS_DEFINITIONS`, `ISERE_QUICKJS_OPTIONS` | Compile definitions and options for QuickJS's sources and its binding on this board (see [What each engine needs from a port](#what-each-engine-needs-from-a-port)). |
 | `WITH_LWIP` | Builds isère's own lwIP copy (`3rdparty/lwip`, 2.2.1, whose `contrib/ports/freertos` provides `sys_arch`). The FRDM-K64F uses it; the Pico 2 uses pico-sdk's instead. |
 
 ### `isere_config.h`
@@ -55,7 +70,7 @@ Further sizes have defaults in the headers and can be overridden here:
 isère runs the same app on either of two engines, chosen when the build is configured:
 
 ```sh
-cmake -B build -DTARGET_PLATFORM=<platform> -DJS_RUNTIME=quickjs       # the default
+cmake -B build -DTARGET_PLATFORM=<platform> -DJS_RUNTIME=quickjs       # the default; ISERE_BOARD also works
 cmake -B build -DTARGET_PLATFORM=<platform> -DJS_RUNTIME=jerryscript
 ```
 
@@ -81,7 +96,7 @@ Start a new board with **JerryScript** if it has under about 512 KB of RAM, and 
 
 ### What each engine needs from a port
 
-**QuickJS** assumes a POSIX host. On a newlib board (see `portable/frdm-k64f/platform_extras.cmake` and `portable/pico2/platform_extras.cmake`):
+**QuickJS** assumes a POSIX host. On a newlib board, set these through `ISERE_QUICKJS_DEFINITIONS` and `ISERE_QUICKJS_OPTIONS` in `platform_features.cmake` (see `portable/frdm-k64f/` and `portable/pico2/`):
 - compile its sources with `EMSCRIPTEN` (no pthreads or C11 atomics, which newlib lacks; this also turns off computed-goto dispatch) and `_POSIX_MONOTONIC_CLOCK=200112L`, and force-include a small compat header (`include/quickjs_compat.h`) for the `PRId64`-style macros some toolchains hide;
 - provide `clock_gettime()`, which newlib declares only with `_POSIX_TIMERS`: the K64F port implements it on its PIT timer in `src/syscalls.c` and declares it in the compat header;
 - with GCC 14 on arm-none-eabi, add `-Wno-incompatible-pointer-types` for its sources: `int32_t` is `long` there, and quickjs-ng mixes `int *` and `int32_t *`, which GCC 14 makes an error;
@@ -90,7 +105,7 @@ Start a new board with **JerryScript** if it has under about 512 KB of RAM, and 
 **JerryScript** needs less:
 - `JERRY_GLOBAL_HEAP_SIZE` in `platform_features.cmake`, as a cache string in KB, for example `set(JERRY_GLOBAL_HEAP_SIZE "(96)" CACHE STRING "")`;
 - the port's include directories on the `jerry-core` target, if its headers need board definitions;
-- with CMake 4, `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` at configure time, because JerryScript's own `CMakeLists.txt` declares an older minimum (`tools/hil.sh` passes it).
+- nothing for CMake 4: JerryScript's own `CMakeLists.txt` declares a minimum older than CMake 4 accepts, and isère sets `CMAKE_POLICY_VERSION_MINIMUM=3.5` for it automatically.
 
 isère allocates JerryScript's context and arena itself before `jerry_init()` (`src/runtimes/jerryscript/vm.c`), so an arena that doesn't fit makes the engine fail to start with an error instead of crashing.
 

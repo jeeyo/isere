@@ -453,7 +453,7 @@ static void __builtin_version(isere_request_t *req)
 {
   char body[160];
   int n = snprintf(body, sizeof(body), "{\"build\":\"%s\",\"runtime\":\"%s\",\"js_mode\":\"%s\"}\n",
-    ISERE_BUILD_ID, ISERE_RUNTIME_NAME, isere_engine_mode());
+    isere_build_id, ISERE_RUNTIME_NAME, isere_engine_mode());
   isere_response_simple(req, 200, "application/json", body, n > 0 ? (size_t)n : 0);
 }
 

@@ -1,0 +1,76 @@
+# CI for an isère app (from the isere-hello-world template): the app on Linux, run and asked
+# for its greeting, and its FRDM-K64F firmware. In isère's repository this file is only the
+# template's seed; GitHub runs it in the app's repository.
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    name: Linux (${{ matrix.runtime }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [quickjs, jerryscript]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out isère and the submodules it needs
+        run: |
+          git submodule update --init isere
+          git -C isere submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls
+
+      - name: isere_import.cmake matches isère's
+        run: cmp isere_import.cmake isere/cmake/isere_import.cmake || echo "::warning::isere_import.cmake differs from isere/cmake/isere_import.cmake; copy it over"
+
+      - name: Build
+        run: |
+          cmake -B build -DJS_RUNTIME=${{ matrix.runtime }}
+          cmake --build build -j"$(nproc)"
+
+      - name: Run it and ask for the greeting
+        run: |
+          ./build/hello_world > hello.log 2>&1 &
+          for i in $(seq 50); do curl -sf -o /dev/null http://127.0.0.1:8080/__version && break; sleep 0.2; done
+          body="$(curl -sf http://127.0.0.1:8080/)"
+          kill %1
+          echo "GET / -> $body"
+          test "$body" = "hello from isère"
+
+  frdm-k64f:
+    name: FRDM-K64F firmware
+    runs-on: ubuntu-24.04
+    env:
+      ARM_GCC: arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi
+      ARM_GCC_SHA256: 62a63b981fe391a9cbad7ef51b17e49aeaa3e7b0d029b36ca1e9c3b2a9b78823
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out isère and the submodules it needs
+        run: |
+          git submodule update --init isere
+          git -C isere submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls 3rdparty/lwip
+
+      - name: Install Arm GNU Toolchain 14.2.Rel1 (checksum-pinned)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/gcc.tar.xz" \
+            "https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu/14.2.rel1/binrel/$ARM_GCC.tar.xz"
+          echo "$ARM_GCC_SHA256  $RUNNER_TEMP/gcc.tar.xz" | sha256sum -c -
+          tar -xf "$RUNNER_TEMP/gcc.tar.xz" -C "$RUNNER_TEMP"
+          echo "ARM_TOOLCHAIN_PATH=$RUNNER_TEMP/$ARM_GCC/bin" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          cmake -B build-k64f -DISERE_BOARD=frdm-k64f -DJS_RUNTIME=jerryscript -DARM_TOOLCHAIN_PATH="$ARM_TOOLCHAIN_PATH"
+          cmake --build build-k64f -j"$(nproc)"
+          "$ARM_TOOLCHAIN_PATH/arm-none-eabi-size" build-k64f/hello_world.elf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hello_world-frdm-k64f
+          path: |
+            build-k64f/hello_world.elf
+            build-k64f/hello_world.bin

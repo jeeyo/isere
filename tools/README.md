@@ -28,10 +28,17 @@ cmake --build build -j
 
 | CMake option | Values | Default |
 |---|---|---|
-| `TARGET_PLATFORM` | `linux`, `pico2` | `linux` |
+| `TARGET_PLATFORM` (or `ISERE_BOARD`) | `linux`, `frdm-k64f`, `pico2`; fixed per build directory | `linux` |
 | `JS_RUNTIME` | `quickjs`, `jerryscript` | `quickjs` |
-| `ISERE_APP_DIRS` | app directories to embed (`;`-separated) | `app` |
+| `ISERE_APP_DIRS` | app directories to embed (`;`-separated); isère's own build only | `app` |
+| `ISERE_BUILD_ID` | the ID served at `/__version` | the git commit; for an app, `<app commit>+isere.<isère commit>` |
+| `ISERE_BOARD_ENV` | `NAME=value;...` set with `setenv()` at boot (FRDM-K64F) | empty |
+| `ISERE_WITH_OTEL` | OpenTelemetry exporter (Linux only; formerly `WITH_OTEL`) | `OFF` |
+| `ISERE_OTEL_HOST`, `ISERE_OTEL_PORT` | its collector (formerly `OTEL_HOST`, `OTEL_PORT`) | `127.0.0.1`, `4318` |
+| `ARM_TOOLCHAIN_PATH` | `arm-none-eabi-gcc`'s directory (FRDM-K64F) | `PATH` or `.toolchain/` |
 | `CMAKE_BUILD_TYPE` | | `RelWithDebInfo` |
+
+The same options apply to an app project that includes isère (see [`examples/hello-world`](../examples/hello-world)), which also takes `ISERE_PATH` and `ISERE_FETCH_FROM_GIT_TAG` to find isère.
 
 | Environment (Linux) | Meaning |
 |---|---|

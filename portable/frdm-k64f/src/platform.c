@@ -8,6 +8,7 @@
 #include "task.h"
 
 #include "board.h"
+#include "app.h"
 
 // heap_5 regions from the linker script: all of SRAM_L, and SRAM_U between
 // newlib's small heap and the MSP stack
@@ -41,7 +42,7 @@ void platform_init()
   }
 
   printf("\nisere: FRDM-K64F, %lu MHz, build %s, heap %u bytes\n",
-         (unsigned long)(SystemCoreClock / 1000000), ISERE_BUILD_ID, (unsigned)__heap_size);
+         (unsigned long)(SystemCoreClock / 1000000), isere_build_id, (unsigned)__heap_size);
 }
 
 void platform_exit(int code)

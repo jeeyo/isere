@@ -9,6 +9,7 @@
 #include "platform.h"
 #include "mem.h"
 #include "engine.h"
+#include "app.h"
 
 const char *isere_phase_names[ISERE_PHASE_COUNT] = {
   "runtime", "context", "polyfills", "module", "call", "teardown",
@@ -373,7 +374,7 @@ char *isere_metrics_json(size_t *len)
   uint64_t now = platform_now_us();
 
   __append(&b, "{\"build\":\"%s\",\"runtime\":\"%s\",\"js_mode\":\"%s\",\"metrics_enabled\":%s,",
-    ISERE_BUILD_ID, ISERE_RUNTIME_NAME, __m.js_mode, __m.enabled ? "true" : "false");
+    isere_build_id, ISERE_RUNTIME_NAME, __m.js_mode, __m.enabled ? "true" : "false");
   __append(&b, "\"device\":{\"uptime_ms\":%" PRIu64 ",\"cpu_utilisation\":%.4f,\"heap_size\":%zu,"
     "\"heap_free\":%zu,\"heap_min_free\":%zu,\"heap_in_use\":%zu,\"heap_peak\":%zu,\"allocations\":%" PRIu64
     ",\"httpd_stack_used\":%zu},",

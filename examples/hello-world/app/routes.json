@@ -1,0 +1,8 @@
+{
+  "config": {
+    "greeting": "hello"
+  },
+  "routes": [
+    { "method": "GET", "path": "/", "module": "hello.js" }
+  ]
+}

@@ -15,6 +15,24 @@ export default {
 }
 ```
 
+## Build your own app
+
+An app is a directory of JavaScript modules and a `routes.json`. Your project includes isère the way projects include the Raspberry Pi Pico SDK:
+
+```cmake
+cmake_minimum_required(VERSION 3.19)
+include(isere_import.cmake)    # copied from cmake/; finds isère and the board's toolchain
+project(my_app C CXX ASM)
+isere_init()
+isere_add_app(my_app APP_DIRS app)
+```
+
+```sh
+cmake -B build-k64f -DISERE_BOARD=frdm-k64f -DJS_RUNTIME=jerryscript && cmake --build build-k64f
+```
+
+Start from [`jeeyo/isere-hello-world`](https://github.com/jeeyo/isere-hello-world), a GitHub template whose copy lives in [`examples/hello-world`](examples/hello-world) here. isère's own firmware is built the same way, from `app/`.
+
 ## Current progress
 
 Everything below works on the Linux build and is checked by CI (`tools/linux.sh`, both engines). On hardware, the NXP FRDM-K64F passes the same test suite with JerryScript (`tools/hil.sh`), and its benchmark numbers are in [BENCHMARK.md](BENCHMARK.md).
