@@ -1,6 +1,11 @@
 {
   "config": {},
   "routes": [
+    { "method": "GET", "path": "/", "module": "hello.js" },
+    { "method": "GET", "path": "/__calibrate/noop", "module": "calibrate.js" },
+    { "method": "GET", "path": "/__calibrate/cpu", "module": "calibrate.js" },
+    { "method": "GET", "path": "/__calibrate/alloc", "module": "calibrate.js" },
+    { "method": "GET", "path": "/__calibrate/sleep", "module": "calibrate.js" },
     { "method": "*", "path": "/__test/echo", "module": "t_echo.js" },
     { "method": "GET", "path": "/__test/lambda-echo", "module": "t_lambda_echo.js" },
     { "method": "GET", "path": "/__test/state", "module": "t_state.js" },

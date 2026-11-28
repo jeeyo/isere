@@ -39,7 +39,7 @@ export function newRsaKey(kid) {
 }
 
 export function ourJwks() {
-  return JSON.parse(readFileSync(path.join(REPO, 'app/jwks.json'), 'utf8'));
+  return JSON.parse(readFileSync(path.join(REPO, 'examples/jwks/app/jwks.json'), 'utf8'));
 }
 
 // A JWKS endpoint that counts its requests. With `tls`, it serves HTTPS with a

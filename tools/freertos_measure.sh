@@ -14,7 +14,7 @@ measure() {
   local name="$1" flags="$2" dir="$REPO/build-measure-$1"
   mkdir -p "$dir"
   ( cd "$dir" && cmake "$REPO" -DJS_RUNTIME="$RUNTIME" -DCMAKE_C_FLAGS="$flags" \
-      -DISERE_APP_DIRS="$REPO/app;$REPO/tests/e2e/app" > /dev/null && make -j8 > /dev/null 2>&1 )
+      -DISERE_APP_DIRS="$REPO/examples/jwks/app;$REPO/tests/e2e/app" > /dev/null && make -j8 > /dev/null 2>&1 )
   ( cd "$dir" && ISERE_NDJSON=0 exec ./isere ) > /dev/null 2>&1 &
   local pid=$!
   sleep 1

@@ -87,7 +87,6 @@ function(_isere_build_core)
     ${ISERE_DIR}/src/mem.c
     ${ISERE_DIR}/src/metrics.c
     ${ISERE_DIR}/src/internals/uv_poll.c
-    ${ISERE_DIR}/portable/${TARGET_PLATFORM}/src/fs.c
     ${ISERE_DIR}/portable/${TARGET_PLATFORM}/src/logger.c
     ${ISERE_DIR}/portable/${TARGET_PLATFORM}/src/rtc.c
     ${ISERE_DIR}/portable/${TARGET_PLATFORM}/src/tcp.c

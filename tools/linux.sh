@@ -62,7 +62,7 @@ do_build() {
   mkdir -p "$BUILD_DIR"
   ( cd "$BUILD_DIR" \
     && cmake "$REPO" -DTARGET_PLATFORM=linux -DJS_RUNTIME="$RUNTIME" -DISERE_BUILD_ID="$BUILD_ID" \
-       -DISERE_APP_DIRS="$REPO/app;$REPO/tests/e2e/app" \
+       -DISERE_APP_DIRS="$REPO/examples/jwks/app;$REPO/tests/e2e/app" \
     && make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)" ) > "$RESULTS/build.log" 2>&1
 }
 

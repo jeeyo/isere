@@ -18,7 +18,6 @@ flowchart LR
     isere -->|get/set DateTime| rtc(rtc.c)
 
     isere -->|send logs| logger(logger.c)
-    ini -->|read/write files| fs(fs.c)
     isere -->|over-the-air update JavaScript code| ota(ota.c*)
     end
 
