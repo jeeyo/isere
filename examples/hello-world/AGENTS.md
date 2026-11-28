@@ -126,7 +126,7 @@ t.text(offset, length)               // the slice decoded as UTF-8
 ## Building and running
 
 ```sh
-# once: isère and only the submodules it needs (not --recursive: that pulls the Pico SDK)
+# once: isère and only the submodules it needs (not --recursive: that pulls SDKs no board here needs)
 git submodule update --init isere
 git -C isere submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls 3rdparty/lwip
 
