@@ -6,7 +6,8 @@
 #     "routes": [
 #       { "method": "GET", "path": "/verify", "module": "verify.js" },
 #       { "method": "GET", "path": "/.well-known/jwks.json", "static": "jwks.json", "type": "application/json" }
-#     ]
+#     ],
+#     "assets": [ "dictionary.bin" ]                              read-only data files, see app.h
 #   }
 # and every *.js file in it becomes an importable module named after the file.
 
@@ -56,6 +57,9 @@ endforeach()
 
 set(static_index 0)
 set(num_routes 0)
+set(asset_entries "")
+set(asset_names "")
+set(num_assets 0)
 foreach(dir IN LISTS APP_DIRS)
   if(NOT EXISTS "${dir}/routes.json")
     message(FATAL_ERROR "${dir}/routes.json is missing")
@@ -78,6 +82,29 @@ foreach(dir IN LISTS APP_DIRS)
           set(value "\"${value}\"")
         endif()
         string(JSON config SET "${config}" "${key}" "${value}")
+      endforeach()
+    endif()
+  endif()
+
+  string(JSON assets ERROR_VARIABLE no_assets GET "${json}" assets)
+  if(NOT no_assets)
+    string(JSON n LENGTH "${assets}")
+    if(n GREATER 0)
+      math(EXPR last "${n} - 1")
+      foreach(i RANGE ${last})
+        string(JSON asset GET "${assets}" ${i})
+        if("${asset}" IN_LIST asset_names)
+          message(FATAL_ERROR "asset ${asset} is listed in more than one app directory")
+        endif()
+        if(NOT EXISTS "${dir}/${asset}")
+          message(FATAL_ERROR "asset ${asset} is listed in ${dir}/routes.json but ${dir}/${asset} does not exist")
+        endif()
+        list(APPEND asset_names "${asset}")
+        c_bytes("${dir}/${asset}" bytes)
+        string(APPEND arrays "static const char __asset_${num_assets}[] = { ${bytes} };\n")
+        c_string("${asset}" name)
+        string(APPEND asset_entries "  { ${name}, __asset_${num_assets}, ${bytes_LEN} },\n")
+        math(EXPR num_assets "${num_assets} + 1")
       endforeach()
     endif()
   endif()
@@ -146,6 +173,9 @@ endif()
 if(num_modules EQUAL 0)
   set(module_entries "  { NULL, NULL, 0 },\n")
 endif()
+if(num_assets EQUAL 0)
+  set(asset_entries "  { NULL, NULL, 0 },\n")
+endif()
 if(num_routes EQUAL 0)
   set(route_entries "  { NULL, NULL, ISERE_ROUTE_STATIC, -1, NULL, NULL, 0 },\n")
 endif()
@@ -167,12 +197,16 @@ ${route_entries}};
 static const isere_app_module_t __prelude_parts[] = {
 ${part_entries}};
 
+static const isere_app_module_t __assets[] = {
+${asset_entries}};
+
 const isere_app_t isere_app = {
   __modules, ${num_modules},
   __routes, ${num_routes},
   __config, ${config_bytes_LEN},
   __prelude, ${prelude_bytes_LEN},
   __prelude_parts, ${part_index},
+  __assets, ${num_assets},
 };
 ")
 # only touch the output when it changes, so unrelated edits don't rebuild it

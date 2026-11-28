@@ -28,6 +28,8 @@
     { "method": "*", "path": "/__test/fetch", "module": "t_fetch.js" },
     { "method": "GET", "path": "/__test/fetch-pending", "module": "t_fetch_pending.js" },
     { "method": "GET", "path": "/__test/crypto", "module": "t_crypto.js" },
-    { "method": "GET", "path": "/__test/globals", "module": "t_globals.js" }
-  ]
+    { "method": "GET", "path": "/__test/globals", "module": "t_globals.js" },
+    { "method": "GET", "path": "/__test/asset", "module": "t_asset.js" }
+  ],
+  "assets": ["t_asset.bin"]
 }

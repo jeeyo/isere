@@ -29,6 +29,19 @@ describe('routing (warm engine)', () => {
     assert.equal((await request(server.url, '/?a=b')).status, 200);
   });
 
+  it('reads an app asset in slices, without loading it whole', async () => {
+    const res = await request(server.url, '/__test/asset');
+    assert.equal(res.status, 200, res.body);
+    const got = JSON.parse(res.body);
+    assert.equal(got.byteLength, 13 + 256);
+    assert.equal(got.text, 'isère asset\n');
+    assert.deepEqual(got.bytes, [250, 251, 252, 253, 254, 255]);
+    assert.equal(got.whole, 13 + 256);
+    assert.equal(got.outOfRange, 'RangeError');
+    assert.equal(got.missing, null);
+    assert.deepEqual(got.canParse, [true, false]);
+  });
+
   it('keeps module state between requests', async () => {
     const a = JSON.parse((await request(server.url, '/__test/state')).body).count;
     const b = JSON.parse((await request(server.url, '/__test/state')).body).count;

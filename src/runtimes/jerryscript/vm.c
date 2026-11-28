@@ -552,6 +552,43 @@ done:
   return result;
 }
 
+// isere.asset(): the size of an app asset, or -1
+NATIVE(__n_asset_size)
+{
+  size_t len = 0;
+  char *name = __cstring(__arg(args, argc, 0), &len);
+  if (name == NULL) {
+    return jerry_throw_sz(JERRY_ERROR_TYPE, "asset name");
+  }
+  const isere_app_module_t *a = isere_app_asset(name, len);
+  isere_free(name);
+  return jerry_number(a != NULL ? (double)a->source_len : -1.0);
+}
+
+// isere.asset().read(): a copy of [offset, offset + length) of an asset, as a Uint8Array
+NATIVE(__n_asset_read)
+{
+  size_t len = 0;
+  char *name = __cstring(__arg(args, argc, 0), &len);
+  if (name == NULL) {
+    return jerry_throw_sz(JERRY_ERROR_TYPE, "asset name");
+  }
+  const isere_app_module_t *a = isere_app_asset(name, len);
+  isere_free(name);
+  double offset = argc > 1 ? jerry_value_as_number(args[1]) : 0;
+  double length = argc > 2 ? jerry_value_as_number(args[2]) : 0;
+  if (a == NULL || !(offset >= 0) || !(length >= 0) || offset + length > (double)a->source_len) {
+    return jerry_throw_sz(JERRY_ERROR_RANGE, "asset read out of range");
+  }
+  jerry_value_t array = jerry_typedarray(JERRY_TYPEDARRAY_UINT8, (jerry_length_t)length);
+  size_t n = 0;
+  uint8_t *p = __bytes(array, &n);
+  if (p != NULL && n > 0) {
+    memcpy(p, a->source + (size_t)offset, n);
+  }
+  return array;
+}
+
 NATIVE(__n_spin)
 {
   isere_js_spin(argc > 0 ? jerry_value_as_number(args[0]) : 0);
@@ -774,6 +811,8 @@ js_vm_t *js_vm_new(int module, uint32_t phase_us[ISERE_PHASE_COUNT])
   __set_native(natives, "fetch", __n_fetch);
   __set_native(natives, "spin", __n_spin);
   __set_native(natives, "alloc", __n_alloc);
+  __set_native(natives, "assetSize", __n_asset_size);
+  __set_native(natives, "assetRead", __n_asset_read);
 
   size_t config_len = 0, overrides_len = 0;
   const char *config = isere_js_config(&config_len);

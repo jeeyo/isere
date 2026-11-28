@@ -528,3 +528,14 @@ void isere_engine_deinit(void)
   isere_free(__e.overrides);
   __e.overrides = NULL;
 }
+
+const isere_app_module_t *isere_app_asset(const char *name, size_t name_len)
+{
+  for (uint32_t i = 0; i < isere_app.num_assets; i++) {
+    const isere_app_module_t *a = &isere_app.assets[i];
+    if (strlen(a->name) == name_len && memcmp(a->name, name, name_len) == 0) {
+      return a;
+    }
+  }
+  return NULL;
+}
