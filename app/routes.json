@@ -1,0 +1,16 @@
+{
+  "config": {
+    "jwks_url": "http://127.0.0.1:8080/.well-known/jwks.json",
+    "jwks_ttl_ms": 300000,
+    "jwks_refetch_cooldown_ms": 10000
+  },
+  "routes": [
+    { "method": "GET", "path": "/", "module": "hello.js" },
+    { "method": "GET", "path": "/verify", "module": "verify.js" },
+    { "method": "GET", "path": "/.well-known/jwks.json", "static": "jwks.json", "type": "application/json" },
+    { "method": "GET", "path": "/__calibrate/noop", "module": "calibrate.js" },
+    { "method": "GET", "path": "/__calibrate/cpu", "module": "calibrate.js" },
+    { "method": "GET", "path": "/__calibrate/alloc", "module": "calibrate.js" },
+    { "method": "GET", "path": "/__calibrate/sleep", "module": "calibrate.js" }
+  ]
+}

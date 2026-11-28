@@ -1,0 +1,33 @@
+{
+  "config": {},
+  "routes": [
+    { "method": "*", "path": "/__test/echo", "module": "t_echo.js" },
+    { "method": "GET", "path": "/__test/lambda-echo", "module": "t_lambda_echo.js" },
+    { "method": "GET", "path": "/__test/state", "module": "t_state.js" },
+    { "method": "GET", "path": "/__test/throw", "module": "t_throw.js" },
+    { "method": "GET", "path": "/__test/throw-async", "module": "t_throw_async.js" },
+    { "method": "GET", "path": "/__test/module-error", "module": "t_module_error.js" },
+    { "method": "GET", "path": "/__test/nul-body", "module": "t_nul_body.js" },
+    { "method": "GET", "path": "/__test/nonstring-header", "module": "t_nonstring_header.js" },
+    { "method": "GET", "path": "/__test/bad-header", "module": "t_bad_header.js" },
+    { "method": "GET", "path": "/__test/many-headers", "module": "t_many_headers.js" },
+    { "method": "GET", "path": "/__test/weird-status", "module": "t_weird_status.js" },
+    { "method": "GET", "path": "/__test/big-body", "module": "t_big_body.js" },
+    { "method": "GET", "path": "/__test/binary-body", "module": "t_binary_body.js" },
+    { "method": "GET", "path": "/__test/alloc-heavy", "module": "t_alloc_heavy.js" },
+    { "method": "GET", "path": "/__test/timer-fires", "module": "t_timer_fires.js" },
+    { "method": "GET", "path": "/__test/timers-pending", "module": "t_timers_pending.js" },
+    { "method": "GET", "path": "/__test/interval", "module": "t_interval.js" },
+    { "method": "GET", "path": "/__test/promise-pending", "module": "t_promise_pending.js" },
+    { "method": "GET", "path": "/__test/rejection-unhandled", "module": "t_rejection_unhandled.js" },
+    { "method": "GET", "path": "/__test/slow", "module": "t_slow.js" },
+    { "method": "GET", "path": "/__test/never", "module": "t_never.js" },
+    { "method": "GET", "path": "/__test/busy-loop", "module": "t_busy_loop.js" },
+    { "method": "GET", "path": "/__test/await-loop", "module": "t_await_loop.js" },
+    { "method": "GET", "path": "/__test/recursion", "module": "t_recursion.js" },
+    { "method": "*", "path": "/__test/fetch", "module": "t_fetch.js" },
+    { "method": "GET", "path": "/__test/fetch-pending", "module": "t_fetch_pending.js" },
+    { "method": "GET", "path": "/__test/crypto", "module": "t_crypto.js" },
+    { "method": "GET", "path": "/__test/globals", "module": "t_globals.js" }
+  ]
+}

@@ -1,141 +1,101 @@
-/*
- * FreeRTOS V202112.00
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
- * https://www.FreeRTOS.org
- * https://github.com/FreeRTOS
- *
- */
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
+/* FreeRTOS configuration for isère on the Raspberry Pi Pico 2 (RP2350, both
+ * Cortex-M33 cores, FreeRTOS SMP, the RP2350_ARM_NTZ port).
+ *
+ * PORTING.md (FreeRTOS configuration) classifies every setting as essential or effective,
+ * says what breaks without it, and explains how this file differs from the
+ * Linux one. Settings at FreeRTOS's defaults are left out.
+ *
+ * Besides isère's httpd task this configuration serves the USB task (TinyUSB,
+ * CFG_TUSB_OS = OPT_OS_FREERTOS), lwIP's tcpip thread and its FreeRTOS sys_arch,
+ * and pico-sdk's sync/time interop. Settings marked "board" are kept for them;
+ * they are exercised by tools/hil.sh, not by the Linux loop. */
+
+#include <assert.h>
+#include <stdint.h>
+
 #include "rp2040_config.h"
 
-/* RP2350 grows some features */
+/* --- essential: the RP2350 port --- */
+
+/* JS engines use floating point; the port must save FPU state on a switch */
 #define configENABLE_FPU                        1
+/* the non-TrustZone port, running entirely in the secure world, without MPU */
 #define configENABLE_MPU                        0
 #define configENABLE_TRUSTZONE                  0
 #define configRUN_FREERTOS_SECURE_ONLY          1
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY    16
 
-/*-----------------------------------------------------------
-* Application specific definitions.
-*
-* These definitions should be adjusted for your particular hardware and
-* application requirements.
-*
-* THESE PARAMETERS ARE DESCRIBED WITHIN THE 'CONFIGURATION' SECTION OF THE
-* FreeRTOS API DOCUMENTATION AVAILABLE ON THE FreeRTOS.org WEB SITE.  See
-* https://www.FreeRTOS.org/a00110.html
-*----------------------------------------------------------*/
+/* --- essential: SMP on both cores (board) --- */
 
-#define configUSE_PREEMPTION                       1
-#define configUSE_PORT_OPTIMISED_TASK_SELECTION    0
-#define configUSE_IDLE_HOOK                        1
-#define configUSE_TICK_HOOK                        1
-#define configUSE_DAEMON_TASK_STARTUP_HOOK         1
-#define configTICK_RATE_HZ                         ( 1000 )                  /* In this non-real time simulated environment the tick frequency has to be at least a multiple of the Win32 tick frequency, and therefore very slow. */
-#define configMINIMAL_STACK_SIZE                   ( ( unsigned short ) 70 ) /* In this simulated case, the stack only has to hold one small structure as the real stack is part of the win32 thread. */
-// #define configTOTAL_HEAP_SIZE                      ( ( size_t ) ( 65 * 1024 ) )  /* This has no effect when using heap_3 */
-#define configMAX_TASK_NAME_LEN                    ( 12 )
-#define configUSE_TRACE_FACILITY                   1
-#define configUSE_16_BIT_TICKS                     0
-#define configIDLE_SHOULD_YIELD                    1
-#define configUSE_MUTEXES                          1
-#define configCHECK_FOR_STACK_OVERFLOW             0
-#define configUSE_RECURSIVE_MUTEXES                1
-#define configQUEUE_REGISTRY_SIZE                  15
-#define configUSE_APPLICATION_TASK_TAG             1
-#define configUSE_COUNTING_SEMAPHORES              1
-#define configUSE_ALTERNATIVE_API                  0
-#define configUSE_QUEUE_SETS                       1
-#define configUSE_TASK_NOTIFICATIONS               1
-#define configSUPPORT_STATIC_ALLOCATION            0
-#define configSUPPORT_DYNAMIC_ALLOCATION           1
+/* the second core runs the USB task and lwIP while the first runs JS */
+#define configNUMBER_OF_CORES                   2
+#define configTICK_CORE                         0
+#define configRUN_MULTIPLE_PRIORITIES           1
+#define configUSE_CORE_AFFINITY                 1
+#define configUSE_PASSIVE_IDLE_HOOK             0
+#define portSUPPORT_SMP                         1
 
-/* Software timer related configuration options.  The maximum possible task
- * priority is configMAX_PRIORITIES - 1.  The priority of the timer task is
- * deliberately set higher to ensure it is correctly capped back to
- * configMAX_PRIORITIES - 1. */
-#define configUSE_TIMERS                           1
-#define configTIMER_TASK_PRIORITY                  ( configMAX_PRIORITIES - 1 )
-#define configTIMER_QUEUE_LENGTH                   10
-#define configTIMER_TASK_STACK_DEPTH               ( configMINIMAL_STACK_SIZE * 2 )
+/* pico-sdk's mutexes, semaphores and sleep_ms() cooperate with the scheduler */
+#define configSUPPORT_PICO_SYNC_INTEROP         1
+#define configSUPPORT_PICO_TIME_INTEROP         1
 
-#define configMAX_PRIORITIES                       ( 7 )
+/* --- essential: what isère and its libraries use --- */
 
-/* Co-routine related configuration options. */
-#define configUSE_CO_ROUTINES                     0
-#define configMAX_CO_ROUTINE_PRIORITIES           ( 2 )
+/* required; the USB task must run while the httpd task is busy in JS */
+#define configUSE_PREEMPTION                    1
 
-/* This demo can use of one or more example stats formatting functions.  These
- * format the raw data provided by the uxTaskGetSystemState() function in to human
- * readable ASCII form.  See the notes in the implementation of vTaskList() within
- * FreeRTOS/Source/tasks.c for limitations. */
-#define configUSE_STATS_FORMATTING_FUNCTIONS      0
+/* required; isère has no use for either hook */
+#define configUSE_IDLE_HOOK                     0
+#define configUSE_TICK_HOOK                     0
 
-/* Enables the test whereby a stack larger than the total heap size is
- * requested. */
-#define configSTACK_DEPTH_TYPE                    uint32_t
+/* required; lwIP's tcpip thread runs at tskIDLE_PRIORITY + 4 */
+#define configMAX_PRIORITIES                    7
 
-/* SMP port only */
-#define configNUMBER_OF_CORES                     2
-#define configTICK_CORE                           0
-#define configRUN_MULTIPLE_PRIORITIES             1
+/* required; sizes the idle tasks, in words */
+#define configMINIMAL_STACK_SIZE                ( ( configSTACK_DEPTH_TYPE ) 70 )
 
-/* RP2040 specific */
-#define configSUPPORT_PICO_SYNC_INTEROP           1
-#define configSUPPORT_PICO_TIME_INTEROP           1
+/* FreeRTOS defaults to 16-bit ticks, which wrap after 65 s at 1 kHz */
+#define configTICK_TYPE_WIDTH_IN_BITS           TICK_TYPE_WIDTH_32_BITS
 
-/* SMP Related config. */
-#define configUSE_PASSIVE_IDLE_HOOK               0
-#define portSUPPORT_SMP                           1
-#define configUSE_CORE_AFFINITY                   1
+/* the logger, lwIP's sys_arch and TinyUSB's OSAL all take mutexes; lwIP's
+ * SYS_ARCH_PROTECT is a recursive mutex and its semaphores may count (board) */
+#define configUSE_MUTEXES                       1
+#define configUSE_RECURSIVE_MUTEXES             1
+#define configUSE_COUNTING_SEMAPHORES           1
 
-/* Set the following definitions to 1 to include the API function, or zero
- * to exclude the API function.  In most cases the linker will remove unused
- * functions anyway. */
-#define INCLUDE_vTaskPrioritySet                  0
-#define INCLUDE_uxTaskPriorityGet                 1
-#define INCLUDE_vTaskDelete                       1
-#define INCLUDE_vTaskCleanUpResources             0
-#define INCLUDE_vTaskSuspend                      1
-#define INCLUDE_vTaskDelayUntil                   1
-#define INCLUDE_vTaskDelay                        1
-#define INCLUDE_uxTaskGetStackHighWaterMark       1
-#define INCLUDE_uxTaskGetStackHighWaterMark2      1
-#define INCLUDE_xTaskGetSchedulerState            1
-#define INCLUDE_xTimerGetTimerDaemonTaskHandle    1
-#define INCLUDE_xTaskGetIdleTaskHandle            1
-#define INCLUDE_xTaskGetHandle                    1
-#define INCLUDE_eTaskGetState                     1
-#define INCLUDE_xSemaphoreGetMutexHolder          0
-#define INCLUDE_xTimerPendFunctionCall            1
-#define INCLUDE_xTaskAbortDelay                   1
-#define INCLUDE_xTaskGetCurrentTaskHandle         1
+/* run-time stats in microseconds, for the device CPU utilisation metric
+ * (platform_busy_cpu_ns(): everything but the idle tasks) */
+extern uint64_t time_us_64(void);
+#define configGENERATE_RUN_TIME_STATS           1
+#define configRUN_TIME_COUNTER_TYPE             uint64_t
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
+#define portGET_RUN_TIME_COUNTER_VALUE()        time_us_64()
+#define INCLUDE_xTaskGetIdleTaskHandle          1
 
-extern void vAssertCalled( const char * const pcFileName,
-                           unsigned long ulLine );
+/* isère: vTaskDelay() while USB comes up, vTaskDelete() for tasks that end;
+ * lwIP's sys_arch needs vTaskSuspend (board) */
+#define INCLUDE_vTaskDelay                      1
+#define INCLUDE_vTaskDelete                     1
+#define INCLUDE_vTaskSuspend                    1
 
-#include <assert.h>
-/* Define to trap errors during development. */
-#define configASSERT(x)                         assert(x)
+/* pico-sdk's interop asks whether the scheduler is running (board) */
+#define INCLUDE_xTaskGetSchedulerState          1
+
+/* kernel misuse fails loudly in every build */
+#define configASSERT( x )                       assert( x )
+
+/* --- effective: tunable --- */
+
+/* lwIP's timeouts, and therefore the event loop's poll() timeout, are counted in
+ * ticks here (unlike Linux, where poll() takes milliseconds): 1 ms resolution
+ * keeps a 1 ms JS timer at 1 ms. To be measured on the board. */
+#define configTICK_RATE_HZ                      ( 1000 )
+
+/* stack high-water marks of the httpd, USB and tcpip tasks, to size their stacks
+ * from measurements (ISERE_HTTPD_TASK_STACK_SIZE, TCPIP_THREAD_STACKSIZE) */
+#define INCLUDE_uxTaskGetStackHighWaterMark     1
 
 #endif /* FREERTOS_CONFIG_H */

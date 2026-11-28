@@ -1,20 +1,20 @@
 #include "logger.h"
 
 #include <stdarg.h>
+#include <stdio.h>
 
-// static SemaphoreHandle_t _stdio_mut = NULL;
-// static StaticSemaphore_t _stdio_mutbuf;
+static SemaphoreHandle_t _stdio_mut = NULL;
 
 static void __logger_print(const char *tag, isere_log_level_t level, const char *fmt, va_list vargs)
 {
-  // // xSemaphoreTake(_stdio_mut, portMAX_DELAY);
+  xSemaphoreTake(_stdio_mut, portMAX_DELAY);
 
-  // // TO-DO: log level
-  // printf("[%s] ", tag);
-  // vprintf(fmt, vargs);
-  // printf("\n");
+  // TO-DO: log level
+  printf("[%s] ", tag);
+  vprintf(fmt, vargs);
+  printf("\n");
 
-  // // xSemaphoreGive(_stdio_mut);
+  xSemaphoreGive(_stdio_mut);
 }
 
 static void logger_error(const char *tag, const char *fmt, ...)
@@ -51,9 +51,9 @@ static void logger_debug(const char *tag, const char *fmt, ...)
 
 int isere_logger_init(isere_logger_t *logger)
 {
-  // if (_stdio_mut == NULL) {
-  //   _stdio_mut = xSemaphoreCreateMutexStatic(&_stdio_mutbuf);
-  // }
+  if (_stdio_mut == NULL) {
+    _stdio_mut = xSemaphoreCreateMutex();
+  }
 
   *logger = (isere_logger_t){
     .error = &logger_error,
@@ -69,8 +69,8 @@ void isere_logger_deinit(isere_logger_t *logger)
 {
   (void)logger;
 
-  // if (_stdio_mut) {
-  //   vSemaphoreDelete(_stdio_mut);
-  //   _stdio_mut = NULL;
-  // }
+  if (_stdio_mut) {
+    vSemaphoreDelete(_stdio_mut);
+    _stdio_mut = NULL;
+  }
 }
