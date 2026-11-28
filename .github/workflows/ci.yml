@@ -11,7 +11,7 @@ on:
 jobs:
   linux:
     # tools/linux.sh: build, fuzz the HTTP parser under ASan, the node:test suite
-    # (with valgrind), and wrk. The same loop runs locally and on the Pico 2.
+    # (with valgrind), and wrk. The same loop runs locally.
     name: Linux loop (${{ matrix.runtime }})
     runs-on: ubuntu-24.04
     strategy:
@@ -51,14 +51,15 @@ jobs:
           report_paths: 'hil-results/*/tests.xml'
           check_name: Tests (${{ matrix.runtime }})
 
-  hello-world:
-    # the app template (examples/hello-world, seed of jeeyo/isere-hello-world) built
-    # against this checkout through isere_import.cmake, then run and asked for its greeting
-    name: Template app (${{ matrix.runtime }})
+  examples:
+    # the example apps (examples/hello-world, seed of jeeyo/isere-hello-world, and
+    # examples/jwks) built against this checkout through isere_import.cmake, then run and asked
+    name: Example ${{ matrix.example }} (${{ matrix.runtime }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
+        example: [hello-world, jwks]
         runtime: [quickjs, jerryscript]
     steps:
       - uses: actions/checkout@v4
@@ -66,33 +67,42 @@ jobs:
       - name: Check out the submodules the Linux build needs
         run: git submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls
 
-      - name: The template's isere_import.cmake is the canonical one
-        run: cmp examples/hello-world/isere_import.cmake cmake/isere_import.cmake
+      - name: The example's isere_import.cmake is the canonical one
+        run: cmp examples/${{ matrix.example }}/isere_import.cmake cmake/isere_import.cmake
 
       - name: Build
         run: |
-          cmake -S examples/hello-world -B build-hello -DISERE_PATH="$GITHUB_WORKSPACE" -DJS_RUNTIME=${{ matrix.runtime }}
-          cmake --build build-hello -j"$(nproc)"
+          cmake -S examples/${{ matrix.example }} -B build-example -DISERE_PATH="$GITHUB_WORKSPACE" -DJS_RUNTIME=${{ matrix.runtime }}
+          cmake --build build-example -j"$(nproc)"
 
-      - name: Run it and ask for the greeting
+      - name: Run it and ask
         run: |
-          ./build-hello/hello_world > hello.log 2>&1 &
+          if [ "${{ matrix.example }}" = hello-world ]; then bin=hello_world; else bin=isere_jwks; fi
+          "./build-example/$bin" > example.log 2>&1 &
           for i in $(seq 50); do curl -sf -o /dev/null http://127.0.0.1:8080/__version && break; sleep 0.2; done
-          body="$(curl -sf http://127.0.0.1:8080/)"
           version="$(curl -sf http://127.0.0.1:8080/__version)"
-          kill %1
-          echo "GET / -> $body"; echo "GET /__version -> $version"
-          test "$body" = "hello from isère"
+          echo "GET /__version -> $version"
           echo "$version" | grep -q '+isere\.'
+          if [ "${{ matrix.example }}" = hello-world ]; then
+            body="$(curl -sf http://127.0.0.1:8080/)"
+            echo "GET / -> $body"
+            test "$body" = "hello from isère"
+          else
+            curl -sf http://127.0.0.1:8080/.well-known/jwks.json | tee jwks.json | grep -q '"keys"'
+            status="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/verify)"
+            echo "GET /verify without a token -> $status"
+            test "$status" = 401
+          fi
+          kill %1
 
   firmware-build:
-    # the FRDM-K64F firmware, build only: isère's own app and the template, both engines
+    # the FRDM-K64F firmware, build only: isère's own build and the examples, both engines
     name: FRDM-K64F build (${{ matrix.project }}, ${{ matrix.runtime }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        project: [isere, hello-world]
+        project: [isere, hello-world, jwks]
         runtime: [quickjs, jerryscript]
     env:
       ARM_GCC: arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi
@@ -118,9 +128,9 @@ jobs:
               -DARM_TOOLCHAIN_PATH="$ARM_TOOLCHAIN_PATH"
             name=isere
           else
-            cmake -S examples/hello-world -B build-fw -DISERE_PATH="$GITHUB_WORKSPACE" -DISERE_BOARD=frdm-k64f \
+            cmake -S examples/${{ matrix.project }} -B build-fw -DISERE_PATH="$GITHUB_WORKSPACE" -DISERE_BOARD=frdm-k64f \
               -DJS_RUNTIME=${{ matrix.runtime }} -DARM_TOOLCHAIN_PATH="$ARM_TOOLCHAIN_PATH"
-            name=hello_world
+            if [ "${{ matrix.project }}" = hello-world ]; then name=hello_world; else name=isere_jwks; fi
           fi
           cmake --build build-fw -j"$(nproc)"
           test -f "build-fw/$name.elf" && test -f "build-fw/$name.bin"

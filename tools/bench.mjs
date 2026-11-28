@@ -6,7 +6,7 @@
 //
 // Options:
 //   --duration SEC     seconds per cell (default 50: 12 cells, about 10 minutes per engine)
-//   --conns "1 2 4"    concurrency levels; the Pico 2 accepts 4 connections
+//   --conns "1 2 4"    concurrency levels; the FRDM-K64F accepts 4 connections
 //   --scenarios LIST   comma-separated: hello, jwks-hit, jwks-miss, mix, builtin
 //                      (default: all but builtin, which involves no JS at all)
 //   --close            a new connection for every request (for servers without keep-alive)
@@ -251,7 +251,7 @@ async function cell(target, name, conns) {
   }
   try {
     await load(server.url, scenario, conns, Math.min(2, opts.duration / 10)); // warm-up: JWKS fetched, caches primed
-    // a server without /__metrics (the Zephyr spike) gets the client-side figures only
+    // a server without /__metrics gets the client-side figures only
     const serverMetrics = () => getJson(server.url, '/__metrics?gc=1').catch(() => null);
     const before = await serverMetrics();
     const r = await load(server.url, scenario, conns, opts.duration);
@@ -303,7 +303,7 @@ let failed = false;
 
 for (const target of targets) {
   const version = target.url ? await getJson(target.url, '/__version') : null;
-  const runtime = target.runtime || (version.build === 'zephyr-rust-spike' ? 'zephyr-rust spike' : version.runtime);
+  const runtime = target.runtime || version.runtime;
   const engine = { runtime, cells: [] };
   results.engines.push(engine);
   for (const name of scenarioNames) {

@@ -3,7 +3,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { startServer, metrics } from './lib/target.mjs';
+import { startServer, metrics, isRemote } from './lib/target.mjs';
 import { request, rawRequest } from './lib/http.mjs';
 
 describe('risky handlers', () => {
@@ -144,12 +144,20 @@ describe('risky handlers', () => {
   });
 
   it('a slow endpoint does not hold up other endpoints', async () => {
-    const slow = request(server.url, '/__test/slow?ms=600', { timeoutMs: 5000 });
+    let slowDone = 0;
+    const slow = request(server.url, '/__test/slow?ms=600', { timeoutMs: 5000 }).then((r) => { slowDone = Date.now(); return r; });
     const start = Date.now();
-    for (let i = 0; i < 5; i++) {
-      assert.equal((await request(server.url, '/')).status, 200);
+    // three at once, beside the slow one: four connections, a board's limit. The property is
+    // that each answer arrives while the slow one still sleeps; requests that queued behind
+    // it would arrive after it, however long the network's round trips are.
+    const fast = await Promise.all([1, 2, 3].map(() => request(server.url, '/').then((r) => ({ status: r.status, early: slowDone === 0 }))));
+    for (const f of fast) {
+      assert.equal(f.status, 200);
+      assert.ok(f.early, 'a request waited for the slow one');
     }
-    assert.ok(Date.now() - start < 400, 'other requests waited for the slow one');
+    // locally they also fit well inside the sleep; over Wi-Fi to a board one round trip can
+    // take a few hundred milliseconds, so there only the order is checked
+    if (!isRemote) assert.ok(Date.now() - start < 400, 'other requests waited for the slow one');
     assert.equal((await slow).body, 'slept 600');
   });
 

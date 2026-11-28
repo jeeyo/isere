@@ -2,7 +2,7 @@
 
 ![workflow](https://github.com/jeeyo/isere/actions/workflows/ci.yml/badge.svg)
 
-isère is a small serverless runtime for microcontrollers. You write HTTP endpoints in JavaScript, in the Cloudflare Workers style, and isère serves them from a microcontroller board (first an NXP FRDM-K64F, then a Raspberry Pi Pico 2), on FreeRTOS, with QuickJS or JerryScript.
+isère is a small serverless runtime for microcontrollers. You write HTTP endpoints in JavaScript, in the Cloudflare Workers style, and isère serves them from a microcontroller board (an NXP FRDM-K64F), on FreeRTOS, with QuickJS or JerryScript.
 
 The aim is to show that a microcontroller can host a small, real-world service: verifying JWTs against a cached JWKS, publishing its own keys, and reporting live CPU and memory figures for every request. It is a personal project, not a general-purpose platform.
 
@@ -31,13 +31,13 @@ isere_add_app(my_app APP_DIRS app)
 cmake -B build-k64f -DISERE_BOARD=frdm-k64f -DJS_RUNTIME=jerryscript && cmake --build build-k64f
 ```
 
-Start from [`jeeyo/isere-hello-world`](https://github.com/jeeyo/isere-hello-world), a GitHub template whose copy lives in [`examples/hello-world`](examples/hello-world) here. isère's own firmware is built the same way, from `app/`.
+Start from [`jeeyo/isere-hello-world`](https://github.com/jeeyo/isere-hello-world), a GitHub template whose copy lives in [`examples/hello-world`](examples/hello-world) here. [`examples/jwks`](examples/jwks) is a larger one: JWT verification against a cached JWKS. isère's own firmware is built the same way, from `examples/jwks/app` (plus `tests/e2e/app` for the tests).
 
 ## Current progress
 
 Everything below works on the Linux build and is checked by CI (`tools/linux.sh`, both engines). On hardware, the NXP FRDM-K64F passes the same test suite with JerryScript (`tools/hil.sh`), and its benchmark numbers are in [BENCHMARK.md](BENCHMARK.md).
 
-- [x] FreeRTOS kernel, with ports for Linux, the NXP FRDM-K64F (Cortex-M4F) and the Raspberry Pi Pico 2 (RP2350)
+- [x] FreeRTOS kernel, with ports for Linux and the NXP FRDM-K64F (Cortex-M4F)
 - [x] QuickJS (quickjs-ng) and JerryScript, both kept and tested
 - [x] Several endpoints, routed by method and path, in warm engines
 - [x] Endpoints isolated from each other: errors, timeouts, runaway loops and engine out-of-memory fail one request
@@ -57,11 +57,8 @@ Everything below works on the Linux build and is checked by CI (`tools/linux.sh`
 - [ ] HTTPS JWKS and OpenTelemetry export from the FRDM-K64F, straight over its Ethernet
 - [x] Wall-clock time on the board (SNTP), so JWT expiry can be checked there
 - [x] Benchmarks on the FRDM-K64F, published next to the Linux ones
-- [ ] Later, the Raspberry Pi Pico 2: run its existing loop (`tools/hil.sh --board pico2`), route it to the outside world through the USB host, and publish its numbers
-- [ ] Compare FreeRTOS/C with a Zephyr/Rust build on the same tests and benchmark, and choose one
-- [ ] More boards: ESP32 Ethernet Kit ([#28](https://github.com/jeeyo/isere/pull/28))
+- [ ] More boards, each proven on hardware with the same tests and benchmark before it is listed here ([PORTING.md](PORTING.md))
 
-The detailed plan and the definition of done are in [GOAL.md](GOAL.md).
 
 ## More
 

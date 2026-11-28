@@ -5,7 +5,7 @@ Two scripts run the same black-box test suite, `tests/e2e/*.test.mjs`. It's writ
 | Script | Target | Use it |
 |---|---|---|
 | `tools/linux.sh` | Linux build on this machine | first, on every change: about three minutes per iteration, including fuzzing and valgrind |
-| `tools/hil.sh` | a real board: the NXP FRDM-K64F through its OpenSDA port (default), or a Raspberry Pi Pico 2 through a Debug Probe (`--board pico2`) | once the Linux loop is green |
+| `tools/hil.sh` | a real board: the NXP FRDM-K64F through its OpenSDA port | once the Linux loop is green |
 
 Both write `hil-results/<build-id>/`, containing:
 - `summary.json`: each step's outcome and timing
@@ -13,7 +13,7 @@ Both write `hil-results/<build-id>/`, containing:
 - `build.log`
 - `tests.log` and `tests.xml` (JUnit)
 - `bench-c*.txt`
-- `server.log` (Linux) or `serial.log` and `openocd.log` (Pico 2)
+- `server.log` (Linux) or `serial.log` and `openocd.log` (a board)
 
 The exit codes are 0 for passed, 1 for failed tests, and 2 for a build, flash or boot failure.
 
@@ -28,9 +28,9 @@ cmake --build build -j
 
 | CMake option | Values | Default |
 |---|---|---|
-| `TARGET_PLATFORM` (or `ISERE_BOARD`) | `linux`, `frdm-k64f`, `pico2`; fixed per build directory | `linux` |
+| `TARGET_PLATFORM` (or `ISERE_BOARD`) | `linux`, `frdm-k64f`; fixed per build directory (other ports: `PORTING.md`) | `linux` |
 | `JS_RUNTIME` | `quickjs`, `jerryscript` | `quickjs` |
-| `ISERE_APP_DIRS` | app directories to embed (`;`-separated); isère's own build only | `app` |
+| `ISERE_APP_DIRS` | app directories to embed (`;`-separated); isère's own build only (the scripts add `tests/e2e/app`) | `examples/jwks/app` |
 | `ISERE_BUILD_ID` | the ID served at `/__version` | the git commit; for an app, `<app commit>+isere.<isère commit>` |
 | `ISERE_BOARD_ENV` | `NAME=value;...` set with `setenv()` at boot (FRDM-K64F) | empty |
 | `ISERE_WITH_OTEL` | OpenTelemetry exporter (Linux only; formerly `WITH_OTEL`) | `OFF` |
@@ -48,7 +48,7 @@ The same options apply to an app project that includes isère (see [`examples/he
 | `ISERE_JS_LAZY=0` | load all of the prelude up front |
 | `ISERE_HANDLER_TIMEOUT_MS` | handler deadline (default 5000) |
 | `ISERE_HEAD_BUDGET`, `ISERE_BODY_BUDGET` | per-connection budgets (default 8 KB and 16 KB) |
-| `ISERE_MAX_CONNECTIONS` | connection pool (default 12; the Pico 2 has 4) |
+| `ISERE_MAX_CONNECTIONS` | connection pool (default 12; the FRDM-K64F has 4) |
 | `ISERE_HEAP_SIZE` | heap budget (default 16 MB) |
 | `ISERE_CA_FILE` | CA bundle for HTTPS `fetch` |
 | `ISERE_METRICS=0`, `ISERE_NDJSON=0`, `ISERE_CPU_CLOCK=thread` | metrics switches |
@@ -108,8 +108,6 @@ docker run --rm -v "$PWD":/app -w /app isere-linux tools/linux.sh
 
 ## `tools/hil.sh`
 
-`--board` selects the board: `frdm-k64f` (the default) or `pico2`.
-
 One iteration on the FRDM-K64F:
 1. builds the firmware with a unique build ID, the test routes and a 1 s handler deadline (`ISERE_BOARD_ENV`, matching what the Linux test servers get)
 2. halts the chip through the Kinetis MDM-AP and flashes it over SWD with OpenOCD (`target/kx.cfg`), through the board's OpenSDA CMSIS-DAP interface
@@ -134,43 +132,7 @@ brew install cmake node wrk open-ocd
 
 The ARM toolchain is found on `PATH`, in `ARM_TOOLCHAIN_PATH`, or unpacked from Arm's release into the repository's ignored `.toolchain/` folder. Submodules: `3rdparty/FreeRTOS`, `3rdparty/jerryscript`, `3rdparty/lwip` (2.2.1) and `3rdparty/mbedtls`. NXP's SDK files the port needs are vendored in `portable/frdm-k64f/sdk/`.
 
-On macOS, a serial port's settings reset when its last handle closes, so `hil.sh` configures the port and reads it on one handle. A board whose OpenSDA still runs the 2014 mbed interface firmware can drop off USB after a failed transfer; a replug brings it back, and DAPLink firmware avoids it.
-
-### Pico 2
-
-One iteration on the Pico 2 (`--board pico2`, QuickJS by default):
-1. builds the firmware with a unique build ID
-2. flashes it over SWD with a Raspberry Pi Debug Probe (no BOOTSEL button, works even if the previous build crashed)
-3. records the board's UART output through the probe
-4. waits for the board's USB network interface (MAC `02:02:84:6a:96:00`) to get an IPv4 address
-5. waits until `http://192.168.7.1:8080/__version` reports the build ID from step 1, so it can't test stale firmware
-6. runs the test suite against the board
-7. benchmarks with `wrk` at 1, 2 and 4 connections, then checks the board still answers
-
-### Pico 2 wiring
-
-```
-Mac ──USB── Debug Probe ──"D" (SWD) cable── Pico 2 SWD header (SWCLK / GND / SWDIO)
-                        └─"U" (UART) cable── Pico 2 GP0 (UART0 TX) → probe RX
-                                             Pico 2 GP1 (UART0 RX) ← probe TX
-                                             GND ── GND
-Mac ──USB── Pico 2 (power + CDC-ECM network, 192.168.7.1)
-```
-
-### Pico 2 setup on macOS
-
-```zsh
-brew install cmake node wrk
-```
-
-You also need:
-- **ARM toolchain.** Either `brew install --cask gcc-arm-embedded`, or the toolchain the Raspberry Pi Pico VS Code extension installs under `~/.pico-sdk/toolchain/`. If you use the extension's toolchain, set `PICO_TOOLCHAIN_PATH` to it.
-- **openocd with RP2350 support.** That means the Raspberry Pi fork, which the Pico VS Code extension installs under `~/.pico-sdk/openocd/<version>/openocd`. `hil.sh` finds it there automatically. Any other build works if it has `target/rp2350.cfg`; point `OPENOCD` at it. The Homebrew `open-ocd` release may not have RP2350 support yet.
-- **Submodules.** Run `git submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/llhttp 3rdparty/libyuarel 3rdparty/pico-sdk`, then `git -C 3rdparty/pico-sdk submodule update --init lib/tinyusb lib/lwip`.
-
-On Apple silicon Macs, macOS may ask "Allow accessory to connect?" the first time each USB device appears. Allow both the probe and the Pico 2.
-
-If more than one `/dev/cu.usbmodem*` device exists, set `HIL_SERIAL` to the probe's UART.
+On macOS, a serial port's settings reset when its last handle closes, so `hil.sh` configures the port and reads it on one handle. A board whose OpenSDA still runs the 2014 mbed interface firmware can drop off USB after a failed transfer; a replug brings it back. (DAPLink's `k20dx_frdmk64f_0x5000` builds don't start under that firmware's 2014 mbed bootloader, v0201: it takes the file, then nothing enumerates. Keep the mbed interface firmware on such a board.)
 
 ### Examples
 
@@ -178,6 +140,4 @@ If more than one `/dev/cu.usbmodem*` device exists, set `HIL_SERIAL` to the prob
 tools/hil.sh                                  # FRDM-K64F, JerryScript, full iteration
 tools/hil.sh --no-bench                       # build, flash and tests only
 BOARD_HOST=10.0.0.46 tools/hil.sh --skip-flash  # re-test the firmware already on the board
-tools/hil.sh --board pico2                    # Pico 2, QuickJS
-tools/hil.sh --board pico2 --runtime jerryscript
 ```

@@ -1,6 +1,6 @@
 # Benchmark
 
-Linux build at commit `281f738` with both JS engines, and the NXP FRDM-K64F board with JerryScript (below). Pico 2 figures will be added from the same scripts through `tools/hil.sh --board pico2`.
+Linux build at commit `281f738` with both JS engines, and the NXP FRDM-K64F board with JerryScript (below).
 
 - **Host:** Apple-silicon Mac, Docker (colima, 6 vCPUs, 8 GB), Ubuntu 24.04 aarch64 (`tools/linux.Dockerfile`).
 - **Server:** `RelWithDebInfo`, warm engines, defaults (16 MB heap budget, 12 connections, 100 Hz tick), `ISERE_NDJSON=0`.

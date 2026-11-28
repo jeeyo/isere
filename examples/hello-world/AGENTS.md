@@ -9,7 +9,7 @@ CMakeLists.txt        include(isere_import.cmake) → project() → isere_init()
 isere_import.cmake    finds isère and the board's toolchain; keep it identical to isere/cmake/isere_import.cmake
 app/routes.json       routes and config
 app/*.js              modules: each file is one module, imported by file name
-isere/                isère (submodule); its app/ is a larger example (JWT verification)
+isere/                isère (submodule); its examples/jwks is a larger example (JWT verification)
 ```
 
 `isere_add_app(<target> APP_DIRS dir1 dir2 ...)` embeds every `*.js` file and every static file of each directory into the firmware at build time, as C arrays in flash. Module names are file names, so they must be unique across directories; later directories' `config` wins. Nothing is read from a file system at run time.
@@ -126,7 +126,7 @@ t.text(offset, length)               // the slice decoded as UTF-8
 ## Building and running
 
 ```sh
-# once: isère and only the submodules it needs (not --recursive: that pulls the Pico SDK)
+# once: isère and only the submodules it needs (not --recursive: that pulls SDKs no board here needs)
 git submodule update --init isere
 git -C isere submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/mbedtls 3rdparty/lwip
 

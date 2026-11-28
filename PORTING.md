@@ -26,8 +26,7 @@ portable/<platform>/
     ├── platform.c            clocks, heap, stack watermark, board setup
     ├── tcp.c                 non-blocking TCP sockets
     ├── logger.c              log output
-    ├── rtc.c                 time of day
-    └── fs.c                  reserved; may be empty
+    └── rtc.c                 time of day
 ```
 
 ### How the build uses these files
@@ -146,11 +145,12 @@ Sockets are non-blocking. A call that would block returns `ISERE_TCP_AGAIN`, and
 | `isere_tcp_poll()` | `poll()` semantics, in milliseconds. The event loop computes the timeout from its timers, so the platform's timeout resolution is the timers' resolution. |
 | `isere_tcp_is_initialized()` | Whether the network is up. httpd waits for it before listening. |
 
-### `logger.c`, `rtc.c`, `fs.c`
+### `logger.c`, `rtc.c`
 
 - **logger**: `error`, `warning`, `info` and `debug` with a tag and a format. Serialise output if other tasks also print.
 - **rtc**: get and set the date and time.
-- **fs**: reserved for a configuration file and static files. Today the app is embedded at build time and nothing calls it.
+
+There is no file system: the app, its static files and its assets are embedded in flash at build time.
 
 ### Pitfalls the FRDM-K64F port found
 
@@ -250,7 +250,46 @@ ISERE_URL=http://<board-ip>:8080 node --test --test-concurrency=1 'tests/e2e/*.t
 node tools/bench.mjs --url http://<board-ip>:8080
 ```
 
-- Build with `-DISERE_APP_DIRS="<repo>/app;<repo>/tests/e2e/app"`, so the test endpoints are there.
+- Build with `-DISERE_APP_DIRS="<repo>/examples/jwks/app;<repo>/tests/e2e/app"`, so the test endpoints are there.
 - Tests that need the Linux build skip themselves; these use environment variables, valgrind or the server's output.
-- [`tools/hil.sh`](tools/hil.sh) wraps build, flash, boot check, the suite and the benchmark for the FRDM-K64F and the Pico 2 (`--board`). Add a case to it for a new board.
+- [`tools/hil.sh`](tools/hil.sh) wraps build, flash, boot check, the suite and the benchmark for the FRDM-K64F (`--board frdm-k64f`, the default) and the Pico 2 (`--board pico2`, below). Add a case to it for a new board.
 - After a run, `/__metrics` shows `device.heap_min_free` and `device.httpd_stack_used`. They are the evidence that the heap and stack sizes fit.
+
+### The Pico 2 hardware loop (not yet validated)
+
+The Pico 2 port builds, but has not yet run the suite on hardware. `tools/hil.sh --board pico2` (QuickJS by default; `--runtime jerryscript` for the other engine) is ready for it.
+
+
+One iteration on the Pico 2 (`--board pico2`, QuickJS by default):
+1. builds the firmware with a unique build ID
+2. flashes it over SWD with a Raspberry Pi Debug Probe (no BOOTSEL button, works even if the previous build crashed)
+3. records the board's UART output through the probe
+4. waits for the board's USB network interface (MAC `02:02:84:6a:96:00`) to get an IPv4 address
+5. waits until `http://192.168.7.1:8080/__version` reports the build ID from step 1, so it can't test stale firmware
+6. runs the test suite against the board
+7. benchmarks with `wrk` at 1, 2 and 4 connections, then checks the board still answers
+
+#### Wiring
+
+```
+Mac ──USB── Debug Probe ──"D" (SWD) cable── Pico 2 SWD header (SWCLK / GND / SWDIO)
+                        └─"U" (UART) cable── Pico 2 GP0 (UART0 TX) → probe RX
+                                             Pico 2 GP1 (UART0 RX) ← probe TX
+                                             GND ── GND
+Mac ──USB── Pico 2 (power + CDC-ECM network, 192.168.7.1)
+```
+
+#### Setup on macOS
+
+```zsh
+brew install cmake node wrk
+```
+
+You also need:
+- **ARM toolchain.** Either `brew install --cask gcc-arm-embedded`, or the toolchain the Raspberry Pi Pico VS Code extension installs under `~/.pico-sdk/toolchain/`. If you use the extension's toolchain, set `PICO_TOOLCHAIN_PATH` to it.
+- **openocd with RP2350 support.** That means the Raspberry Pi fork, which the Pico VS Code extension installs under `~/.pico-sdk/openocd/<version>/openocd`. `hil.sh` finds it there automatically. Any other build works if it has `target/rp2350.cfg`; point `OPENOCD` at it. The Homebrew `open-ocd` release may not have RP2350 support yet.
+- **Submodules.** Run `git submodule update --init 3rdparty/FreeRTOS 3rdparty/quickjs 3rdparty/jerryscript 3rdparty/llhttp 3rdparty/libyuarel 3rdparty/pico-sdk`, then `git -C 3rdparty/pico-sdk submodule update --init lib/tinyusb lib/lwip`.
+
+On Apple silicon Macs, macOS may ask "Allow accessory to connect?" the first time each USB device appears. Allow both the probe and the Pico 2.
+
+If more than one `/dev/cu.usbmodem*` device exists, set `HIL_SERIAL` to the probe's UART.

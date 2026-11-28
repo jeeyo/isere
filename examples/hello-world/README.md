@@ -12,7 +12,7 @@ isere/                isère, as a git submodule
 
 ## Get the code
 
-Create your repository with **Use this template** on GitHub, then clone it and check out isère with only the submodules it needs. Don't use `git submodule update --recursive`: it would also pull the Raspberry Pi Pico SDK and its submodules, which only a Pico 2 build needs.
+Create your repository with **Use this template** on GitHub, then clone it and check out isère with only the submodules it needs. Don't use `git submodule update --recursive`: it would also pull submodules no board here needs, the largest being a microcontroller SDK and its own submodules.
 
 ```sh
 git submodule update --init isere
@@ -42,7 +42,6 @@ cmake --build build-k64f             # build-k64f/hello_world.elf and .bin
 | Board | `ISERE_BOARD` | Engine | Notes |
 |---|---|---|---|
 | NXP FRDM-K64F | `frdm-k64f` | `jerryscript` (QuickJS does not fit its 256 KB of RAM) | Needs `arm-none-eabi-gcc`: on `PATH`, in `ARM_TOOLCHAIN_PATH`, or unpacked from Arm's release into a `.toolchain/` folder here. Also needs `3rdparty/lwip`. |
-| Raspberry Pi Pico 2 | `pico2` | `quickjs` or `jerryscript` | Not yet validated on hardware. Needs isère's `3rdparty/pico-sdk` submodule. |
 | Linux | `linux` (default) | either | For development and tests. |
 
 Flash the FRDM-K64F through its OpenSDA USB port with OpenOCD:
@@ -60,7 +59,7 @@ The board gets its address by DHCP over Ethernet and prints `isere: ip A.B.C.D` 
 - Each `*.js` file in `app/` is a module. A handler exports a Workers-style `fetch(request, env)` or a Lambda-style `handler(event, context)`.
 - More directories can be added: `isere_add_app(hello_world APP_DIRS app more)`; later directories' config wins.
 
-isère's own app (JWT verification against a JWKS) is a larger example: see `isere/app/`. Its [README](https://github.com/jeeyo/isere#readme), [PORTING.md](https://github.com/jeeyo/isere/blob/main/PORTING.md) and [BENCHMARK.md](https://github.com/jeeyo/isere/blob/main/BENCHMARK.md) cover the rest.
+A larger example, JWT verification against a cached JWKS, is in `isere/examples/jwks`. isère's [README](https://github.com/jeeyo/isere#readme), [PORTING.md](https://github.com/jeeyo/isere/blob/main/PORTING.md) and [BENCHMARK.md](https://github.com/jeeyo/isere/blob/main/BENCHMARK.md) cover the rest.
 
 ## Updating isère
 
