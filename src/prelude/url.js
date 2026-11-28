@@ -60,6 +60,9 @@
     this.searchParams = new URLSearchParams(this.search);
   }
   URL.prototype.toString = function () { return this.href; };
+  URL.canParse = function (url, base) {
+    try { new URL(url, base); return true; } catch (e) { return false; }
+  };
 
   return { URL: URL, URLSearchParams: URLSearchParams };
 })

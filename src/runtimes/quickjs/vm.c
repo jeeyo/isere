@@ -514,6 +514,38 @@ static JSValue __n_alloc(JSContext *ctx, JSValueConst this_val, int argc, JSValu
   return JS_UNDEFINED;
 }
 
+// isere.asset(): the size of an app asset, or -1
+static JSValue __n_asset_size(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+  size_t len = 0;
+  const char *name = JS_ToCStringLen(ctx, &len, argv[0]);
+  if (name == NULL) {
+    return JS_EXCEPTION;
+  }
+  const isere_app_module_t *a = isere_app_asset(name, len);
+  JS_FreeCString(ctx, name);
+  return JS_NewFloat64(ctx, a != NULL ? (double)a->source_len : -1.0);
+}
+
+// isere.asset().read(): a copy of [offset, offset + length) of an asset, as a Uint8Array
+static JSValue __n_asset_read(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+  size_t len = 0;
+  const char *name = JS_ToCStringLen(ctx, &len, argv[0]);
+  if (name == NULL) {
+    return JS_EXCEPTION;
+  }
+  const isere_app_module_t *a = isere_app_asset(name, len);
+  JS_FreeCString(ctx, name);
+  double offset = 0, length = 0;
+  if (argc > 1 && JS_ToFloat64(ctx, &offset, argv[1]) < 0) return JS_EXCEPTION;
+  if (argc > 2 && JS_ToFloat64(ctx, &length, argv[2]) < 0) return JS_EXCEPTION;
+  if (a == NULL || !(offset >= 0) || !(length >= 0) || offset + length > (double)a->source_len) {
+    return JS_ThrowRangeError(ctx, "asset read out of range");
+  }
+  return JS_NewUint8ArrayCopy(ctx, (const uint8_t *)a->source + (size_t)offset, (size_t)length);
+}
+
 static const JSCFunctionListEntry __natives[] = {
   JS_CFUNC_DEF("log", 2, __n_log),
   JS_CFUNC_DEF("setTimer", 3, __n_set_timer),
@@ -531,6 +563,8 @@ static const JSCFunctionListEntry __natives[] = {
   JS_CFUNC_DEF("fetch", 5, __n_fetch),
   JS_CFUNC_DEF("spin", 1, __n_spin),
   JS_CFUNC_DEF("alloc", 1, __n_alloc),
+  JS_CFUNC_DEF("assetSize", 1, __n_asset_size),
+  JS_CFUNC_DEF("assetRead", 3, __n_asset_read),
 };
 
 // ------------------------------------------------------------------ instance

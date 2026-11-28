@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
 #include <stdint.h>
 
 // The application served by isère, embedded at build time from one or more app
@@ -43,9 +44,16 @@ typedef struct {
   uint32_t prelude_len;
   const isere_app_module_t *prelude_parts;  // src/prelude/*.js, compiled on first use
   uint32_t num_prelude_parts;
+  // read-only data files ("assets" in routes.json), in flash; JS reads slices with
+  // isere.asset(name).read(offset, length), so only what it reads enters the JS heap
+  const isere_app_module_t *assets;
+  uint32_t num_assets;
 } isere_app_t;
 
 extern const isere_app_t isere_app;
+
+// the asset with this name, or NULL
+const isere_app_module_t *isere_app_asset(const char *name, size_t name_len);
 
 // the build this firmware was made from, served at /__version; each app generates it
 // (cmake/build_info.c.in), so it can differ between apps built from one isère core

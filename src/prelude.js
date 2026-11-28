@@ -265,6 +265,24 @@
     spin: function (ms) { native.spin(Number(ms)); },
     // allocates and frees `bytes` through the engine's allocator
     alloc: function (bytes) { native.alloc(Number(bytes)); },
+    // a read-only data file listed under "assets" in routes.json, or null. It stays in
+    // flash: read(offset, length) copies just that slice into a Uint8Array, and
+    // text(offset, length) decodes it as UTF-8, so large tables need not live in the JS heap.
+    asset: function (name) {
+      name = String(name);
+      var size = native.assetSize(name);
+      if (size < 0) return null;
+      return {
+        name: name,
+        byteLength: size,
+        read: function (offset, length) {
+          offset = offset === undefined ? 0 : Number(offset);
+          length = length === undefined ? size - offset : Number(length);
+          return native.assetRead(name, offset, length);
+        },
+        text: function (offset, length) { return native.utf8Decode(this.read(offset, length)); },
+      };
+    },
   };
 
   // --------------------------------------------------------------- dispatch
