@@ -34,6 +34,36 @@ const median = (xs) => {
   return s[Math.floor(s.length / 2)];
 };
 
+// The CPU `path` costs beyond a no-op. On a slow board a request costs 2.4 ms more when a
+// garbage collection lands in it (the FRDM-K64F collects every 3 KB of JS heap growth, so
+// every second or third request), and the rhythm shifts with anything that changes the
+// heap, even another build of the same code; it can lock onto one side of alternating
+// requests and skew every paired difference by the whole collection. So the heap is
+// collected before each measured request, which leaves no collection inside it: the
+// measurements then agree to within 0.1 ms.
+async function extraCpu(url, path, n = CALIBRATION_RUNS) {
+  const timingOf = async (p) => {
+    assert.equal((await request(url, '/__metrics?gc=1')).status, 200);
+    const res = await request(url, p, { timeoutMs: 10000 });
+    assert.equal(res.status, 200);
+    return serverTiming(res.headers['server-timing']);
+  };
+  const noop = [];
+  const measured = [];
+  for (let i = 0; i < n; i++) {
+    noop.push(await timingOf('/__calibrate/noop'));
+    measured.push(await timingOf(path));
+  }
+  const pick = (runs, k) => median(runs.map((r) => r[k]));
+  const noopMs = pick(noop, 'cpuMs');
+  return {
+    ms: pick(measured, 'cpuMs') - noopMs,
+    wallMs: pick(measured, 'wallMs') - pick(noop, 'wallMs'),
+    noopMs,
+    detail: `medians of ${n}: ${pick(measured, 'cpuMs').toFixed(3)} - no-op ${noopMs.toFixed(3)}`,
+  };
+}
+
 async function sample(url, path, n = CALIBRATION_RUNS) {
   const runs = [];
   for (let i = 0; i < n; i++) {
@@ -108,17 +138,8 @@ describe('metrics accuracy (calibration)', () => {
   after(async () => { await server.stop(); });
 
   it('reports a 5 ms busy loop as 5 ms of CPU, ±10%', async () => {
-    // pairs of no-op and busy-loop requests: a slow board's per-request JS cost drifts by
-    // milliseconds with the engine's heap and GC state (7.5-10 ms for a no-op on the
-    // FRDM-K64F), so the busy loop is measured against a baseline taken right beside it
-    const diffs = [];
-    for (let i = 0; i < CALIBRATION_RUNS; i++) {
-      const noop = serverTiming((await request(server.url, '/__calibrate/noop', { timeoutMs: 10000 })).headers['server-timing']);
-      const busy = serverTiming((await request(server.url, '/__calibrate/cpu', { timeoutMs: 10000 })).headers['server-timing']);
-      diffs.push(busy.cpuMs - noop.cpuMs);
-    }
-    const cpu = median(diffs);
-    assert.ok(Math.abs(cpu - 5) <= 0.5, `cpu ${cpu.toFixed(3)} ms (median of ${diffs.length} paired differences)`);
+    const extra = await extraCpu(server.url, '/__calibrate/cpu');
+    assert.ok(Math.abs(extra.ms - 5) <= 0.5, `cpu ${extra.ms.toFixed(3)} ms (${extra.detail})`);
   });
 
   it('reports 32 KB allocated and freed as 32 KB allocated, ±10%, with no net change', async () => {
@@ -130,12 +151,13 @@ describe('metrics accuracy (calibration)', () => {
   });
 
   it('reports a 100 ms sleep as 100 ms of wall time, ±10%, and almost no CPU', async () => {
-    const s = await sample(server.url, '/__calibrate/sleep', 10);
-    assert.ok(Math.abs(s.wallMs - 100) <= 10, `wall ${s.wallMs} ms`);
     // the timer and promise around the sleep cost a little JS work: well under 0.5 ms on a
-    // fast host, about 0.9 ms against an 8.8 ms no-op baseline on a 120 MHz board. Sleeping
-    // itself must cost nothing; a busy-wait would cost the whole 100 ms.
-    const allowed = Math.max(0.5, base.cpuMs * 0.25);
-    assert.ok(s.cpuMs - base.cpuMs < allowed, `sleep cost ${s.cpuMs} ms of CPU (baseline ${base.cpuMs}, allowed ${allowed.toFixed(2)} more)`);
+    // fast host, about 0.5 ms on a 120 MHz board. Sleeping itself must cost nothing; a
+    // busy-wait would cost the whole 100 ms.
+    const extra = await extraCpu(server.url, '/__calibrate/sleep');
+    // wall time beyond a no-op's, which on a board is itself about 11 ms of JS work
+    assert.ok(Math.abs(extra.wallMs - 100) <= 10, `wall ${extra.wallMs.toFixed(3)} ms more than a no-op`);
+    const allowed = Math.max(0.5, extra.noopMs * 0.25);
+    assert.ok(extra.ms < allowed, `sleep cost ${extra.ms.toFixed(3)} ms more CPU than a no-op, allowed ${allowed.toFixed(2)} (${extra.detail})`);
   });
 });

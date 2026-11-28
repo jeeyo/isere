@@ -138,13 +138,14 @@ describe('JWT verification with our own JWKS endpoint (loopback)', () => {
   });
 
   it('verifies concurrently while serving other requests', async () => {
+    // four connections in all: the FRDM-K64F serves 4 at once and answers 503 to more
+    // (Retry-After), so a fifth would test the connection limit rather than concurrency
     const all = await Promise.all([
-      ...Array.from({ length: 4 }, () => verify(server.url, sign())),
+      ...Array.from({ length: 2 }, () => verify(server.url, sign())),
       request(server.url, '/'),
       request(server.url, JWKS_PATH),
     ]);
-    for (const r of all.slice(0, 4)) assert.equal(r.status, 200);
-    assert.equal(all[4].status, 200);
+    for (const r of all) assert.equal(r.status, 200);
   });
 });
 
