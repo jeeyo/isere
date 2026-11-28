@@ -180,8 +180,9 @@ function(_isere_build_core)
     if(NOT TARGET amalgam)
       add_custom_target(amalgam)
     endif()
-    add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core ${CMAKE_BINARY_DIR}/isere/jerry-core)
-    add_subdirectory(${JERRYSCRIPT_DIR}/jerry-ext ${CMAKE_BINARY_DIR}/isere/jerry-ext)
+    # not under <build>/isere: that is isère's own Linux executable
+    add_subdirectory(${JERRYSCRIPT_DIR}/jerry-core ${CMAKE_BINARY_DIR}/isere_deps/jerry-core)
+    add_subdirectory(${JERRYSCRIPT_DIR}/jerry-ext ${CMAKE_BINARY_DIR}/isere_deps/jerry-ext)
     list(APPEND libs jerry-core jerry-ext)
 
     # src/runtimes/jerryscript/stack.c needs JerryScript's private headers
